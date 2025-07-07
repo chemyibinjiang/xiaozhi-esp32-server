@@ -1,8 +1,10 @@
 package xiaozhi.modules.agent.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -44,57 +46,17 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
     public boolean insert(AgentVoicePrintSaveDTO dto) {
         // 获取音频Id
         String audioId = dto.getAudioId();
-        // 获取到音频数据
-        byte[] audio = agentChatAudioService.getAudio(audioId);
-        // 如果音频数据为空的直接报错不进行下去
-        if (audio == null || audio.length == 0) {
-            throw new RenException("音频数据是空的请检查上传数据");
-        }
-        // 将字节数组包装为资源，并添加到请求体
-        ByteArrayResource resource = new ByteArrayResource(audio) {
-            @Override
-            public String getFilename() {
-                return "VoicePrint.WAV"; // 设置文件名
-            }
-        };
-
-        // 处理声纹接口地址，获取前缀
-        URI uri = getVoicePrintURI();
-        String baseUrl = getBaseUrl(uri);
-        String requestUrl =  baseUrl + "/voiceprint/register";
+        ByteArrayResource resource = getVoicePrintAudioWAV(audioId);
 
         // 保存声纹信息
         AgentVoicePrintEntity entity = ConvertUtils.sourceToTarget(dto, AgentVoicePrintEntity.class);
         int insert = baseMapper.insert(entity);
         if(insert != 1){
-            throw new RenException("声纹保存失败");
+            return false;
         }
-        // 创建请求体
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("speaker_id", entity.getId());
-        body.add("file", resource);
-
-        // 创建请求头
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", getAuthorization(uri));
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        // 创建请求体
-        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
-        // 发送 POST 请求
-        ResponseEntity<String> response = restTemplate.postForEntity(requestUrl, requestEntity, String.class);
-
-        if (response.getStatusCode() != HttpStatus.OK) {
-            throw new RenException("声纹保存失败");
-        }
-        // 检查响应内容
-        String responseBody = response.getBody();
-        if(responseBody == null || !responseBody.contains("true")){
-            throw new RenException("声纹保存失败");
-        }
+        registerVoicePrint(entity.getId(), resource);
         return true;
     }
-
-
 
     @Override
     public boolean delete(String voicePrintId) {
@@ -126,12 +88,27 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
 
     @Override
     public List<AgentVoicePrintVO> list(String agentId) {
-        return List.of();
+        List<AgentVoicePrintEntity> list = baseMapper.selectList(new LambdaQueryWrapper<AgentVoicePrintEntity>()
+                .eq(AgentVoicePrintEntity::getAgentId, agentId));
+        return list.stream().map(entity -> {
+            // 遍历转换成AgentVoicePrintVO类型
+           return ConvertUtils.sourceToTarget(entity, AgentVoicePrintVO.class);
+        }).toList();
+
     }
 
     @Override
     public boolean update(AgentVoicePrintUpdateDTO dto) {
-        return false;
+        // 获取音频Id
+        String audioId = dto.getAudioId();
+        // 如果有新的音频，则注册新的声纹
+        if (!StringUtils.isEmpty(audioId)) {
+            ByteArrayResource resource = getVoicePrintAudioWAV(audioId);
+            registerVoicePrint(dto.getId(),resource);
+        }
+        AgentVoicePrintEntity entity = ConvertUtils.sourceToTarget(dto, AgentVoicePrintEntity.class);
+        baseMapper.updateById(entity);
+        return true;
     }
 
     /**
@@ -174,5 +151,60 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
         // 获取aes加密密钥
         String str = "key=";
         return "Bearer " + query.substring(query.indexOf(str) + str.length());
+    }
+
+    /**
+     * 获取声纹音频资源数据
+     * @param audioId  音频Id
+     * @return 声纹音频资源数据
+     */
+    private ByteArrayResource getVoicePrintAudioWAV(String audioId) {
+        // 获取到音频数据
+        byte[] audio = agentChatAudioService.getAudio(audioId);
+        // 如果音频数据为空的直接报错不进行下去
+        if (audio == null || audio.length == 0) {
+            throw new RenException("音频数据是空的请检查上传数据");
+        }
+        // 将字节数组包装为资源，返回
+        return new ByteArrayResource(audio) {
+            @Override
+            public String getFilename() {
+                return "VoicePrint.WAV"; // 设置文件名
+            }
+        };
+    }
+
+    /**
+     *  发送注册声纹http请求
+     * @param id 声纹id
+     * @param resource 声纹音频资源
+     */
+    private void registerVoicePrint(String id, ByteArrayResource resource) {
+        // 处理声纹接口地址，获取前缀
+        URI uri = getVoicePrintURI();
+        String baseUrl = getBaseUrl(uri);
+        String requestUrl =  baseUrl + "/voiceprint/register";
+        // 创建请求体
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("speaker_id", id);
+        body.add("file", resource);
+
+        // 创建请求头
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", getAuthorization(uri));
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        // 创建请求体
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+        // 发送 POST 请求
+        ResponseEntity<String> response = restTemplate.postForEntity(requestUrl, requestEntity, String.class);
+
+        if (response.getStatusCode() != HttpStatus.OK) {
+            throw new RenException("声纹保存失败");
+        }
+        // 检查响应内容
+        String responseBody = response.getBody();
+        if(responseBody == null || !responseBody.contains("true")){
+            throw new RenException("声纹保存失败");
+        }
     }
 }
