@@ -322,13 +322,15 @@ ASR:
     # 一般来说非流式ASR更便宜（0.004元/秒，¥0.24/分钟）
     # 但是AliyunStreamASR实时性更好（0.005元/秒，¥0.3/分钟）
     # 定义ASR API类型
-    type: aliyun
+    type: aliyun_stream
     appkey: 你的阿里云智能语音交互服务项目Appkey
     token: 你的阿里云智能语音交互服务AccessToken，临时的24小时，要长期用下方的access_key_id，access_key_secret
     access_key_id: 你的阿里云账号access_key_id
     access_key_secret: 你的阿里云账号access_key_secret
-    # 服务器地域选择，如nls-gateway-cn-hangzhou.aliyuncs.com(杭州)等
-    host: 根据自己的地理位置选择最近的服务器地域，不填默认为nls-gateway-cn-shanghai.aliyuncs.com(上海)
+    # 服务器地域选择，可选择距离更近的服务器以减少延迟，如nls-gateway-cn-hangzhou.aliyuncs.com(杭州)等
+    host: nls-gateway-cn-shanghai.aliyuncs.com
+    # 断句检测时间(毫秒)，控制静音多长时间后进行断句，默认800毫秒
+    max_sentence_silence: 800
     output_dir: tmp/
   BaiduASR:
     # 获取AppID、API Key、Secret Key：https://console.bce.baidu.com/ai-engine/old/#/ai/speech/app/list
@@ -699,7 +701,7 @@ TTS:
     # appkey地址：https://nls-portal.console.aliyun.com/applist
     # token地址：https://nls-portal.console.aliyun.com/overview
     # 使用三阶段流式交互：StartSynthesis -> RunSynthesis -> StopSynthesis
-    type: aliyun
+    type: aliyun_stream
     output_dir: tmp/
     appkey: 你的阿里云智能语音交互服务项目Appkey
     token: 你的阿里云智能语音交互服务AccessToken，临时的24小时，要长期用下方的access_key_id，access_key_secret

@@ -123,7 +123,7 @@ class ASRProvider(ASRProviderBase):
         conn.asr_audio.append(audio)
         conn.asr_audio = conn.asr_audio[-10:]
 
-        # 参考豆包ASR：只在有声音且没有连接时建立连接
+        # 只在有声音且没有连接时建立连接
         if audio_have_voice and not self.is_processing:
             try:
                 await self._start_recognition(conn)
