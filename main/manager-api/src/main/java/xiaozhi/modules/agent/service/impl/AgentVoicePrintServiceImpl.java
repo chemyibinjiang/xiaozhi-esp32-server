@@ -8,6 +8,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
@@ -39,6 +40,8 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
     private final AgentChatAudioService agentChatAudioService;
     private final RestTemplate restTemplate;
     private final SysParamsService sysParamsService;
+    // Springboot提供的编程事务类
+    private final TransactionTemplate transactionTemplate;
 
 
     @Override
@@ -48,43 +51,48 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
         String audioId = dto.getAudioId();
         ByteArrayResource resource = getVoicePrintAudioWAV(audioId);
 
-        // 保存声纹信息
         AgentVoicePrintEntity entity = ConvertUtils.sourceToTarget(dto, AgentVoicePrintEntity.class);
-        int insert = baseMapper.insert(entity);
-        if(insert != 1){
-            return false;
-        }
-        registerVoicePrint(entity.getId(), resource);
-        return true;
+        // 开启事务
+        return Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+            try {
+                // 保存声纹信息
+                int row = baseMapper.insert(entity);
+                // 插入一条数据，影响的数据不等于1说明出现了，保存问题回滚
+                if (row != 1) {
+                    status.setRollbackOnly(); // 标记事务回滚
+                    return false;
+                }
+                // 发送注册声纹请求
+                registerVoicePrint(entity.getId(), resource);
+                return true;
+            } catch (Exception e) {
+                status.setRollbackOnly(); // 标记事务回滚
+                throw e;
+            }
+        }));
     }
 
     @Override
     public boolean delete(String voicePrintId) {
-        int insert = baseMapper.deleteById(voicePrintId);
-        if(insert != 1){
-            throw new RenException("声纹删除失败");
-        }
-        URI uri = getVoicePrintURI();
-        String baseUrl = getBaseUrl(uri);
-        String requestUrl =  baseUrl + "/voiceprint/" + voicePrintId;
-        // 创建请求头
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", getAuthorization(uri));
-        // 创建请求体
-        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(headers);
-
-        // 发送 POST 请求
-        ResponseEntity<String> response = restTemplate.exchange(requestUrl, HttpMethod.DELETE, requestEntity, String.class);
-        if (response.getStatusCode() != HttpStatus.OK) {
-            throw new RenException("声纹保存失败");
-        }
-        // 检查响应内容
-        String responseBody = response.getBody();
-        if(responseBody == null || !responseBody.contains("true")){
-            throw new RenException("声纹保存失败");
-        }
-        return true;
+        // 开启事务
+        return Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+            try {
+                // 删除声纹
+                int row = baseMapper.deleteById(voicePrintId);
+                if(row != 1){
+                    status.setRollbackOnly(); // 标记事务回滚
+                    return false;
+                }
+                cancelVoicePrint(voicePrintId);
+                return true;
+            } catch (Exception e) {
+                status.setRollbackOnly(); // 标记事务回滚
+                throw e;
+            }
+        }));
     }
+
+
 
     @Override
     public List<AgentVoicePrintVO> list(String agentId) {
@@ -101,14 +109,35 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
     public boolean update(AgentVoicePrintUpdateDTO dto) {
         // 获取音频Id
         String audioId = dto.getAudioId();
-        // 如果有新的音频，则注册新的声纹
+        // 如果有新的音频
+        ByteArrayResource resource;
         if (!StringUtils.isEmpty(audioId)) {
-            ByteArrayResource resource = getVoicePrintAudioWAV(audioId);
-            registerVoicePrint(dto.getId(),resource);
+            resource = getVoicePrintAudioWAV(audioId);
+        } else {
+            resource = null;
         }
-        AgentVoicePrintEntity entity = ConvertUtils.sourceToTarget(dto, AgentVoicePrintEntity.class);
-        baseMapper.updateById(entity);
-        return true;
+        // 开启事务
+        return Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+            try {
+                AgentVoicePrintEntity entity = ConvertUtils.sourceToTarget(dto, AgentVoicePrintEntity.class);
+                int row = baseMapper.updateById(entity);
+                if (row != 1){
+                    status.setRollbackOnly(); // 标记事务回滚
+                    return false;
+                }
+                if(resource != null){
+                    String id = entity.getId();
+                    // 先注销之前这个声纹id上的声纹向量
+                    cancelVoicePrint(id);
+                    // 发送注册声纹请求
+                    registerVoicePrint(id, resource);
+                }
+                return true;
+            } catch (Exception e) {
+                status.setRollbackOnly(); // 标记事务回滚
+                throw e;
+            }
+        }));
     }
 
     /**
@@ -198,6 +227,32 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
         // 发送 POST 请求
         ResponseEntity<String> response = restTemplate.postForEntity(requestUrl, requestEntity, String.class);
 
+        if (response.getStatusCode() != HttpStatus.OK) {
+            throw new RenException("声纹保存失败");
+        }
+        // 检查响应内容
+        String responseBody = response.getBody();
+        if(responseBody == null || !responseBody.contains("true")){
+            throw new RenException("声纹保存失败");
+        }
+    }
+
+    /**
+     * 发送注销声纹的请求
+     * @param voicePrintId 声纹id
+     */
+    private void cancelVoicePrint(String voicePrintId) {
+        URI uri = getVoicePrintURI();
+        String baseUrl = getBaseUrl(uri);
+        String requestUrl =  baseUrl + "/voiceprint/" + voicePrintId;
+        // 创建请求头
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", getAuthorization(uri));
+        // 创建请求体
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(headers);
+
+        // 发送 POST 请求
+        ResponseEntity<String> response = restTemplate.exchange(requestUrl, HttpMethod.DELETE, requestEntity, String.class);
         if (response.getStatusCode() != HttpStatus.OK) {
             throw new RenException("声纹保存失败");
         }
