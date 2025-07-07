@@ -73,12 +73,14 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
     }
 
     @Override
-    public boolean delete(String voicePrintId) {
+    public boolean delete(Long userId, String voicePrintId) {
         // 开启事务
         return Boolean.TRUE.equals(transactionTemplate.execute(status -> {
             try {
-                // 删除声纹
-                int row = baseMapper.deleteById(voicePrintId);
+                // 删除声纹,按照指定当前登录用户和智能体
+                int row = baseMapper.delete(new LambdaQueryWrapper<AgentVoicePrintEntity>()
+                        .eq(AgentVoicePrintEntity::getId,voicePrintId)
+                        .eq(AgentVoicePrintEntity::getCreator,userId));
                 if(row != 1){
                     status.setRollbackOnly(); // 标记事务回滚
                     return false;
@@ -95,9 +97,11 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
 
 
     @Override
-    public List<AgentVoicePrintVO> list(String agentId) {
+    public List<AgentVoicePrintVO> list(Long userId, String agentId) {
+        // 按照指定当前登录用户和智能体查找数据
         List<AgentVoicePrintEntity> list = baseMapper.selectList(new LambdaQueryWrapper<AgentVoicePrintEntity>()
-                .eq(AgentVoicePrintEntity::getAgentId, agentId));
+                .eq(AgentVoicePrintEntity::getAgentId, agentId)
+                .eq(AgentVoicePrintEntity::getCreator, userId));
         return list.stream().map(entity -> {
             // 遍历转换成AgentVoicePrintVO类型
            return ConvertUtils.sourceToTarget(entity, AgentVoicePrintVO.class);
@@ -106,7 +110,13 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
     }
 
     @Override
-    public boolean update(AgentVoicePrintUpdateDTO dto) {
+    public boolean update(Long userId, AgentVoicePrintUpdateDTO dto) {
+        Long l = baseMapper.selectCount(new LambdaQueryWrapper<AgentVoicePrintEntity>()
+                .eq(AgentVoicePrintEntity::getAgentId, dto.getId())
+                .eq(AgentVoicePrintEntity::getCreator, userId));
+        if (l != 1) {
+            return false;
+        }
         // 获取音频Id
         String audioId = dto.getAudioId();
         // 如果有新的音频
@@ -228,12 +238,14 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
         ResponseEntity<String> response = restTemplate.postForEntity(requestUrl, requestEntity, String.class);
 
         if (response.getStatusCode() != HttpStatus.OK) {
-            throw new RenException("声纹保存失败");
+            log.error("声纹注册失败,请求路径：{}", requestUrl);
+            throw new RenException("声纹保存失败,请求不成功");
         }
         // 检查响应内容
         String responseBody = response.getBody();
         if(responseBody == null || !responseBody.contains("true")){
-            throw new RenException("声纹保存失败");
+            log.error("声纹注册失败,请求处理失败内容：{}", responseBody == null ? "空内容" : responseBody);
+            throw new RenException("声纹保存失败,请求处理失败");
         }
     }
 
@@ -254,12 +266,14 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
         // 发送 POST 请求
         ResponseEntity<String> response = restTemplate.exchange(requestUrl, HttpMethod.DELETE, requestEntity, String.class);
         if (response.getStatusCode() != HttpStatus.OK) {
-            throw new RenException("声纹保存失败");
+            log.error("声纹注销失败,请求路径：{}", requestUrl);
+            throw new RenException("声纹注销失败,请求不成功");
         }
         // 检查响应内容
         String responseBody = response.getBody();
         if(responseBody == null || !responseBody.contains("true")){
-            throw new RenException("声纹保存失败");
+            log.error("声纹注销失败,请求处理失败内容：{}", responseBody == null ? "空内容" : responseBody);
+            throw new RenException("声纹注销失败,请求处理失败");
         }
     }
 }
