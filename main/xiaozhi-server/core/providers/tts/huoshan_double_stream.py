@@ -202,6 +202,10 @@ class TTSProvider(TTSProviderBase):
                 logger.bind(tag=TAG).debug(
                     f"收到TTS任务｜{message.sentence_type.name} ｜ {message.content_type.name} | 会话ID: {self.conn.sentence_id}"
                 )
+
+                if message.sentence_type == SentenceType.FIRST:
+                    self.conn.client_abort = False
+
                 if self.conn.client_abort:
                     logger.bind(tag=TAG).info("收到打断信息，终止TTS文本处理线程")
                     continue
@@ -300,24 +304,23 @@ class TTSProvider(TTSProviderBase):
     async def start_session(self, session_id):
         logger.bind(tag=TAG).info(f"开始会话～～{session_id}")
         try:
-            task = self._monitor_task
+            # 会话开始时检测上个会话的监听状态
             if (
-                task is not None
-                and isinstance(task, Task)
-                and not task.done()
+                self._monitor_task is not None
+                and isinstance(self._monitor_task, Task)
+                and not self._monitor_task.done()
             ):
-                logger.bind(tag=TAG).info("等待上一个监听任务结束...")
-                if self.ws is not None:
-                    logger.bind(tag=TAG).info("强制关闭上一个WebSocket连接以唤醒监听任务...")
-                    try:
-                        await self.ws.close()
-                    except Exception as e:
-                        logger.bind(tag=TAG).warning(f"关闭上一个ws异常: {e}")
-                    self.ws = None
+                logger.bind(tag=TAG).info("取消上一个监听任务...")
+                self._monitor_task.cancel()
                 try:
-                    await asyncio.wait_for(task, timeout=8)
+                    # 等待任务取消完成
+                    await asyncio.wait_for(self._monitor_task, timeout=3)
+                except asyncio.CancelledError:
+                    logger.bind(tag=TAG).info("监听任务已成功取消")
+                except asyncio.TimeoutError:
+                    logger.bind(tag=TAG).warning("取消监听任务超时，可能仍在运行")
                 except Exception as e:
-                    logger.bind(tag=TAG).warning(f"等待监听任务异常: {e}")
+                    logger.bind(tag=TAG).warning(f"取消监听任务异常: {e}")
                 self._monitor_task = None
             # 建立新连接
             await self._ensure_connection()
@@ -341,19 +344,7 @@ class TTSProvider(TTSProviderBase):
         except Exception as e:
             logger.bind(tag=TAG).error(f"启动会话失败: {str(e)}")
             # 确保清理资源
-            if hasattr(self, "_monitor_task"):
-                try:
-                    self._monitor_task.cancel()
-                    await self._monitor_task
-                except:
-                    pass
-                self._monitor_task = None
-            if self.ws:
-                try:
-                    await self.ws.close()
-                except:
-                    pass
-                self.ws = None
+            await self.close()
             raise
 
     async def finish_session(self, session_id):
@@ -379,11 +370,14 @@ class TTSProvider(TTSProviderBase):
                         await asyncio.wait_for(self._monitor_task, timeout=4)
                     except asyncio.TimeoutError:
                         logger.bind(tag=TAG).warning("等待监听任务超时，强制取消")
-                        self._monitor_task.cancel()
-                        try:
-                            await self._monitor_task
-                        except asyncio.CancelledError:
-                            pass
+                        if not self._monitor_task.done():
+                            self._monitor_task.cancel()
+                            try:
+                                await self._monitor_task
+                            except asyncio.CancelledError:
+                                pass
+                            except Exception as e:
+                                logger.bind(tag=TAG).warning(f"监听任务取消时发生错误: {e}")
                     except Exception as e:
                         logger.bind(tag=TAG).error(
                             f"等待监听任务完成时发生错误: {str(e)}"
@@ -394,31 +388,21 @@ class TTSProvider(TTSProviderBase):
         except Exception as e:
             logger.bind(tag=TAG).error(f"关闭会话失败: {str(e)}")
             # 确保清理资源
-            if hasattr(self, "_monitor_task"):
-                try:
-                    self._monitor_task.cancel()
-                    await self._monitor_task
-                except:
-                    pass
-                self._monitor_task = None
-            if self.ws:
-                try:
-                    await self.ws.close()
-                except:
-                    pass
-                self.ws = None
+            await self.close()
             raise
 
     async def close(self):
         """资源清理方法"""
         # 取消监听任务
-        if self._monitor_task:
+        if self._monitor_task and not self._monitor_task.done():
             try:
                 self._monitor_task.cancel()
                 await self._monitor_task
             except asyncio.CancelledError:
                 pass
-            self._monitor_task = None
+            except Exception as e:
+                logger.bind(tag=TAG).warning(f"关闭时取消监听任务错误: {e}")
+        self._monitor_task = None
 
         if self.ws:
             try:

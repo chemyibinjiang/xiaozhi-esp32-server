@@ -594,12 +594,23 @@ class ConnectionHandler:
         # 更新系统prompt至上下文
         self.dialogue.update_system_message(self.prompt)
 
-    def chat(self, query, tool_call=False):
+    def chat(self, query, tool_call=False, depth=0):
         self.logger.bind(tag=TAG).info(f"大模型收到用户消息: {query}")
         self.llm_finish_task = False
 
         if not tool_call:
             self.dialogue.put(Message(role="user", content=query))
+
+        # 为最顶层时新建会话ID和发送FIRST请求
+        if depth == 0:
+            self.sentence_id = str(uuid.uuid4().hex)
+            self.tts.tts_text_queue.put(
+                TTSMessageDTO(
+                    sentence_id=self.sentence_id,
+                    sentence_type=SentenceType.FIRST,
+                    content_type=ContentType.ACTION,
+                )
+            )
 
         # Define intent functions
         functions = None
@@ -615,8 +626,6 @@ class ConnectionHandler:
                     self.memory.query_memory(query), self.loop
                 )
                 memory_str = future.result()
-
-            self.sentence_id = str(uuid.uuid4().hex)
 
             if self.intent_type == "function_call" and functions is not None:
                 # 使用支持functions的streaming接口
@@ -640,7 +649,6 @@ class ConnectionHandler:
         function_id = None
         function_arguments = ""
         content_arguments = ""
-        text_index = 0
         self.client_abort = False
         for response in llm_responses:
             if self.client_abort:
@@ -670,14 +678,6 @@ class ConnectionHandler:
             if content is not None and len(content) > 0:
                 if not tool_call_flag:
                     response_message.append(content)
-                    if text_index == 0:
-                        self.tts.tts_text_queue.put(
-                            TTSMessageDTO(
-                                sentence_id=self.sentence_id,
-                                sentence_type=SentenceType.FIRST,
-                                content_type=ContentType.ACTION,
-                            )
-                        )
                     self.tts.tts_text_queue.put(
                         TTSMessageDTO(
                             sentence_id=self.sentence_id,
@@ -686,7 +686,6 @@ class ConnectionHandler:
                             content_detail=content,
                         )
                     )
-                    text_index += 1
         # 处理function call
         if tool_call_flag:
             bHasError = False
@@ -711,6 +710,11 @@ class ConnectionHandler:
                         f"function call error: {content_arguments}"
                     )
             if not bHasError:
+                # 如需要大模型先处理一轮，添加相关处理后的日志情况
+                if len(response_message) > 0:
+                    self.dialogue.put(
+                        Message(role="assistant", content="".join(response_message))
+                    )
                 response_message.clear()
                 self.logger.bind(tag=TAG).debug(
                     f"function_name={function_name}, function_id={function_id}, function_arguments={function_arguments}"
@@ -728,14 +732,14 @@ class ConnectionHandler:
                     ),
                     self.loop,
                 ).result()
-                self._handle_function_result(result, function_call_data)
+                self._handle_function_result(result, function_call_data, depth=depth)
 
         # 存储对话内容
         if len(response_message) > 0:
             self.dialogue.put(
                 Message(role="assistant", content="".join(response_message))
             )
-        if text_index > 0:
+        if depth == 0:
             self.tts.tts_text_queue.put(
                 TTSMessageDTO(
                     sentence_id=self.sentence_id,
@@ -750,7 +754,7 @@ class ConnectionHandler:
 
         return True
 
-    def _handle_function_result(self, result, function_call_data):
+    def _handle_function_result(self, result, function_call_data, depth):
         if result.action == Action.RESPONSE:  # 直接回复前端
             text = result.response
             self.tts.tts_one_sentence(self, ContentType.TEXT, content_detail=text)
@@ -787,7 +791,7 @@ class ConnectionHandler:
                         content=text,
                     )
                 )
-                self.chat(text, tool_call=True)
+                self.chat(text, tool_call=True, depth=depth + 1)
         elif result.action == Action.NOTFOUND or result.action == Action.ERROR:
             text = result.response if result.response else result.result
             self.tts.tts_one_sentence(self, ContentType.TEXT, content_detail=text)
