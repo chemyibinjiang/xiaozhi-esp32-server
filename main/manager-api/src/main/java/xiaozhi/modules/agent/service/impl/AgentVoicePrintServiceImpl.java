@@ -65,9 +65,13 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
                 // 发送注册声纹请求
                 registerVoicePrint(entity.getId(), resource);
                 return true;
-            } catch (Exception e) {
+            }  catch (RenException e) {
                 status.setRollbackOnly(); // 标记事务回滚
                 throw e;
+            } catch (Exception e) {
+                status.setRollbackOnly(); // 标记事务回滚
+                log.error("保存声纹错误原因：{}",e.getMessage());
+                throw new RenException("保存声纹错误，请联系管理员");
             }
         }));
     }
@@ -87,9 +91,13 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
                 }
                 cancelVoicePrint(voicePrintId);
                 return true;
-            } catch (Exception e) {
+            } catch (RenException e) {
                 status.setRollbackOnly(); // 标记事务回滚
                 throw e;
+            } catch (Exception e) {
+                status.setRollbackOnly(); // 标记事务回滚
+                log.error("删除声纹错误原因：{}",e.getMessage());
+                throw new RenException("删除声纹错误，请联系管理员");
             }
         }));
     }
@@ -112,7 +120,7 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
     @Override
     public boolean update(Long userId, AgentVoicePrintUpdateDTO dto) {
         Long l = baseMapper.selectCount(new LambdaQueryWrapper<AgentVoicePrintEntity>()
-                .eq(AgentVoicePrintEntity::getAgentId, dto.getId())
+                .eq(AgentVoicePrintEntity::getId, dto.getId())
                 .eq(AgentVoicePrintEntity::getCreator, userId));
         if (l != 1) {
             return false;
@@ -143,9 +151,13 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
                     registerVoicePrint(id, resource);
                 }
                 return true;
-            } catch (Exception e) {
+            } catch (RenException e) {
                 status.setRollbackOnly(); // 标记事务回滚
                 throw e;
+            } catch (Exception e) {
+                status.setRollbackOnly(); // 标记事务回滚
+                log.error("修改声纹错误原因：{}",e.getMessage());
+                throw new RenException("修改声纹错误，请联系管理员");
             }
         }));
     }
