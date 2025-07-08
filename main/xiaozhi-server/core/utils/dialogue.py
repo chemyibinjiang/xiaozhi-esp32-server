@@ -1,4 +1,5 @@
 import uuid
+import re
 from typing import List, Dict
 from datetime import datetime
 
@@ -74,9 +75,12 @@ class Dialogue:
         )
 
         if system_message:
-            enhanced_system_prompt = (
-                f"{system_message.content}\n\n"
-                f"以下是用户的历史记忆：\n```\n{memory_str}\n```"
+            # 使用正则表达式匹配 <memory> 标签，不管中间有什么内容
+            enhanced_system_prompt = re.sub(
+                r"<memory>.*?</memory>",
+                f"<memory>\n{memory_str}\n</memory>",
+                system_message.content,
+                flags=re.DOTALL,
             )
             dialogue.append({"role": "system", "content": enhanced_system_prompt})
 
