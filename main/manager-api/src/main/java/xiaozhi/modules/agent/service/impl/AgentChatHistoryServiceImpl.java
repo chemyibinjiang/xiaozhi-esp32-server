@@ -101,7 +101,8 @@ public class AgentChatHistoryServiceImpl extends ServiceImpl<AiAgentChatHistoryD
         LambdaQueryWrapper<AgentChatHistoryEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.select(AgentChatHistoryEntity::getContent,AgentChatHistoryEntity::getAudioId)
                 .eq(AgentChatHistoryEntity::getAgentId, agentId)
-                .eq(AgentChatHistoryEntity::getChatType, AgentChatHistoryType.USER.getValue());
+                .eq(AgentChatHistoryEntity::getChatType, AgentChatHistoryType.USER.getValue())
+                .isNotNull(AgentChatHistoryEntity::getAudioId);
 
         // 构建分页查询，查询前50页数据
         Page<AgentChatHistoryEntity> pageParam = new Page<>(0, 50);

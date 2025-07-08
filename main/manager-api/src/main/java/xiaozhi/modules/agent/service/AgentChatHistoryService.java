@@ -47,9 +47,9 @@ public interface AgentChatHistoryService extends IService<AgentChatHistoryEntity
     void deleteByAgentId(String agentId, Boolean deleteAudio, Boolean deleteText);
 
     /**
-     * 根据智能体ID获取最近50条用户的聊天记录数据
+     * 根据智能体ID获取最近50条用户的聊天记录数据（带音频数据）
      *
-     * @param agentId 查询参数，包含agentId、page、limit
+     * @param agentId 智能体id
      * @return 聊天记录列表（只有用户）
      */
     List<AgentChatHistoryUserVO> getRecentlyFiftyByAgentId(String agentId);
