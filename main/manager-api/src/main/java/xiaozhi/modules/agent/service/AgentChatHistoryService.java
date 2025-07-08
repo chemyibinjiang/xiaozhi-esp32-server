@@ -9,6 +9,7 @@ import xiaozhi.common.page.PageData;
 import xiaozhi.modules.agent.dto.AgentChatHistoryDTO;
 import xiaozhi.modules.agent.dto.AgentChatSessionDTO;
 import xiaozhi.modules.agent.entity.AgentChatHistoryEntity;
+import xiaozhi.modules.agent.vo.AgentChatHistoryUserVO;
 
 /**
  * 智能体聊天记录表处理service
@@ -44,4 +45,12 @@ public interface AgentChatHistoryService extends IService<AgentChatHistoryEntity
      * @param deleteText  是否删除文本
      */
     void deleteByAgentId(String agentId, Boolean deleteAudio, Boolean deleteText);
+
+    /**
+     * 根据智能体ID获取最近50条用户的聊天记录数据
+     *
+     * @param agentId 查询参数，包含agentId、page、limit
+     * @return 聊天记录列表（只有用户）
+     */
+    List<AgentChatHistoryUserVO> getRecentlyFiftyByAgentId(String agentId);
 }
