@@ -13,11 +13,6 @@
                         <el-table ref="paramsTable" :data="voicePrintList" class="transparent-table" v-loading="loading"
                             element-loading-text="拼命加载中" element-loading-spinner="el-icon-loading"
                             element-loading-background="rgba(255, 255, 255, 0.7)">
-                            <el-table-column label="选择" align="center" width="120">
-                                <template slot-scope="scope">
-                                    <el-checkbox v-model="scope.row.selected"></el-checkbox>
-                                </template>
-                            </el-table-column>
                             <el-table-column label="姓名" prop="sourceName" align="center"></el-table-column>
                             <el-table-column label="描述" prop="introduce" align="center"></el-table-column>
                             <el-table-column label="创建时间" prop="createDate" align="center"></el-table-column>
@@ -162,7 +157,7 @@ export default {
                             message: `成功删除此声纹`,
                             showClose: true
                         });
-                        this.fetchParams();
+                        this.fetchVoicePrints();
                     } else {
                         this.$message.error({
                             message: data.msg || '删除失败，请重试',
