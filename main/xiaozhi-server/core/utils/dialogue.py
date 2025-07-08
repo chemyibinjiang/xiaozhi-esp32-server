@@ -1,6 +1,7 @@
 import uuid
 from typing import List, Dict
 from datetime import datetime
+from config.settings import load_config
 
 
 class Message:
@@ -45,10 +46,9 @@ class Dialogue:
             dialogue.append({"role": m.role, "content": m.content})
 
     def get_llm_dialogue(self) -> List[Dict[str, str]]:
-        dialogue = []
-        for m in self.dialogue:
-            self.getMessages(m, dialogue)
-        return dialogue
+        # 直接调用get_llm_dialogue_with_memory，传入None作为memory_str
+        # 这样确保说话人功能在所有调用路径下都生效
+        return self.get_llm_dialogue_with_memory(None)
 
     def update_system_message(self, new_content: str):
         """更新或添加系统消息"""
@@ -62,10 +62,7 @@ class Dialogue:
     def get_llm_dialogue_with_memory(
         self, memory_str: str = None
     ) -> List[Dict[str, str]]:
-        if memory_str is None or len(memory_str) == 0:
-            return self.get_llm_dialogue()
-
-        # 构建带记忆的对话
+        # 构建对话
         dialogue = []
 
         # 添加系统提示和记忆
@@ -74,16 +71,43 @@ class Dialogue:
         )
 
         if system_message:
-            # 构建增强的系统提示，包含说话人处理指导
-            speaker_guidance = "\n\n[说话人识别功能说明]\n" \
-                             "当用户消息包含 [说话人: 姓名] 前缀时，表示系统已识别出说话人身份。\n" \
-                             "请根据说话人的身份特征（如果之前有相关信息）来调整回应风格和内容。\n" \
-                             "你可以称呼说话人的名字，并参考他们的特点进行个性化回应。"
+            # 基础系统提示
+            enhanced_system_prompt = system_message.content
             
-            enhanced_system_prompt = (
-                f"{system_message.content}{speaker_guidance}\n\n"
-                f"以下是用户的历史记忆：\n```\n{memory_str}\n```"
-            )
+            # 添加说话人识别功能说明
+            speaker_guidance = "\n\n[说话人识别功能说明]\n" \
+                             "当用户消息为JSON格式包含speaker字段时（如：{\"speaker\": \"张三\", \"content\": \"消息内容\"}），表示系统已识别出说话人身份。\n" \
+                             "请根据说话人的身份特征来调整回应风格和内容。\n" \
+                             "你可以称呼说话人的名字，并参考他们的特点进行个性化回应。"
+            enhanced_system_prompt += speaker_guidance
+            
+            # 添加说话人个性化描述
+            try:
+                config = load_config()
+                voiceprint_config = config.get("plugins", {}).get("voiceprint", {})
+                speakers = voiceprint_config.get("speakers", [])
+                
+                if speakers:
+                    enhanced_system_prompt += "\n\n[已知说话人信息]"
+                    for speaker_str in speakers:
+                        try:
+                            parts = speaker_str.split(",", 2)
+                            if len(parts) >= 2:
+                                speaker_id = parts[0].strip()
+                                name = parts[1].strip()
+                                # 如果描述为空，则为""
+                                description = parts[2].strip() if len(parts) >= 3 else ""
+                                enhanced_system_prompt += f"\n- {name}：{description}"
+                        except:
+                            continue
+            except:
+                # 配置读取失败时忽略错误，不影响其他功能
+                pass
+            
+            # 只有当有记忆时才添加记忆部分
+            if memory_str and len(memory_str) > 0:
+                enhanced_system_prompt += f"\n\n以下是用户的历史记忆：\n```\n{memory_str}\n```"
+            
             dialogue.append({"role": "system", "content": enhanced_system_prompt})
 
         # 添加用户和助手的对话
