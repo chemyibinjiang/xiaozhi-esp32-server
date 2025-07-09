@@ -310,18 +310,9 @@ class TTSProvider(TTSProviderBase):
                 and isinstance(self._monitor_task, Task)
                 and not self._monitor_task.done()
             ):
-                logger.bind(tag=TAG).info("取消上一个监听任务...")
-                self._monitor_task.cancel()
-                try:
-                    # 等待任务取消完成
-                    await asyncio.wait_for(self._monitor_task, timeout=3)
-                except asyncio.CancelledError:
-                    logger.bind(tag=TAG).info("监听任务已成功取消")
-                except asyncio.TimeoutError:
-                    logger.bind(tag=TAG).warning("取消监听任务超时，可能仍在运行")
-                except Exception as e:
-                    logger.bind(tag=TAG).warning(f"取消监听任务异常: {e}")
-                self._monitor_task = None
+                logger.bind(tag=TAG).info("检测到未完成的上个会话，关闭监听任务和连接...")
+                await self.close()
+
             # 建立新连接
             await self._ensure_connection()
 
