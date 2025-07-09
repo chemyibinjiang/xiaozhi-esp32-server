@@ -136,7 +136,21 @@ async def send_stt_message(conn, text):
         return
 
     """发送 STT 状态消息"""
-    stt_text = get_string_no_punctuation_or_emoji(text)
+    
+    # 解析JSON格式，提取实际的用户说话内容
+    display_text = text
+    try:
+        # 尝试解析JSON格式
+        if text.strip().startswith('{') and text.strip().endswith('}'):
+            parsed_data = json.loads(text)
+            if isinstance(parsed_data, dict) and "content" in parsed_data:
+                # 如果是包含说话人信息的JSON格式，只显示content部分
+                display_text = parsed_data["content"]
+    except (json.JSONDecodeError, TypeError):
+        # 如果不是JSON格式，直接使用原始文本
+        display_text = text
+    
+    stt_text = get_string_no_punctuation_or_emoji(display_text)
     await conn.websocket.send(
         json.dumps({"type": "stt", "text": stt_text, "session_id": conn.session_id})
     )

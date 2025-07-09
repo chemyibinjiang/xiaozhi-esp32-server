@@ -127,7 +127,7 @@ def initialize_asr(config):
     )
     
     # 初始化声纹识别功能
-    voiceprint_config = config.get("plugins", {}).get("voiceprint")
+    voiceprint_config = config.get("voiceprint")
     if voiceprint_config and voiceprint_config.get("url") and voiceprint_config.get("speakers"):
         new_asr.init_voiceprint(voiceprint_config)
         logger.bind(tag=TAG).info("ASR模块声纹识别功能已启用")

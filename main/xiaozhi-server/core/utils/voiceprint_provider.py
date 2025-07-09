@@ -118,8 +118,7 @@ class VoiceprintProvider:
                             result_name = self.speaker_map[speaker_id]["name"]
                             return result_name
                         else:
-                            logger.bind(tag=TAG).warning(f"未识别的说话人ID: {speaker_id}")
-                            return "未知说话人"
+                            return None
                     else:
                         logger.bind(tag=TAG).error(f"声纹识别API错误: HTTP {response.status}")
                         return None

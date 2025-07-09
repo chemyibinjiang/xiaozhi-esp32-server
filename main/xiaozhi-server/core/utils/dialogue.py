@@ -84,7 +84,7 @@ class Dialogue:
             # 添加说话人个性化描述
             try:
                 config = load_config()
-                voiceprint_config = config.get("plugins", {}).get("voiceprint", {})
+                voiceprint_config = config.get("voiceprint", {})
                 speakers = voiceprint_config.get("speakers", [])
                 
                 if speakers:

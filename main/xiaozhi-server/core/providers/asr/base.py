@@ -192,7 +192,7 @@ class ASRProviderBase(ABC):
 
     def _build_enhanced_text(self, text: str, speaker_name: Optional[str]) -> str:
         """构建包含说话人信息的文本"""
-        if speaker_name:
+        if speaker_name and speaker_name.strip():
             return json.dumps({
                 "speaker": speaker_name,
                 "content": text
