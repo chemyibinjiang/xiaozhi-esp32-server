@@ -1,4 +1,5 @@
 import uuid
+import re
 from typing import List, Dict
 from datetime import datetime
 from config.settings import load_config
@@ -74,13 +75,6 @@ class Dialogue:
             # 基础系统提示
             enhanced_system_prompt = system_message.content
             
-            # 添加说话人识别功能说明
-            speaker_guidance = "\n\n[说话人识别功能说明]\n" \
-                             "当用户消息为JSON格式包含speaker字段时（如：{\"speaker\": \"张三\", \"content\": \"消息内容\"}），表示系统已识别出说话人身份。\n" \
-                             "请根据说话人的身份特征来调整回应风格和内容。\n" \
-                             "你可以称呼说话人的名字，并参考他们的特点进行个性化回应。"
-            enhanced_system_prompt += speaker_guidance
-            
             # 添加说话人个性化描述
             try:
                 config = load_config()
@@ -88,7 +82,7 @@ class Dialogue:
                 speakers = voiceprint_config.get("speakers", [])
                 
                 if speakers:
-                    enhanced_system_prompt += "\n\n[已知说话人信息]"
+                    enhanced_system_prompt += "\n\n<speaker>"
                     for speaker_str in speakers:
                         try:
                             parts = speaker_str.split(",", 2)
@@ -99,15 +93,19 @@ class Dialogue:
                                 description = parts[2].strip() if len(parts) >= 3 else ""
                                 enhanced_system_prompt += f"\n- {name}：{description}"
                         except:
-                            continue
+                            pass
+                    enhanced_system_prompt += "\n\n</speaker>"
             except:
                 # 配置读取失败时忽略错误，不影响其他功能
                 pass
             
-            # 只有当有记忆时才添加记忆部分
-            if memory_str and len(memory_str) > 0:
-                enhanced_system_prompt += f"\n\n以下是用户的历史记忆：\n```\n{memory_str}\n```"
-            
+            # 使用正则表达式匹配 <memory> 标签，不管中间有什么内容
+            enhanced_system_prompt = re.sub(
+                r"<memory>.*?</memory>",
+                f"<memory>\n{memory_str}\n</memory>",
+                system_message.content,
+                flags=re.DOTALL,
+            )
             dialogue.append({"role": "system", "content": enhanced_system_prompt})
 
         # 添加用户和助手的对话
