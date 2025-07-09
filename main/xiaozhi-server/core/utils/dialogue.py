@@ -2,6 +2,7 @@ import uuid
 import re
 from typing import List, Dict
 from datetime import datetime
+from config.settings import load_config
 
 
 class Message:
@@ -46,10 +47,9 @@ class Dialogue:
             dialogue.append({"role": m.role, "content": m.content})
 
     def get_llm_dialogue(self) -> List[Dict[str, str]]:
-        dialogue = []
-        for m in self.dialogue:
-            self.getMessages(m, dialogue)
-        return dialogue
+        # 直接调用get_llm_dialogue_with_memory，传入None作为memory_str
+        # 这样确保说话人功能在所有调用路径下都生效
+        return self.get_llm_dialogue_with_memory(None)
 
     def update_system_message(self, new_content: str):
         """更新或添加系统消息"""
@@ -63,10 +63,7 @@ class Dialogue:
     def get_llm_dialogue_with_memory(
         self, memory_str: str = None
     ) -> List[Dict[str, str]]:
-        if memory_str is None or len(memory_str) == 0:
-            return self.get_llm_dialogue()
-
-        # 构建带记忆的对话
+        # 构建对话
         dialogue = []
 
         # 添加系统提示和记忆
@@ -75,6 +72,33 @@ class Dialogue:
         )
 
         if system_message:
+            # 基础系统提示
+            enhanced_system_prompt = system_message.content
+            
+            # 添加说话人个性化描述
+            try:
+                config = load_config()
+                voiceprint_config = config.get("voiceprint", {})
+                speakers = voiceprint_config.get("speakers", [])
+                
+                if speakers:
+                    enhanced_system_prompt += "\n\n<speaker>"
+                    for speaker_str in speakers:
+                        try:
+                            parts = speaker_str.split(",", 2)
+                            if len(parts) >= 2:
+                                speaker_id = parts[0].strip()
+                                name = parts[1].strip()
+                                # 如果描述为空，则为""
+                                description = parts[2].strip() if len(parts) >= 3 else ""
+                                enhanced_system_prompt += f"\n- {name}：{description}"
+                        except:
+                            pass
+                    enhanced_system_prompt += "\n\n</speaker>"
+            except:
+                # 配置读取失败时忽略错误，不影响其他功能
+                pass
+            
             # 使用正则表达式匹配 <memory> 标签，不管中间有什么内容
             enhanced_system_prompt = re.sub(
                 r"<memory>.*?</memory>",
