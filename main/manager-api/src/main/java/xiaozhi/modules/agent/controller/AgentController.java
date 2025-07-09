@@ -200,6 +200,16 @@ public class AgentController {
         return new Result<List<AgentChatHistoryUserVO>>().ok(data);
     }
 
+    @GetMapping("/{id}/chat-history/audio")
+    @Operation(summary = "获取音频内容")
+    @RequiresPermissions("sys:role:normal")
+    public Result<String> getContentByAudioId(
+            @PathVariable("id") String id) {
+        // 查询聊天记录
+        String data = agentChatHistoryService.getContentByAudioId(id);
+        return new Result<String>().ok(data);
+    }
+
     @PostMapping("/audio/{audioId}")
     @Operation(summary = "获取音频下载ID")
     @RequiresPermissions("sys:role:normal")

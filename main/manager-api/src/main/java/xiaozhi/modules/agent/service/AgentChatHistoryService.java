@@ -53,4 +53,22 @@ public interface AgentChatHistoryService extends IService<AgentChatHistoryEntity
      * @return 聊天记录列表（只有用户）
      */
     List<AgentChatHistoryUserVO> getRecentlyFiftyByAgentId(String agentId);
+
+    /**
+     * 根据音频数据ID获取聊天内容
+     *
+     * @param audioId 音频id
+     * @return 聊天内容
+     */
+    String getContentByAudioId(String audioId);
+
+
+    /**
+     * 查询此音频id是否属于此智能体
+     *
+     * @param audioId 音频id
+     * @param agentId 音频id
+     * @return T：属于 F：不属于
+     */
+    boolean isAudioOwnedByAgent(String audioId,String agentId);
 }

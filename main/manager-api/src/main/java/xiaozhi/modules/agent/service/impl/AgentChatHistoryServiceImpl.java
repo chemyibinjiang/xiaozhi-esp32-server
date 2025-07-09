@@ -111,4 +111,21 @@ public class AgentChatHistoryServiceImpl extends ServiceImpl<AiAgentChatHistoryD
                ConvertUtils.sourceToTarget(item,AgentChatHistoryUserVO.class)
         ).toList();
     }
+
+    @Override
+    public String getContentByAudioId(String audioId) {
+        AgentChatHistoryEntity agentChatHistoryEntity = baseMapper.selectOne(new LambdaQueryWrapper<AgentChatHistoryEntity>()
+                .select(AgentChatHistoryEntity::getContent)
+                .eq(AgentChatHistoryEntity::getAudioId, audioId));
+        return agentChatHistoryEntity == null ? null : agentChatHistoryEntity.getContent();
+    }
+
+    @Override
+    public boolean isAudioOwnedByAgent(String audioId, String agentId) {
+        // 查询是否有指定音频id和智能体id的数据，如果有且只有一条说明此数据属性此智能体
+        Long row = baseMapper.selectCount(new LambdaQueryWrapper<AgentChatHistoryEntity>()
+                .eq(AgentChatHistoryEntity::getAudioId, audioId)
+                .eq(AgentChatHistoryEntity::getAgentId, agentId));
+        return row == 1 ;
+    }
 }
