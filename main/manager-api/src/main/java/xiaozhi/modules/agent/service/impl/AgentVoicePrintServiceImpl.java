@@ -20,6 +20,7 @@ import xiaozhi.modules.agent.dto.AgentVoicePrintSaveDTO;
 import xiaozhi.modules.agent.dto.AgentVoicePrintUpdateDTO;
 import xiaozhi.modules.agent.entity.AgentVoicePrintEntity;
 import xiaozhi.modules.agent.service.AgentChatAudioService;
+import xiaozhi.modules.agent.service.AgentChatHistoryService;
 import xiaozhi.modules.agent.service.AgentVoicePrintService;
 import xiaozhi.modules.agent.vo.AgentVoicePrintVO;
 import xiaozhi.modules.sys.service.SysParamsService;
@@ -40,16 +41,15 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
     private final AgentChatAudioService agentChatAudioService;
     private final RestTemplate restTemplate;
     private final SysParamsService sysParamsService;
+    private final AgentChatHistoryService agentChatHistoryService;
     // Springboot提供的编程事务类
     private final TransactionTemplate transactionTemplate;
 
 
     @Override
-    @Transient
     public boolean insert(AgentVoicePrintSaveDTO dto) {
-        // 获取音频Id
-        String audioId = dto.getAudioId();
-        ByteArrayResource resource = getVoicePrintAudioWAV(audioId);
+        // 获取音频数据
+        ByteArrayResource resource = getVoicePrintAudioWAV(dto.getAgentId(),dto.getAudioId());
 
         AgentVoicePrintEntity entity = ConvertUtils.sourceToTarget(dto, AgentVoicePrintEntity.class);
         // 开启事务
@@ -119,18 +119,21 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
 
     @Override
     public boolean update(Long userId, AgentVoicePrintUpdateDTO dto) {
-        Long l = baseMapper.selectCount(new LambdaQueryWrapper<AgentVoicePrintEntity>()
+        AgentVoicePrintEntity agentVoicePrintEntity =
+                baseMapper.selectOne(new LambdaQueryWrapper<AgentVoicePrintEntity>()
                 .eq(AgentVoicePrintEntity::getId, dto.getId())
                 .eq(AgentVoicePrintEntity::getCreator, userId));
-        if (l != 1) {
+        if (agentVoicePrintEntity == null) {
             return false;
         }
         // 获取音频Id
         String audioId = dto.getAudioId();
-        // 如果有新的音频
+        // 获取智能体id
+        String agentId = agentVoicePrintEntity.getAgentId();
         ByteArrayResource resource;
-        if (!StringUtils.isEmpty(audioId)) {
-            resource = getVoicePrintAudioWAV(audioId);
+        // audioId不等于空，且audioId和之前的保存的音频id不一样，则需要重新获取音频数据生成声纹
+        if (!StringUtils.isEmpty(audioId) && !audioId.equals(agentVoicePrintEntity.getAudioId())) {
+            resource = getVoicePrintAudioWAV(agentId,audioId);
         } else {
             resource = null;
         }
@@ -161,6 +164,8 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
             }
         }));
     }
+
+
 
     /**
      * 获取生纹接口URI对象
@@ -206,10 +211,16 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
 
     /**
      * 获取声纹音频资源数据
+     *
      * @param audioId  音频Id
      * @return 声纹音频资源数据
      */
-    private ByteArrayResource getVoicePrintAudioWAV(String audioId) {
+    private ByteArrayResource getVoicePrintAudioWAV(String agentId,String audioId) {
+        // 判断这个音频是否属于当前智能体
+        boolean b = agentChatHistoryService.isAudioOwnedByAgent(audioId, agentId);
+        if(!b){
+            throw new RenException("音频数据不属于这个智能体");
+        }
         // 获取到音频数据
         byte[] audio = agentChatAudioService.getAudio(audioId);
         // 如果音频数据为空的直接报错不进行下去
