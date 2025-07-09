@@ -170,6 +170,19 @@ export default {
           }));
         }))
       }
+    },
+    'form.audioId'(newVal) {
+      if (newVal == null || newVal == "") {
+        return
+      }
+      if (this.valueTypeOptions.some(item => item.audioId === newVal)) {
+        return;
+      }
+      api.agent.getContentByAudioId(newVal, ((data) => {
+        this.valueTypeOptions.push({
+          audioId: newVal, content: data.data.data
+        })
+      }))
     }
   }
 };

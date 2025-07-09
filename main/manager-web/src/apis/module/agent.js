@@ -250,4 +250,19 @@ export default {
                 });
             }).send();
     },
+    // 获取指定智能体用户类型聊天记录
+    getContentByAudioId(id,callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/${id}/chat-history/audio`)
+            .method('GET')
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .networkFail(() => {
+                RequestService.reAjaxFun(() => {
+                    this.getContentByAudioId(id,callback);
+                });
+            }).send();
+    },
 }
