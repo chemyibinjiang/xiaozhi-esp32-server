@@ -14,8 +14,13 @@
       <el-form :model="form" :rules="rules" ref="form" label-width="110px" label-position="left" class="param-form">
         <el-form-item label="声纹向量" prop="audioId" class="form-item">
           <el-select v-model="form.audioId" placeholder="请选择一条语言消息" class="custom-select">
-            <el-option v-for="item in valueTypeOptions" :key="item.audioId" :label="item.content"
-              :value="item.audioId" />
+            <el-option v-for="item in valueTypeOptions" :key="item.audioId" :label="item.content" :value="item.audioId">
+              <span style="float: left">{{ item.content }}</span>
+              <span style="float: right; color: #8492a6; font-size: 13px">
+                <i :class="getAudioIconClass(item.audioId)" @click.stop="playAudio(item.audioId)"
+                  class="audio-icon"></i>
+              </span>
+            </el-option>
           </el-select>
         </el-form-item>
 
@@ -71,6 +76,8 @@ export default {
     return {
       dialogKey: Date.now(),
       saving: false,
+      playingAudioId: null,
+      audioElement: null,
       valueTypeOptions: [
         { audioId: '', content: '' }
       ],
@@ -88,6 +95,45 @@ export default {
     };
   },
   methods: {
+    getAudioIconClass(audioId) {
+      if (this.playingAudioId === audioId) {
+        return 'el-icon-loading';
+      }
+      return 'el-icon-video-play';
+    },
+    playAudio(audioId) {
+      if (this.playingAudioId === audioId) {
+        // 如果正在播放当前音频，则停止播放
+        if (this.audioElement) {
+          this.audioElement.pause();
+          this.audioElement = null;
+        }
+        this.playingAudioId = null;
+        return;
+      }
+
+      // 停止当前正在播放的音频
+      if (this.audioElement) {
+        this.audioElement.pause();
+        this.audioElement = null;
+      }
+
+      // 先获取音频下载ID
+      this.playingAudioId = audioId;
+      api.agent.getAudioId(audioId, (res) => {
+        if (res.data && res.data.data) {
+          // 使用获取到的下载ID播放音频
+          this.audioElement = new Audio(api.getServiceUrl() + `/agent/play/${res.data.data}`);
+
+          this.audioElement.onended = () => {
+            this.playingAudioId = null;
+            this.audioElement = null;
+          };
+
+          this.audioElement.play();
+        }
+      });
+    },
     submit() {
       this.$refs.form.validate((valid) => {
         if (valid) {
@@ -148,6 +194,13 @@ export default {
 </style>
 
 <style scoped lang="scss">
+.audio-icon {
+  font-size: 20px;
+  cursor: pointer;
+  margin: 0 5px;
+  color: #1890ff;
+}
+
 .param-dialog-wrapper {
   .dialog-container {
     padding: 24px 32px;
