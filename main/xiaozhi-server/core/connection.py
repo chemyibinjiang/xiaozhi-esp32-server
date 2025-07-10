@@ -23,6 +23,7 @@ from core.utils.modules_initialize import (
     initialize_asr,
 )
 from core.handle.reportHandle import report
+from core.utils.modules_initialize import initialize_voiceprint
 from core.providers.tts.default import DefaultTTS
 from concurrent.futures import ThreadPoolExecutor
 from core.utils.dialogue import Message, Dialogue
@@ -411,6 +412,16 @@ class ConnectionHandler:
             # 如果公共ASR是远程服务，则初始化一个新实例
             # 因为远程ASR，涉及到websocket连接和接收线程，需要每个连接一个实例
             asr = initialize_asr(self.config)
+
+        # 动态初始化声纹识别功能
+        try:
+            success = initialize_voiceprint(asr, self.config)
+            if success:
+                self.logger.bind(tag=TAG).info("声纹识别功能已在连接时动态启用")
+            else:
+                self.logger.bind(tag=TAG).info("声纹识别功能未启用或配置不完整")
+        except Exception as e:
+            self.logger.bind(tag=TAG).error(f"动态初始化声纹识别时发生错误: {str(e)}")
 
         return asr
 
