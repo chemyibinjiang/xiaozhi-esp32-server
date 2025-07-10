@@ -496,6 +496,9 @@ class ConnectionHandler:
                 ] = plugin_from_server.keys()
         if private_config.get("prompt", None) is not None:
             self.config["prompt"] = private_config["prompt"]
+        # 获取声纹信息
+        if private_config.get("voiceprint", None) is not None:
+            self.config["voiceprint"] = private_config["voiceprint"]
         if private_config.get("summaryMemory", None) is not None:
             self.config["summaryMemory"] = private_config["summaryMemory"]
         if private_config.get("device_max_output_size", None) is not None:
@@ -634,25 +637,29 @@ class ConnectionHandler:
         # 检查是否是JSON格式的消息（包含说话人信息）
         enhanced_query = query
         try:
-            if query.strip().startswith('{') and query.strip().endswith('}'):
+            if query.strip().startswith("{") and query.strip().endswith("}"):
                 data = json.loads(query)
-                if 'speaker' in data and 'content' in data:
+                if "speaker" in data and "content" in data:
                     # 直接使用JSON格式，不重新格式化
                     enhanced_query = query
                     self.logger.bind(tag=TAG).info(f"识别到说话人: {data['speaker']}")
                 else:
                     # 如果有说话人信息但不是JSON格式，按原逻辑处理
-                    if hasattr(self, 'current_speaker') and self.current_speaker:
+                    if hasattr(self, "current_speaker") and self.current_speaker:
                         enhanced_query = f"[说话人: {self.current_speaker}] {query}"
-                        self.logger.bind(tag=TAG).info(f"识别到说话人: {self.current_speaker}")
+                        self.logger.bind(tag=TAG).info(
+                            f"识别到说话人: {self.current_speaker}"
+                        )
             else:
                 # 如果有说话人信息但不是JSON格式，按原逻辑处理
-                if hasattr(self, 'current_speaker') and self.current_speaker:
+                if hasattr(self, "current_speaker") and self.current_speaker:
                     enhanced_query = f"[说话人: {self.current_speaker}] {query}"
-                    self.logger.bind(tag=TAG).info(f"识别到说话人: {self.current_speaker}")
+                    self.logger.bind(tag=TAG).info(
+                        f"识别到说话人: {self.current_speaker}"
+                    )
         except json.JSONDecodeError:
             # JSON解析失败，按原逻辑处理
-            if hasattr(self, 'current_speaker') and self.current_speaker:
+            if hasattr(self, "current_speaker") and self.current_speaker:
                 enhanced_query = f"[说话人: {self.current_speaker}] {query}"
                 self.logger.bind(tag=TAG).info(f"识别到说话人: {self.current_speaker}")
 
