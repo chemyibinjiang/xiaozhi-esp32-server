@@ -29,28 +29,28 @@ UPDATE `ai_model_config` SET
 -- 添加阿里云流式TTS音色
 delete from `ai_tts_voice` where tts_model_id = 'TTS_AliyunStreamTTS';
 -- 温柔女声系列
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0001', 'TTS_AliyunStreamTTS', '龙小淳-温柔姐姐', 'longxiaochun', '中文及中英文混合', NULL, NULL, 1, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0002', 'TTS_AliyunStreamTTS', '龙小夏-温柔女声', 'longxiaoxia', '中文及中英文混合', NULL, NULL, 2, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0003', 'TTS_AliyunStreamTTS', '龙玫-温柔女声', 'longmei', '中文及中英文混合', NULL, NULL, 3, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0004', 'TTS_AliyunStreamTTS', '龙瑰-温柔女声', 'longgui', '中文及中英文混合', NULL, NULL, 4, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0001', 'TTS_AliyunStreamTTS', '龙小淳-温柔姐姐', 'longxiaochun', '中文及中英文混合', NULL, NULL, NULL, NULL, 1, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0002', 'TTS_AliyunStreamTTS', '龙小夏-温柔女声', 'longxiaoxia', '中文及中英文混合', NULL, NULL, NULL, NULL, 2, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0003', 'TTS_AliyunStreamTTS', '龙玫-温柔女声', 'longmei', '中文及中英文混合', NULL, NULL, NULL, NULL, 3, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0004', 'TTS_AliyunStreamTTS', '龙瑰-温柔女声', 'longgui', '中文及中英文混合', NULL, NULL, NULL, NULL, 4, NULL, NULL, NULL, NULL);
 -- 御姐女声系列
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0005', 'TTS_AliyunStreamTTS', '龙玉-御姐女声', 'longyu', '中文及中英文混合', NULL, NULL, 5, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0006', 'TTS_AliyunStreamTTS', '龙娇-御姐女声', 'longjiao', '中文及中英文混合', NULL, NULL, 6, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0005', 'TTS_AliyunStreamTTS', '龙玉-御姐女声', 'longyu', '中文及中英文混合', NULL, NULL, NULL, NULL, 5, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0006', 'TTS_AliyunStreamTTS', '龙娇-御姐女声', 'longjiao', '中文及中英文混合', NULL, NULL, NULL, NULL, 6, NULL, NULL, NULL, NULL);
 -- 男声系列
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0007', 'TTS_AliyunStreamTTS', '龙臣-译制片男声', 'longchen', '中文及中英文混合', NULL, NULL, 7, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0008', 'TTS_AliyunStreamTTS', '龙修-青年男声', 'longxiu', '中文及中英文混合', NULL, NULL, 8, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0009', 'TTS_AliyunStreamTTS', '龙橙-阳光男声', 'longcheng', '中文及中英文混合', NULL, NULL, 9, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0010', 'TTS_AliyunStreamTTS', '龙哲-成熟男声', 'longzhe', '中文及中英文混合', NULL, NULL, 10, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0007', 'TTS_AliyunStreamTTS', '龙臣-译制片男声', 'longchen', '中文及中英文混合', NULL, NULL, NULL, NULL, 7, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0008', 'TTS_AliyunStreamTTS', '龙修-青年男声', 'longxiu', '中文及中英文混合', NULL, NULL, NULL, NULL, 8, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0009', 'TTS_AliyunStreamTTS', '龙橙-阳光男声', 'longcheng', '中文及中英文混合', NULL, NULL, NULL, NULL, 9, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0010', 'TTS_AliyunStreamTTS', '龙哲-成熟男声', 'longzhe', '中文及中英文混合', NULL, NULL, NULL, NULL, 10, NULL, NULL, NULL, NULL);
 -- 专业播报系列
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0011', 'TTS_AliyunStreamTTS', 'Bella2.0-新闻女声', 'loongbella', '中文及中英文混合', NULL, NULL, 11, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0012', 'TTS_AliyunStreamTTS', 'Stella2.0-飒爽女声', 'loongstella', '中文及中英文混合', NULL, NULL, 12, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0013', 'TTS_AliyunStreamTTS', '龙书-新闻男声', 'longshu', '中文及中英文混合', NULL, NULL, 13, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0014', 'TTS_AliyunStreamTTS', '龙婧-严肃女声', 'longjing', '中文及中英文混合', NULL, NULL, 14, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0011', 'TTS_AliyunStreamTTS', 'Bella2.0-新闻女声', 'loongbella', '中文及中英文混合', NULL, NULL, NULL, NULL, 11, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0012', 'TTS_AliyunStreamTTS', 'Stella2.0-飒爽女声', 'loongstella', '中文及中英文混合', NULL, NULL, NULL, NULL, 12, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0013', 'TTS_AliyunStreamTTS', '龙书-新闻男声', 'longshu', '中文及中英文混合', NULL, NULL, NULL, NULL, 13, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0014', 'TTS_AliyunStreamTTS', '龙婧-严肃女声', 'longjing', '中文及中英文混合', NULL, NULL, NULL, NULL, 14, NULL, NULL, NULL, NULL);
 -- 特色音色系列
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0015', 'TTS_AliyunStreamTTS', '龙奇-活泼童声', 'longqi', '中文及中英文混合', NULL, NULL, 15, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0016', 'TTS_AliyunStreamTTS', '龙华-活泼女童', 'longhua', '中文及中英文混合', NULL, NULL, 16, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0017', 'TTS_AliyunStreamTTS', '龙无-无厘头男声', 'longwu', '中文及中英文混合', NULL, NULL, 17, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0018', 'TTS_AliyunStreamTTS', '龙大锤-幽默男声', 'longdachui', '中文及中英文混合', NULL, NULL, 18, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0015', 'TTS_AliyunStreamTTS', '龙奇-活泼童声', 'longqi', '中文及中英文混合', NULL, NULL, NULL, NULL, 15, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0016', 'TTS_AliyunStreamTTS', '龙华-活泼女童', 'longhua', '中文及中英文混合', NULL, NULL, NULL, NULL, 16, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0017', 'TTS_AliyunStreamTTS', '龙无-无厘头男声', 'longwu', '中文及中英文混合', NULL, NULL, NULL, NULL, 17, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0018', 'TTS_AliyunStreamTTS', '龙大锤-幽默男声', 'longdachui', '中文及中英文混合', NULL, NULL, NULL, NULL, 18, NULL, NULL, NULL, NULL);
 -- 粤语系列
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0019', 'TTS_AliyunStreamTTS', '龙嘉怡-粤语女声', 'longjiayi', '粤语及粤英混合', NULL, NULL, 19, NULL, NULL, NULL, NULL);
-INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0020', 'TTS_AliyunStreamTTS', '龙桃-粤语女声', 'longtao', '粤语及粤英混合', NULL, NULL, 20, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0019', 'TTS_AliyunStreamTTS', '龙嘉怡-粤语女声', 'longjiayi', '粤语及粤英混合', NULL, NULL, NULL, NULL, 19, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_tts_voice` VALUES ('TTS_AliyunStreamTTS_0020', 'TTS_AliyunStreamTTS', '龙桃-粤语女声', 'longtao', '粤语及粤英混合', NULL, NULL, NULL, NULL, 20, NULL, NULL, NULL, NULL);
