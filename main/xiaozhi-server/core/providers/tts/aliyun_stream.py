@@ -10,13 +10,10 @@ import traceback
 import websockets
 import websockets.protocol
 import os
-import random
-import threading
 import concurrent.futures
 import sys
 from datetime import datetime
 from urllib import parse
-from typing import Optional
 from core.providers.tts.base import TTSProviderBase
 from core.providers.tts.dto.dto import SentenceType, ContentType, InterfaceType
 from core.utils.tts import MarkdownCleaner
@@ -268,9 +265,12 @@ class TTSProvider(TTSProviderBase):
                     logger.bind(tag=TAG).info(
                         f"添加音频文件到待播放列表: {message.content_file}"
                     )
-                    self.before_stop_play_files.append(
-                        (message.content_file, message.content_detail)
-                    )
+                    if message.content_file and os.path.exists(message.content_file):
+                        # 先处理文件音频数据
+                        file_audio = self._process_before_stop_play_files(message.content_file)
+                        self.before_stop_play_files.append(
+                            (file_audio, message.content_detail)
+                        )
 
                 if message.sentence_type == SentenceType.LAST:
                     # 处理剩余的文本
@@ -741,6 +741,7 @@ class TTSProvider(TTSProviderBase):
                             ws_connection.close()
                 except Exception as e:
                     logger.bind(tag=TAG).debug(f"关闭WebSocket连接时出现异常: {e}")
+
     async def close(self):
         """资源清理"""
         if self.ws:
@@ -762,32 +763,6 @@ class TTSProvider(TTSProviderBase):
             self.opus_encoder.close()
         
         await super().close()
-
-    def _process_before_stop_play_files(self):
-        """处理停止前的待播放文件"""
-        for tts_file, text in self.before_stop_play_files:
-            if tts_file and os.path.exists(tts_file):
-                audio_datas = self._process_audio_file(tts_file)
-                self.tts_audio_queue.put((SentenceType.MIDDLE, audio_datas, text))
-        self.before_stop_play_files.clear()
-        self.tts_audio_queue.put((SentenceType.LAST, [], None))
-
-    def _process_audio_file(self, tts_file):
-        """处理音频文件并转换为指定格式"""
-        audio_datas = []
-        if self.conn.audio_format == "pcm":
-            audio_datas, _ = self.audio_to_pcm_data(tts_file)
-        else:
-            audio_datas, _ = self.audio_to_opus_data(tts_file)
-
-        if (
-            self.delete_audio_file
-            and tts_file is not None
-            and os.path.exists(tts_file)
-            and tts_file.startswith(self.output_file)
-        ):
-            os.remove(tts_file)
-        return audio_datas
 
     def to_tts(self, text: str) -> list:
         """非流式TTS处理，用于测试及保存音频文件的场景"""
