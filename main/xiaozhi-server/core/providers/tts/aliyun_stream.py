@@ -267,7 +267,7 @@ class TTSProvider(TTSProviderBase):
                     )
                     if message.content_file and os.path.exists(message.content_file):
                         # 先处理文件音频数据
-                        file_audio = self._process_before_stop_play_files(message.content_file)
+                        file_audio = self._process_audio_file(message.content_file)
                         self.before_stop_play_files.append(
                             (file_audio, message.content_detail)
                         )
@@ -316,7 +316,7 @@ class TTSProvider(TTSProviderBase):
                     
                     try:
                         # 运行TTS任务
-                        loop.run_until_complete(self._tts_request_unified(text, is_last))
+                        loop.run_until_complete(self.text_to_speak(text, is_last))
                         return True
                     finally:
                         # 安全关闭事件循环
@@ -357,185 +357,9 @@ class TTSProvider(TTSProviderBase):
         
         return None
 
-    async def text_to_speak(self, text, is_last=False):
+    async def text_to_speak(self, text, is_last):
         """流式处理TTS音频"""
-        try:
-            # 确保连接可用
-            await self._ensure_connection()
-            ws_connection = self.ws
-            
-            # 确保Token有效
-            if self._is_token_expired():
-                self._refresh_token()
-            
-            # 生成task_id和message_id
-            task_id = str(uuid.uuid4()).replace('-', '')
-            
-            # 第一阶段：发送StartSynthesis指令（设置参数）
-            start_message_id = str(uuid.uuid4()).replace('-', '')
-            start_request = {
-                "header": {
-                    "message_id": start_message_id,
-                    "task_id": task_id,
-                    "namespace": "FlowingSpeechSynthesizer",
-                    "name": "StartSynthesis",
-                    "appkey": self.appkey,
-                },
-                "payload": {
-                    "voice": self.voice,
-                    "format": self.format,
-                    "sample_rate": self.sample_rate,
-                    "volume": self.volume,
-                    "speech_rate": self.speech_rate,
-                    "pitch_rate": self.pitch_rate,
-                }
-            }
-            
-            await ws_connection.send(json.dumps(start_request))
-            logger.bind(tag=TAG).debug(f"发送StartSynthesis指令: {start_message_id}")
-            
-            # 第二阶段：发送RunSynthesis指令（发送文本）
-            run_message_id = str(uuid.uuid4()).replace('-', '')
-            run_request = {
-                "header": {
-                    "message_id": run_message_id,
-                    "task_id": task_id,
-                    "namespace": "FlowingSpeechSynthesizer",
-                    "name": "RunSynthesis",
-                    "appkey": self.appkey,
-                },
-                "payload": {
-                    "text": text
-                }
-            }
-            
-            await ws_connection.send(json.dumps(run_request))
-            logger.bind(tag=TAG).debug(f"发送RunSynthesis指令: {text} (message_id: {run_message_id})")
-            
-            # 立即发送StopSynthesis指令，避免IDLE_TIMEOUT
-            stop_message_id = str(uuid.uuid4()).replace('-', '')
-            stop_request = {
-                "header": {
-                    "message_id": stop_message_id,
-                    "task_id": task_id,
-                    "namespace": "FlowingSpeechSynthesizer",
-                    "name": "StopSynthesis",
-                    "appkey": self.appkey,
-                }
-            }
-            
-            await ws_connection.send(json.dumps(stop_request))
-            logger.bind(tag=TAG).debug(f"发送StopSynthesis指令: {stop_message_id}")
-            
-            # 初始化缓冲区和计数器
-            self.pcm_buffer.clear()
-            self.segment_count = 0  # 重置分段计数器
-            opus_datas_cache = []
-            
-            # 发送第一个音频包
-            self.tts_audio_queue.put((SentenceType.FIRST, [], text))
-            
-            # 标记是否需要发送StopSynthesis
-            synthesis_completed = False
-            
-            # 处理响应 - 设置超时避免长时间等待
-            try:
-                async def process_messages():
-                    nonlocal synthesis_completed
-                    async for message in ws_connection:
-                        try:
-                            if isinstance(message, str):
-                                # 处理JSON消息
-                                data = json.loads(message)
-                                header = data.get("header", {})
-                                event_name = header.get("name")
-                                
-                                if event_name == "SynthesisStarted":
-                                    logger.bind(tag=TAG).debug(f"TTS合成已启动: {task_id}")
-                                    
-                                elif event_name == "SynthesisCompleted":
-                                    logger.bind(tag=TAG).debug(f"TTS合成完成: {text}")
-                                    synthesis_completed = True
-                                    break
-                                    
-                                elif event_name == "TaskFailed":
-                                    error_msg = header.get("status_text", "未知错误")
-                                    logger.bind(tag=TAG).error(f"TTS合成失败: {error_msg}")
-                                    synthesis_completed = True
-                                    break
-                            
-                            elif isinstance(message, bytes):
-                                # 处理二进制音频数据
-                                self.pcm_buffer.extend(message)
-                                
-                                # 计算每帧的字节数
-                                frame_bytes = int(
-                                    self.opus_encoder.sample_rate
-                                    * self.opus_encoder.channels
-                                    * self.opus_encoder.frame_size_ms
-                                    / 1000
-                                    * 2
-                                )
-                                
-                                # 分帧处理PCM数据
-                                while len(self.pcm_buffer) >= frame_bytes:
-                                    frame = bytes(self.pcm_buffer[:frame_bytes])
-                                    del self.pcm_buffer[:frame_bytes]
-                                    
-                                    # 编码为Opus
-                                    opus_packets = self.opus_encoder.encode_pcm_to_opus(frame, False)
-                                    if opus_packets:
-                                        if self.segment_count < 10:
-                                            self.tts_audio_queue.put(
-                                                (SentenceType.MIDDLE, opus_packets, None)
-                                            )
-                                            self.segment_count += 1
-                                        else:
-                                            opus_datas_cache.extend(opus_packets)
-                        
-                        except json.JSONDecodeError:
-                            logger.bind(tag=TAG).warning("收到无效的JSON消息")
-                        except Exception as e:
-                            logger.bind(tag=TAG).error(f"处理响应消息失败: {e}")
-                
-                await asyncio.wait_for(process_messages(), timeout=15)  # 15秒超时
-                            
-            except asyncio.TimeoutError:
-                logger.bind(tag=TAG).warning(f"TTS请求超时，但可能已获取部分音频数据: {text}")
-            except websockets.ConnectionClosed:
-                logger.bind(tag=TAG).debug("WebSocket连接已正常关闭")
-            except Exception as e:
-                logger.bind(tag=TAG).error(f"处理WebSocket消息失败: {e}")
-            
-            # 因为已经提前发送了StopSynthesis，这里不需要再次发送
-            # 直接处理剩余的PCM数据
-            if self.pcm_buffer:
-                opus_packets = self.opus_encoder.encode_pcm_to_opus(
-                    bytes(self.pcm_buffer), end_of_stream=True
-                )
-                if opus_packets:
-                    if self.segment_count < 10:
-                        self.tts_audio_queue.put(
-                            (SentenceType.MIDDLE, opus_packets, None)
-                        )
-                        self.segment_count += 1
-                    else:
-                        opus_datas_cache.extend(opus_packets)
-                self.pcm_buffer.clear()
-            
-            # 发送缓存的数据
-            if self.segment_count >= 10 and opus_datas_cache:
-                self.tts_audio_queue.put(
-                    (SentenceType.MIDDLE, opus_datas_cache, None)
-                )
-            
-            # 如果是最后一段，处理待播放文件
-            if is_last:
-                self._process_before_stop_play_files()
-                
-        except Exception as e:
-            logger.bind(tag=TAG).error(f"TTS异步请求异常: {e}")
-            self.tts_audio_queue.put((SentenceType.LAST, [], None))
+        await self._tts_request_unified(text, is_last)
 
     async def _tts_request_unified(self, text: str, is_last: bool) -> None:
         """统一的TTS请求方法"""
@@ -564,12 +388,12 @@ class TTSProvider(TTSProviderBase):
             
             # 生成task_id
             task_id = str(uuid.uuid4()).replace('-', '')
-            
+            message_id = str(uuid.uuid4()).replace('-', '')
             # 第一阶段：发送StartSynthesis指令（设置参数）
-            start_message_id = str(uuid.uuid4()).replace('-', '')
+
             start_request = {
                 "header": {
-                    "message_id": start_message_id,
+                    "message_id": message_id,
                     "task_id": task_id,
                     "namespace": "FlowingSpeechSynthesizer",
                     "name": "StartSynthesis",
@@ -586,13 +410,12 @@ class TTSProvider(TTSProviderBase):
             }
             
             await ws_connection.send(json.dumps(start_request))
-            logger.bind(tag=TAG).debug(f"发送StartSynthesis指令: {start_message_id}")
+            logger.bind(tag=TAG).debug(f"发送StartSynthesis指令 会话id：{task_id}")
             
             # 第二阶段：发送RunSynthesis指令（发送文本）
-            run_message_id = str(uuid.uuid4()).replace('-', '')
             run_request = {
                 "header": {
-                    "message_id": run_message_id,
+                    "message_id": message_id,
                     "task_id": task_id,
                     "namespace": "FlowingSpeechSynthesizer",
                     "name": "RunSynthesis",
@@ -604,13 +427,13 @@ class TTSProvider(TTSProviderBase):
             }
             
             await ws_connection.send(json.dumps(run_request))
-            logger.bind(tag=TAG).debug(f"发送RunSynthesis指令: {text} (message_id: {run_message_id})")
+            logger.bind(tag=TAG).debug(f"发送RunSynthesis指令 {text} 会话id： {task_id})")
             
             # 立即发送StopSynthesis指令，避免IDLE_TIMEOUT
-            stop_message_id = str(uuid.uuid4()).replace('-', '')
+
             stop_request = {
                 "header": {
-                    "message_id": stop_message_id,
+                    "message_id": message_id,
                     "task_id": task_id,
                     "namespace": "FlowingSpeechSynthesizer",
                     "name": "StopSynthesis",
@@ -619,7 +442,7 @@ class TTSProvider(TTSProviderBase):
             }
             
             await ws_connection.send(json.dumps(stop_request))
-            logger.bind(tag=TAG).debug(f"发送StopSynthesis指令: {stop_message_id}")
+            logger.bind(tag=TAG).debug(f"发送StopSynthesis指令 会话id：{task_id}")
             
             # 初始化处理参数 - 使用独立缓冲区
             pcm_buffer = bytearray()
