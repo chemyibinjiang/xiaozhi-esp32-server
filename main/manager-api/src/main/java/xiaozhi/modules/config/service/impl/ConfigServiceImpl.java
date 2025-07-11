@@ -28,7 +28,6 @@ import xiaozhi.modules.agent.service.AgentMcpAccessPointService;
 import xiaozhi.modules.agent.service.AgentPluginMappingService;
 import xiaozhi.modules.agent.service.AgentService;
 import xiaozhi.modules.agent.service.AgentTemplateService;
-import xiaozhi.modules.agent.service.AgentVoicePrintService;
 import xiaozhi.modules.agent.vo.AgentVoicePrintVO;
 import xiaozhi.modules.config.service.ConfigService;
 import xiaozhi.modules.device.entity.DeviceEntity;
@@ -52,7 +51,6 @@ public class ConfigServiceImpl implements ConfigService {
     private final TimbreService timbreService;
     private final AgentPluginMappingService agentPluginMappingService;
     private final AgentMcpAccessPointService agentMcpAccessPointService;
-    private final AgentVoicePrintService agentVoicePrintService;
     private final AgentVoicePrintDao agentVoicePrintDao;
 
     @Override
