@@ -36,7 +36,7 @@ from plugins_func.register import Action, ActionResponse
 from core.auth import AuthMiddleware, AuthenticationError
 from config.config_loader import get_private_config_from_api
 from core.providers.tts.dto.dto import ContentType, TTSMessageDTO, SentenceType
-from config.logger import setup_logging, build_module_string, update_module_string
+from config.logger import setup_logging, build_module_string, create_connection_logger
 from config.manage_api_client import DeviceNotFoundException, DeviceBindException
 from core.utils.prompt_manager import PromptManager
 
@@ -331,9 +331,9 @@ class ConnectionHandler:
             self.selected_module_str = build_module_string(
                 self.config.get("selected_module", {})
             )
-            update_module_string(self.selected_module_str)
-
-            """快速初始化系统提示词"""
+            self.logger = create_connection_logger(self.selected_module_str)
+            
+            """初始化组件"""
             if self.config.get("prompt") is not None:
                 user_prompt = self.config["prompt"]
                 # 使用快速提示词进行初始化
@@ -864,14 +864,13 @@ class ConnectionHandler:
                 item = self.report_queue.get(timeout=1)
                 if item is None:  # 检测毒丸对象
                     break
-                type, text, audio_data, report_time = item
                 try:
                     # 检查线程池状态
                     if self.executor is None:
                         continue
                     # 提交任务到线程池
                     self.executor.submit(
-                        self._process_report, type, text, audio_data, report_time
+                        self._process_report, *item
                     )
                 except Exception as e:
                     self.logger.bind(tag=TAG).error(f"聊天记录上报线程异常: {e}")

@@ -144,13 +144,18 @@
         </a>
     </td>
     <td>
-          <a href="https://www.bilibili.com/video/BV1ZQKUzYExM" target="_blank">
+        <a href="https://www.bilibili.com/video/BV1ZQKUzYExM" target="_blank">
          <picture>
            <img alt="MCP接入点" src="docs/images/demo13.png" />
          </picture>
         </a>
     </td>
     <td>
+        <a href="https://www.bilibili.com/video/BV1Exu3zqEDe" target="_blank">
+         <picture>
+           <img alt="声纹识别" src="docs/images/demo14.png" />
+         </picture>
+        </a>
     </td>
   </tr>
 </table>
