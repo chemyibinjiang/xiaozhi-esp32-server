@@ -123,6 +123,11 @@ class TTSProvider(TTSProviderBase):
         self.ws = None
         self._monitor_task = None
 
+        # 文本获取
+        self.sentence_queue = queue.Queue()
+        self.text_buffer = ""
+        self.sentence_end_chars = {'.', '。', '!', '！', '?', '？', '\n', "~", "；", ";", ":", "：", " ", "，", ","}
+
         # 创建Opus编码器
         self.opus_encoder = opus_encoder_utils.OpusEncoderUtils(
             sample_rate=16000, channels=1, frame_size_ms=60
@@ -176,6 +181,7 @@ class TTSProvider(TTSProviderBase):
                 logger.bind(tag=TAG).warning("Token已过期，正在自动刷新...")
                 self._refresh_token()
             if self.ws:
+                # 10秒内才可以复用,适合连续对话
                 logger.bind(tag=TAG).info(f"使用已有链接...")
                 return self.ws
             logger.bind(tag=TAG).info("开始建立新连接...")
@@ -239,6 +245,10 @@ class TTSProvider(TTSProviderBase):
                             logger.bind(tag=TAG).debug(
                                 f"开始发送TTS文本: {message.content_detail}"
                             )
+                            self.text_buffer += message.content_detail
+                            if message.content_detail in self.sentence_end_chars and len(self.text_buffer) > 6:
+                                self.sentence_queue.put(self.text_buffer)
+                                self.text_buffer = ""
                             future = asyncio.run_coroutine_threadsafe(
                                 self.text_to_speak(message.content_detail, None),
                                 loop=self.conn.loop,
@@ -263,6 +273,8 @@ class TTSProvider(TTSProviderBase):
                 if message.sentence_type == SentenceType.LAST:
                     try:
                         logger.bind(tag=TAG).info("开始结束TTS会话...")
+                        self.sentence_queue.put(self.text_buffer)
+                        print(list(self.sentence_queue.queue))
                         future = asyncio.run_coroutine_threadsafe(
                             self.finish_session(self.conn.sentence_id),
                             loop=self.conn.loop,
@@ -315,9 +327,9 @@ class TTSProvider(TTSProviderBase):
         try:
             # 会话开始时检测上个会话的监听状态
             if(
-                    self._monitor_task is not None
-                    and isinstance(self._monitor_task, Task)
-                    and not self._monitor_task.done()
+                self._monitor_task is not None
+                and isinstance(self._monitor_task, Task)
+                and not self._monitor_task.done()
             ):
                 logger.bind(tag=TAG).info("检测到未完成的上个会话，关闭监听任务和连接...")
                 await self.close()
@@ -343,6 +355,7 @@ class TTSProvider(TTSProviderBase):
                     "volume": self.volume,
                     "speech_rate": self.speech_rate,
                     "pitch_rate": self.pitch_rate,
+                    "enable_subtitle": True
                 }
             }
             await self.ws.send(json.dumps(start_request))
@@ -405,9 +418,9 @@ class TTSProvider(TTSProviderBase):
     async def _start_monitor_tts_response(self):
         """监听TTS响应"""
         opus_datas_cache = []
-        current_sentence_buffer = bytearray()
-        segment_count = 0
-        current_sentence_parts = []
+        is_first_sentence = True
+        first_sentence_segment_count = 0  # 添加计数器
+        text_buff = ""
         try:
             session_finished = False  # 标记会话是否正常结束
             while not self.conn.stop_event.is_set():
@@ -422,91 +435,51 @@ class TTSProvider(TTSProviderBase):
                             data = json.loads(msg)
                             header = data.get("header", {})
                             event_name = header.get("name")
-
                             if event_name == "SynthesisStarted":
                                 logger.bind(tag=TAG).debug("TTS合成已启动")
-
                             elif event_name == "SentenceBegin":
-                                logger.bind(tag=TAG).debug(f"句子语音生成开始")
-                                current_sentence_buffer = bytearray()
-                                segment_count = 0
-                                self.tts_audio_queue.put(
-                                    (SentenceType.FIRST, [], "")
-                                )
-
-                            elif event_name == "SentenceSynthesis":
-                                payload = data.get("payload", {})
-                                subtitles = payload.get("subtitles", [])
-
-                                # 收集所有字幕片段
-                                for sub in subtitles:
-                                    text = sub.get("text", "")
-                                    if text:
-                                        current_sentence_parts.append(text)
-
+                                try:
+                                    text_buff = self.sentence_queue.get_nowait()
+                                except queue.Empty:
+                                    text_buff = ""
+                                logger.bind(tag=TAG).debug(f"句子语音生成开始: {text_buff}")
+                                opus_datas_cache = []
+                                self.tts_audio_queue.put((SentenceType.FIRST, [], text_buff))
                             elif event_name == "SentenceEnd":
-                                logger.bind(tag=TAG).info(f"句子语音生成成功: {''.join(current_sentence_parts)}")
-
-                                if current_sentence_buffer:
-                                    opus_datas = self.opus_encoder.encode_pcm_to_opus(
-                                        bytes(current_sentence_buffer), end_of_stream=True
-                                    )
-                                    if opus_datas:
-                                        if segment_count < 10:
-                                            self.tts_audio_queue.put(
-                                                (SentenceType.MIDDLE, opus_datas, None)
-                                            )
-                                        else:
-                                            opus_datas_cache.extend(opus_datas)
-
-                                if segment_count >= 10 and opus_datas_cache:
+                                logger.bind(tag=TAG).info(f"句子语音生成成功： {text_buff}")
+                                text_buff = ""
+                                if not is_first_sentence or first_sentence_segment_count > 10:
+                                    # 发送缓存的数据
                                     self.tts_audio_queue.put(
                                         (SentenceType.MIDDLE, opus_datas_cache, None)
                                     )
-                                opus_datas_cache = []
-                                current_sentence_buffer = bytearray()
-
+                                # 第一句话结束后，将标志设置为False
+                                is_first_sentence = False
                             elif event_name == "SynthesisCompleted":
-                                logger.bind(tag=TAG).debug("会话结束")
+                                logger.bind(tag=TAG).debug(f"会话结束～～")
                                 self._process_before_stop_play_files()
                                 session_finished = True
                                 break
-
                         except json.JSONDecodeError:
                             logger.bind(tag=TAG).warning("收到无效的JSON消息")
-
                     # 二进制消息（音频数据）
-                    elif isinstance(msg, bytes):
-                        # 将音频数据添加到当前句子的缓冲区
-                        current_sentence_buffer.extend(msg)
-
-                        # 计算每帧的字节数（60ms）
-                        frame_bytes = int(
-                            self.opus_encoder.sample_rate
-                            * self.opus_encoder.channels
-                            * self.opus_encoder.frame_size_ms
-                            / 1000
-                            * 2  # 16-bit = 2 bytes
+                    elif isinstance(msg, (bytes, bytearray)):
+                        logger.bind(tag=TAG).debug(f"推送数据到队列里面～～")
+                        opus_datas = self.opus_encoder.encode_pcm_to_opus(msg, False)
+                        logger.bind(tag=TAG).debug(
+                            f"推送数据到队列里面帧数～～{len(opus_datas)}"
                         )
-
-                        # 处理完整的音频帧
-                        while len(current_sentence_buffer) >= frame_bytes:
-                            # 取出一帧数据
-                            frame = bytes(current_sentence_buffer[:frame_bytes])
-                            del current_sentence_buffer[:frame_bytes]
-
-                            # 编码为Opus
-                            opus_packets = self.opus_encoder.encode_pcm_to_opus(frame, False)
-
-                            if opus_packets:
-                                # 前10个片段直接发送，后续片段缓存
-                                if segment_count < 10:
-                                    self.tts_audio_queue.put(
-                                        (SentenceType.MIDDLE, opus_packets, None)
-                                    )
-                                    segment_count += 1
-                                else:
-                                    opus_datas_cache.extend(opus_packets)
+                        if is_first_sentence:
+                            first_sentence_segment_count += 1
+                            if first_sentence_segment_count <= 6:
+                                self.tts_audio_queue.put(
+                                    (SentenceType.MIDDLE, opus_datas, None)
+                                )
+                            else:
+                                opus_datas_cache = opus_datas_cache + opus_datas
+                        else:
+                            # 后续句子缓存
+                            opus_datas_cache = opus_datas_cache + opus_datas
 
                 except websockets.ConnectionClosed:
                     logger.bind(tag=TAG).warning("WebSocket连接已关闭")
