@@ -469,7 +469,7 @@ class TTSProvider(TTSProviderBase):
                 except:
                     pass
                 self.ws = None
-            # 监听任务退出时清理引用
+        # 监听任务退出时清理引用
         finally:
             self._monitor_task = None
 
