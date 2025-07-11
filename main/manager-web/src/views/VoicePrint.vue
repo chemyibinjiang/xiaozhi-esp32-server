@@ -3,7 +3,7 @@
         <HeaderBar />
 
         <div class="operation-bar">
-            <h2 class="page-title">声纹设别</h2>
+            <h2 class="page-title">声纹识别</h2>
         </div>
 
         <div class="main-wrapper">
@@ -19,7 +19,8 @@
                             <el-table-column label="操作" align="center">
                                 <template slot-scope="scope">
                                     <el-button size="mini" type="text" @click="editVoicePrint(scope.row)">编辑</el-button>
-                                    <el-button size="mini" type="text" @click="deleteVoicePrint(scope.row.id)">删除</el-button>
+                                    <el-button size="mini" type="text"
+                                        @click="deleteVoicePrint(scope.row.id)">删除</el-button>
                                 </template>
                             </el-table-column>
                         </el-table>
@@ -46,8 +47,8 @@
 <script>
 import Api from "@/apis/api";
 import HeaderBar from "@/components/HeaderBar.vue";
-import VoicePrintDialog from "@/components/VoicePrintDialog.vue";
 import VersionFooter from "@/components/VersionFooter.vue";
+import VoicePrintDialog from "@/components/VoicePrintDialog.vue";
 export default {
     components: { HeaderBar, VoicePrintDialog, VersionFooter },
     data() {
