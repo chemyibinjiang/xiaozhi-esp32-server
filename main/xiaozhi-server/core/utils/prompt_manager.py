@@ -7,6 +7,7 @@ import os
 import cnlunar
 from typing import Dict, Any
 from config.logger import setup_logging
+from jinja2 import Template
 
 TAG = __name__
 
@@ -196,7 +197,8 @@ class PromptManager:
                     )
 
             # 替换模板变量
-            enhanced_prompt = self.base_prompt_template.format(
+            template = Template(self.base_prompt_template)
+            enhanced_prompt = template.render(
                 base_prompt=user_prompt,
                 current_time=current_time,
                 today_date=today_date,

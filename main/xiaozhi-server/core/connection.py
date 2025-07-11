@@ -645,37 +645,8 @@ class ConnectionHandler:
         self.logger.bind(tag=TAG).info(f"大模型收到用户消息: {query}")
         self.llm_finish_task = False
 
-        # 检查是否是JSON格式的消息（包含说话人信息）
-        enhanced_query = query
-        try:
-            if query.strip().startswith("{") and query.strip().endswith("}"):
-                data = json.loads(query)
-                if "speaker" in data and "content" in data:
-                    # 直接使用JSON格式，不重新格式化
-                    enhanced_query = query
-                    self.logger.bind(tag=TAG).info(f"识别到说话人: {data['speaker']}")
-                else:
-                    # 如果有说话人信息但不是JSON格式，按原逻辑处理
-                    if hasattr(self, "current_speaker") and self.current_speaker:
-                        enhanced_query = f"[说话人: {self.current_speaker}] {query}"
-                        self.logger.bind(tag=TAG).info(
-                            f"识别到说话人: {self.current_speaker}"
-                        )
-            else:
-                # 如果有说话人信息但不是JSON格式，按原逻辑处理
-                if hasattr(self, "current_speaker") and self.current_speaker:
-                    enhanced_query = f"[说话人: {self.current_speaker}] {query}"
-                    self.logger.bind(tag=TAG).info(
-                        f"识别到说话人: {self.current_speaker}"
-                    )
-        except json.JSONDecodeError:
-            # JSON解析失败，按原逻辑处理
-            if hasattr(self, "current_speaker") and self.current_speaker:
-                enhanced_query = f"[说话人: {self.current_speaker}] {query}"
-                self.logger.bind(tag=TAG).info(f"识别到说话人: {self.current_speaker}")
-
         if not tool_call:
-            self.dialogue.put(Message(role="user", content=enhanced_query))
+            self.dialogue.put(Message(role="user", content=query))
 
         # Define intent functions
         functions = None
@@ -688,7 +659,7 @@ class ConnectionHandler:
             memory_str = None
             if self.memory is not None:
                 future = asyncio.run_coroutine_threadsafe(
-                    self.memory.query_memory(enhanced_query), self.loop
+                    self.memory.query_memory(query), self.loop
                 )
                 memory_str = future.result()
 
@@ -698,13 +669,17 @@ class ConnectionHandler:
                 # 使用支持functions的streaming接口
                 llm_responses = self.llm.response_with_functions(
                     self.session_id,
-                    self.dialogue.get_llm_dialogue_with_memory(memory_str),
+                    self.dialogue.get_llm_dialogue_with_memory(
+                        memory_str, self.config.get("voiceprint", {})
+                    ),
                     functions=functions,
                 )
             else:
                 llm_responses = self.llm.response(
                     self.session_id,
-                    self.dialogue.get_llm_dialogue_with_memory(memory_str),
+                    self.dialogue.get_llm_dialogue_with_memory(
+                        memory_str, self.config.get("voiceprint", {})
+                    ),
                 )
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"LLM 处理出错 {query}: {e}")
