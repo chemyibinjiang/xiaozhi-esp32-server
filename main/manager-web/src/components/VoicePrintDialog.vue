@@ -29,8 +29,8 @@
         </el-form-item>
 
         <el-form-item label="描述" prop="introduce" class="form-item remark-item">
-          <el-input type="textarea" v-model="form.introduce" placeholder="请输入描述" :rows="3"
-            class="custom-textarea"></el-input>
+          <el-input type="textarea" v-model="form.introduce" placeholder="请输入描述" :rows="3" class="custom-textarea"
+            maxlength="100" show-word-limit></el-input>
         </el-form-item>
       </el-form>
 
