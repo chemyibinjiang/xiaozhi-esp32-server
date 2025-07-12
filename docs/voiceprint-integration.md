@@ -17,7 +17,57 @@
 
 ## 第二步， 创建数据库和表
 
-如果你之前已经部署智控台，说明你已经安装了mysql，那么需要在原来的mysql上创建一个名字为`voiceprint_db`的数据库和`voiceprints`表。
+声纹识别需要依赖`mysql`数据库。如果你之前已经部署`智控台`，说明你已经安装了`mysql`。你可以共用它。
+
+你可以你试一下在宿主机使用`telnet`命令，看看能不能正常访问`mysql`的`3306`端口。
+```
+telnet 127.0.0.1 3306
+```
+如果能访问到3306端口，请忽略以下的内容，直接进入第三步。
+
+如果不能访问，你需要回忆一下，你的`mysql`是怎么安装的。
+
+如果你的mysql是通过自己使用安装包安装的，说明你的`mysql`做了网络隔离。你可能先解访问`mysql`的`3306`端口这个问题。
+
+如果你`mysql`是通过本项目的`docker-compose_all.yml`安装的。你需要找一下你当时创建数据库的`docker-compose_all.yml`文件，修改以下的内容
+
+修改前
+```
+  xiaozhi-esp32-server-db:
+    ...
+    networks:
+      - default
+    expose:
+      - "3306:3306"
+```
+
+修改后
+```
+  xiaozhi-esp32-server-db:
+    ...
+    networks:
+      - default
+    ports:
+      - "3306:3306"
+```
+
+注意是将`xiaozhi-esp32-server-db`下面的`expose`改成`ports`。改完后，需要重新启动。以下是重启mysql的命令：
+
+```
+# 进入你docker-compose_all.yml所在的文件夹，例如我的是xiaozhi-server
+cd xiaozhi-server
+docker compose -f docker-compose_all.yml down
+docker compose -f docker-compose.yml up -d
+```
+
+启动完后，在宿主机再使用`telnet`命令，看看能不能正常访问`mysql`的`3306`端口。
+```
+telnet 127.0.0.1 3306
+```
+正常来说这样就可以访问的了。
+
+## 第三步， 创建数据库和表
+如果你的宿主机，能正常访问mysql数据库，那就在mysql上创建一个名字为`voiceprint_db`的数据库和`voiceprints`表。
 
 ```
 CREATE DATABASE voiceprint_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -34,7 +84,7 @@ CREATE TABLE voiceprints (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
-## 第三步， 配置数据库连接
+## 第四步， 配置数据库连接
 
 进入`voiceprint-api`文件夹，创建名字为`data`的文件夹。
 
@@ -51,13 +101,13 @@ mysql:
   database: "voiceprint_db"
 ```
 
-注意！由于你是docker部署，`host`需要填写成你`mysql所在机器的局域网ip`。
+注意！由于你的声纹识别服务是使用docker部署，`host`需要填写成你`mysql所在机器的局域网ip`。
 
-注意！由于你是docker部署，`host`需要填写成你`mysql所在机器的局域网ip`。
+注意！由于你的声纹识别服务是使用docker部署，`host`需要填写成你`mysql所在机器的局域网ip`。
 
-注意！由于你是docker部署，`host`需要填写成你`mysql所在机器的局域网ip`。
+注意！由于你的声纹识别服务是使用docker部署，`host`需要填写成你`mysql所在机器的局域网ip`。
 
-## 第四步，启动程序
+## 第五步，启动程序
 这个项目是一个很简单的项目，建议使用docker运行。不过如果你不想使用docker运行，你可以参考[这个页面](https://github.com/xinnan-tech/voiceprint-api/blob/main/README.md)使用源码运行。以下是docker运行的方法
 
 ```
