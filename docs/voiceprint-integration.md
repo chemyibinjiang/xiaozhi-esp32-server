@@ -15,7 +15,49 @@
 点击它，下载本项目源码压缩包。下载到你电脑后，解压它，此时它的名字可能叫`voiceprint-api-main`
 你需要把它重命名成`voiceprint-api`。
 
-## 第二步，启动程序
+## 第二步， 创建数据库和表
+
+如果你之前已经部署智控台，说明你已经安装了mysql，那么需要在原来的mysql上创建一个名字为`voiceprint_db`的数据库和`voiceprints`表。
+
+```
+CREATE DATABASE voiceprint_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+USE voiceprint_db;
+
+CREATE TABLE voiceprints (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    speaker_id VARCHAR(255) NOT NULL UNIQUE,
+    feature_vector LONGBLOB NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_speaker_id (speaker_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+## 第三步， 配置数据库连接
+
+进入`voiceprint-api`文件夹，创建名字为`data`的文件夹。
+
+把`voiceprint-api`根目录里的`voiceprint.yaml`，复制到`data`的文件夹，将它重命名为`.voiceprint.yaml`
+
+接下来，你需要重点配置一下`.voiceprint.yaml`里的数据库连接。
+
+```
+mysql:
+  host: "127.0.0.1"
+  port: 3306
+  user: "root"
+  password: "your_password"
+  database: "voiceprint_db"
+```
+
+注意！由于你是docker部署，`host`需要填写成你`mysql所在机器的局域网ip`。
+
+注意！由于你是docker部署，`host`需要填写成你`mysql所在机器的局域网ip`。
+
+注意！由于你是docker部署，`host`需要填写成你`mysql所在机器的局域网ip`。
+
+## 第四步，启动程序
 这个项目是一个很简单的项目，建议使用docker运行。不过如果你不想使用docker运行，你可以参考[这个页面](https://github.com/xinnan-tech/voiceprint-api/blob/main/README.md)使用源码运行。以下是docker运行的方法
 
 ```
