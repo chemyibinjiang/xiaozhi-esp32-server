@@ -125,8 +125,7 @@ class TTSProvider(TTSProviderBase):
         self.last_active_time = None
 
         # 文本符号
-        self.sentence_queue = None
-        self.sentence_end_chars = {'.', '。', '!', '！', '?', '？', '\n', "~", "；", ";", ":", "：", " ", "，", ","}
+        self.sentence_end_chars = {'。', '!', '！', '?', '？', '\n', "~"}
 
         # 创建Opus编码器
         self.opus_encoder = opus_encoder_utils.OpusEncoderUtils(
@@ -228,7 +227,6 @@ class TTSProvider(TTSProviderBase):
 
                         # aliyunStream独有的参数生成
                         self.conn.message_id = str(uuid.uuid4().hex)
-                        self.sentence_queue = queue.Queue()
                         self.text_buffer = ""
 
                         logger.bind(tag=TAG).info("开始启动TTS会话...")
@@ -251,9 +249,6 @@ class TTSProvider(TTSProviderBase):
                                 f"开始发送TTS文本: {message.content_detail}"
                             )
                             self.text_buffer += message.content_detail
-                            if message.content_detail in self.sentence_end_chars and len(self.text_buffer) > 6:
-                                self.sentence_queue.put(textUtils.get_string_no_punctuation_or_emoji(self.text_buffer))
-                                self.text_buffer = ""
                             future = asyncio.run_coroutine_threadsafe(
                                 self.text_to_speak(message.content_detail, None),
                                 loop=self.conn.loop,
@@ -278,7 +273,6 @@ class TTSProvider(TTSProviderBase):
                 if message.sentence_type == SentenceType.LAST:
                     try:
                         logger.bind(tag=TAG).info("开始结束TTS会话...")
-                        self.sentence_queue.put(textUtils.get_string_no_punctuation_or_emoji(self.text_buffer))
                         future = asyncio.run_coroutine_threadsafe(
                             self.finish_session(self.conn.sentence_id),
                             loop=self.conn.loop,
@@ -447,10 +441,7 @@ class TTSProvider(TTSProviderBase):
                             if event_name == "SynthesisStarted":
                                 logger.bind(tag=TAG).debug("TTS合成已启动")
                             elif event_name == "SentenceBegin":
-                                try:
-                                    text_buff = self.sentence_queue.get_nowait()
-                                except queue.Empty:
-                                    text_buff = ""
+                                text_buff = self._extract_sentence()
                                 logger.bind(tag=TAG).debug(f"句子语音生成开始: {text_buff}")
                                 opus_datas_cache = []
                                 self.tts_audio_queue.put((SentenceType.FIRST, [], text_buff))
@@ -509,6 +500,17 @@ class TTSProvider(TTSProviderBase):
         # 监听任务退出时清理引用
         finally:
             self._monitor_task = None
+
+    def _extract_sentence(self):
+        """从text_buffer中提取第一个满足分句规则的句子"""
+        if len(self.text_buffer) <= 6:
+            return textUtils.get_string_no_punctuation_or_emoji(self.text_buffer)
+        for idx, char in enumerate(self.text_buffer):
+            if char in self.sentence_end_chars and idx > 6:
+                sentence = self.text_buffer[:idx + 1]
+                self.text_buffer = self.text_buffer[idx + 1:]
+                return textUtils.get_string_no_punctuation_or_emoji(sentence)
+        return None
 
     def to_tts(self, text: str) -> list:
         """非流式TTS处理，用于测试及保存音频文件的场景"""
