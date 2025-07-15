@@ -3,7 +3,7 @@
 <h1 align="center">小智后端服务xiaozhi-esp32-server</h1>
 
 <p align="center">
-本项目为开源智能硬件项目
+本项目基于人机共生智能理论和技术研发智能终端软硬件体系<br/>为开源智能硬件项目
 <a href="https://github.com/78/xiaozhi-esp32">xiaozhi-esp32</a>提供后端服务<br/>
 根据<a href="https://ccnphfhqs21z.feishu.cn/wiki/M0XiwldO9iJwHikpXD5cEx71nKh">小智通信协议</a>使用Python、Java、Vue实现<br/>
 支持MCP接入点和声纹识别
@@ -35,6 +35,14 @@
   <a href="https://github.com/xinnan-tech/xiaozhi-esp32-server">
     <img alt="stars" src="https://img.shields.io/github/stars/xinnan-tech/xiaozhi-esp32-server?color=ffcb47&labelColor=black" />
   </a>
+</p>
+
+<p align="center">
+By Professor Siyuan Liu Research and Development Group ( South China University of Technology)
+</br>
+刘思源教授团队研发（华南理工大学）
+</br>
+<img src="./docs/images/hnlg.jpg" alt="华南理工大学" width="50%">
 </p>
 
 ---
