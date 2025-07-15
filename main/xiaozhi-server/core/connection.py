@@ -348,6 +348,14 @@ class ConnectionHandler:
                 self.vad = self._vad
             if self.asr is None:
                 self.asr = self._initialize_asr()
+            try:
+                success = initialize_voiceprint(self.asr, self.config)
+                if success:
+                    self.logger.bind(tag=TAG).info("声纹识别功能已在连接时动态启用")
+                else:
+                    self.logger.bind(tag=TAG).info("声纹识别功能未启用或配置不完整")
+            except Exception as e:
+                self.logger.bind(tag=TAG).warning(f"声纹识别初始化失败: {str(e)}")
             # 打开语音识别通道
             asyncio.run_coroutine_threadsafe(
                 self.asr.open_audio_channels(self), self.loop
@@ -415,16 +423,6 @@ class ConnectionHandler:
             # 如果公共ASR是远程服务，则初始化一个新实例
             # 因为远程ASR，涉及到websocket连接和接收线程，需要每个连接一个实例
             asr = initialize_asr(self.config)
-
-        # 动态初始化声纹识别功能
-        try:
-            success = initialize_voiceprint(asr, self.config)
-            if success:
-                self.logger.bind(tag=TAG).info("声纹识别功能已在连接时动态启用")
-            else:
-                self.logger.bind(tag=TAG).info("声纹识别功能未启用或配置不完整")
-        except Exception as e:
-            self.logger.bind(tag=TAG).error(f"动态初始化声纹识别时发生错误: {str(e)}")
 
         return asr
 
