@@ -128,7 +128,6 @@ class ConnectionHandler:
 
         # tts相关变量
         self.sentence_id = None
-        self.message_id = None
 
         # iot相关变量
         self.iot_descriptors = {}
