@@ -24,7 +24,6 @@ from core.utils.modules_initialize import (
     initialize_asr,
 )
 from core.handle.reportHandle import report
-from core.utils.modules_initialize import initialize_voiceprint
 from core.providers.tts.default import DefaultTTS
 from concurrent.futures import ThreadPoolExecutor
 from core.utils.dialogue import Message, Dialogue
@@ -39,6 +38,7 @@ from core.providers.tts.dto.dto import ContentType, TTSMessageDTO, SentenceType
 from config.logger import setup_logging, build_module_string, create_connection_logger
 from config.manage_api_client import DeviceNotFoundException, DeviceBindException
 from core.utils.prompt_manager import PromptManager
+from core.utils.voiceprint_provider import VoiceprintProvider
 
 
 TAG = __name__
@@ -108,6 +108,9 @@ class ConnectionHandler:
         self.llm = _llm
         self.memory = _memory
         self.intent = _intent
+
+        # 为每个连接单独管理声纹识别
+        self.voiceprint_provider = None
 
         # vad相关变量
         self.client_audio_buffer = bytearray()
@@ -348,14 +351,10 @@ class ConnectionHandler:
                 self.vad = self._vad
             if self.asr is None:
                 self.asr = self._initialize_asr()
-            try:
-                success = initialize_voiceprint(self.asr, self.config)
-                if success:
-                    self.logger.bind(tag=TAG).info("声纹识别功能已在连接时动态启用")
-                else:
-                    self.logger.bind(tag=TAG).info("声纹识别功能未启用或配置不完整")
-            except Exception as e:
-                self.logger.bind(tag=TAG).warning(f"声纹识别初始化失败: {str(e)}")
+            
+            # 初始化声纹识别
+            self._initialize_voiceprint()
+            
             # 打开语音识别通道
             asyncio.run_coroutine_threadsafe(
                 self.asr.open_audio_channels(self), self.loop
@@ -425,6 +424,18 @@ class ConnectionHandler:
             asr = initialize_asr(self.config)
 
         return asr
+
+    def _initialize_voiceprint(self):
+        """为当前连接初始化声纹识别"""
+        try:
+            voiceprint_config = self.config.get("voiceprint", {})
+            if voiceprint_config:
+                self.voiceprint_provider = VoiceprintProvider(voiceprint_config)
+                self.logger.bind(tag=TAG).info("声纹识别功能已在连接时动态启用")
+            else:
+                self.logger.bind(tag=TAG).info("声纹识别功能未启用或配置不完整")
+        except Exception as e:
+            self.logger.bind(tag=TAG).warning(f"声纹识别初始化失败: {str(e)}")
 
     def _initialize_private_config(self):
         """如果是从配置文件获取，则进行二次实例化"""
