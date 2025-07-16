@@ -24,7 +24,7 @@ logger = setup_logging()
 
 class ASRProviderBase(ABC):
     def __init__(self):
-        pass  # 将声纹识别从ASR实例分离，移到连接级别管理
+        pass
 
     # 打开音频通道
     async def open_audio_channels(self, conn):
@@ -96,7 +96,6 @@ class ASRProviderBase(ABC):
             def run_asr():
                 start_time = time.monotonic()
                 try:
-                    import asyncio
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     try:
@@ -117,9 +116,7 @@ class ASRProviderBase(ABC):
             def run_voiceprint():
                 if not wav_data:
                     return None
-                start_time = time.monotonic()
                 try:
-                    import asyncio
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     try:
@@ -152,7 +149,6 @@ class ASRProviderBase(ABC):
                     asr_result = asr_future.result(timeout=15)
                     results = {"asr": asr_result, "voiceprint": None}
             
-            parallel_execution_time = time.monotonic() - parallel_start_time
             
             # 处理结果
             raw_text, file_path = results.get("asr", ("", None))
