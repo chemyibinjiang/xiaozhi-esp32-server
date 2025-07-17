@@ -109,7 +109,7 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
                 cancelVoicePrint(voicePrintId);
                 return true;
             } catch (RuntimeException e) {
-                log.error("删除声纹存在运行时错误原因：{}", e.getMessage());
+                log.error("删除声纹存在运行时错误原因：{}，id：{}", e.getMessage(),voicePrintId);
                 return true;
             }catch (Exception e) {
                 status.setRollbackOnly(); // 标记事务回滚
