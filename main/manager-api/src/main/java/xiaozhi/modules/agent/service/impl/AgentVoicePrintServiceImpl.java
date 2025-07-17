@@ -108,13 +108,13 @@ public class AgentVoicePrintServiceImpl extends ServiceImpl<AgentVoicePrintDao, 
                 }
                 cancelVoicePrint(voicePrintId);
                 return true;
-            } catch (RenException e) {
+            } catch (RuntimeException e) {
+                log.error("删除声纹存在运行时错误原因：{}", e.getMessage());
+                return true;
+            }catch (Exception e) {
                 status.setRollbackOnly(); // 标记事务回滚
-                throw e;
-            } catch (Exception e) {
-                status.setRollbackOnly(); // 标记事务回滚
-                log.error("删除声纹错误原因：{}", e.getMessage());
-                throw new RenException("删除声纹错误，请联系管理员");
+                log.error("删除声纹存在错误原因：{}", e.getMessage());
+                throw new RenException("删除声纹出现了错误");
             }
         }));
     }
