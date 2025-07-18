@@ -355,7 +355,33 @@ ASR:
     # 语言参数，1537为普通话，具体参考：https://ai.baidu.com/ai-doc/SPEECH/0lbxfnc9b
     dev_pid: 1537
     output_dir: tmp/
+  OpenaiASR:
+    # OpenAI语音识别服务，需要先在OpenAI平台创建组织并获取api_key
+    # 支持中、英、日、韩等多种语音识别，具体参考文档https://platform.openai.com/docs/guides/speech-to-text
+    # 需要网络连接
+    # 申请步骤：
+    # 1.登录OpenAI Platform。https://auth.openai.com/log-in
+    # 2.创建api-key  https://platform.openai.com/settings/organization/api-keys
+    # 3.模型可以选择gpt-4o-transcribe或GPT-4o mini Transcribe
+    type: openai
+    api_key: 你的OpenAI API密钥
+    base_url: https://api.openai.com/v1/audio/transcriptions
+    model_name: gpt-4o-mini-transcribe
+    output_dir: tmp/
+  GroqASR:
+    # Groq语音识别服务，需要先在Groq Console创建API密钥
+    # 申请步骤：
+    # 1.登录groq Console。https://console.groq.com/home
+    # 2.创建api-key  https://console.groq.com/keys
+    # 3.模型可以选择whisper-large-v3-turbo或whisper-large-v3（distil-whisper-large-v3-en仅支持英语转录）
+    type: openai
+    api_key: 你的Groq API密钥
+    base_url: https://api.groq.com/openai/v1/audio/transcriptions
+    model_name: whisper-large-v3-turbo
+    output_dir: tmp/
 
+
+  
 VAD:
   SileroVAD:
     type: silero
