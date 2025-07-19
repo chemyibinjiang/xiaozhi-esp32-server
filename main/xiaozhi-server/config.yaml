@@ -730,8 +730,6 @@ TTS:
     # volume: 50
     # speech_rate: 0
     # pitch_rate: 0
-    # 添加 302.ai TTS 配置
-    # token申请地址：https://dash.302.ai/
   AliyunStreamTTS:
     # 阿里云CosyVoice大模型流式文本语音合成
     # 采用FlowingSpeechSynthesizer接口，支持更低延迟和更自然的语音质量
@@ -770,6 +768,8 @@ TTS:
 
   TTS302AI:
     # 302AI语音合成服务，需要先在302平台创建账户充值，并获取密钥信息
+    # 添加 302.ai TTS 配置
+    # token申请地址：https://dash.302.ai/
     # 获取api_keyn路径：https://dash.302.ai/apis/list
     # 价格，$35/百万字符。火山原版¥450元/百万字符
     type: doubao
