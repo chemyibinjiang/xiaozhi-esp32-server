@@ -50,6 +50,7 @@ class TTSProviderBase(ABC):
             "；",
             ";",
             "：",
+            "~",
         )
         self.first_sentence_punctuations = (
             "，",
@@ -332,7 +333,6 @@ class TTSProviderBase(ABC):
         Returns:
             tuple: (sentence_type, audio_datas, content_detail)
         """
-        audio_datas = []
         if tts_file.endswith(".p3"):
             audio_datas, _ = p3.decode_opus_from_file(tts_file)
         elif self.conn.audio_format == "pcm":
