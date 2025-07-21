@@ -746,8 +746,8 @@ TTS:
     voice: longxiaochun 
     access_key_id: 你的阿里云账号access_key_id
     access_key_secret: 你的阿里云账号access_key_secret
-    # 服务器地域选择，可选择距离更近的服务器以减少延迟，如nls-gateway-cn-hangzhou.aliyuncs.com(杭州)等
-    host: nls-gateway-cn-shanghai.aliyuncs.com
+    # 截至2025年7月21日大模型音色只有北京节点采用，其他节点暂不支持
+    host: nls-gateway-cn-beijing.aliyuncs.com
     # 以下可不用设置，使用默认设置
     # format: pcm  # 音频格式：pcm、wav、mp3
     # sample_rate: 16000  # 采样率：8000、16000、24000
