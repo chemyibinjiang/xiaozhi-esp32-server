@@ -132,6 +132,8 @@ class ConnectionHandler:
 
         # tts相关变量
         self.sentence_id = None
+        # 处理TTS响应没有文本返回
+        self.tts_MessageText = ""
 
         # iot相关变量
         self.iot_descriptors = {}
@@ -785,8 +787,10 @@ class ConnectionHandler:
             if not bHasError:
                 # 如需要大模型先处理一轮，添加相关处理后的日志情况
                 if len(response_message) > 0:
+                    text_buff = "".join(response_message)
+                    self.tts_MessageText = text_buff
                     self.dialogue.put(
-                        Message(role="assistant", content="".join(response_message))
+                        Message(role="assistant", content=text_buff)
                     )
                 response_message.clear()
                 self.logger.bind(tag=TAG).debug(
@@ -809,8 +813,10 @@ class ConnectionHandler:
 
         # 存储对话内容
         if len(response_message) > 0:
+            text_buff = "".join(response_message)
+            self.tts_MessageText = text_buff
             self.dialogue.put(
-                Message(role="assistant", content="".join(response_message))
+                Message(role="assistant", content=text_buff)
             )
         if depth == 0:
             self.tts.tts_text_queue.put(
