@@ -746,7 +746,7 @@ class ConnectionHandler:
                 content = response
 
             # 在llm回复中获取情绪表情，一轮对话只在开头获取一次
-            if emotion_flag:
+            if emotion_flag and content.strip():
                 asyncio.run_coroutine_threadsafe(
                     textUtils.get_emotion(self, content),
                     self.loop,
