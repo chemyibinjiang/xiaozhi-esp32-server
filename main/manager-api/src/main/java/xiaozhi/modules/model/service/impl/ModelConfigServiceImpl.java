@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
@@ -109,6 +110,19 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
         List<ModelProviderDTO> providerList = modelProviderService.getList(modelType, provideCode);
         if (CollectionUtil.isEmpty(providerList)) {
             throw new RenException("供应器不存在");
+        }
+        if(modelConfigBodyDTO.getConfigJson().containsKey("llm")){
+            String llm = modelConfigBodyDTO.getConfigJson().get("llm").toString();
+            ModelConfigEntity modelConfigEntity = modelConfigDao.selectOne(new LambdaQueryWrapper<ModelConfigEntity>()
+                    .eq(ModelConfigEntity::getId, llm));
+            if(modelConfigEntity == null){
+                throw new RenException("设置的LLM不存在");
+            }
+            String type = modelConfigEntity.getConfigJson().get("type").toString();
+            // 如果查询大语言模型是openai或者ollama，意图识别选参数都可以
+            if(!"openai".equals(type) &&  !"ollama".equals(type)){
+                throw new RenException("设置的LLM不是openai和ollama");
+            }
         }
 
         // 再更新供应器提供的模型
