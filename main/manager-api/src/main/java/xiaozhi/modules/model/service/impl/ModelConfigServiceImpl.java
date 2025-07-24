@@ -167,6 +167,8 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
                         .or()
                         .eq("mem_model_id", modelId)
                         .or()
+                        .eq("vllm_model_id", modelId)
+                        .or()
                         .eq("intent_model_id", modelId));
         if (!agents.isEmpty()) {
             String agentNames = agents.stream()
