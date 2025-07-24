@@ -89,7 +89,7 @@
                       <div class="model-select-wrapper">
                         <el-select v-model="form.model[model.key]" filterable placeholder="请选择" class="form-select"
                           @change="handleModelChange(model.type, $event)">
-                          <el-option v-for="(item, optionIndex) in modelOptions[model.type]"
+                          <el-option v-for="(item, optionIndex) in modelOptions[model.type]" v-if="!item.isHidden"
                             :key="`option-${index}-${optionIndex}`" :label="item.label" :value="item.value" />
                         </el-select>
                         <div v-if="showFunctionIcons(model.type)" class="function-icons">
@@ -130,7 +130,6 @@
         </div>
       </div>
     </div>
-
     <function-dialog v-model="showFunctionDialog" :functions="currentFunctions" :all-functions="allFunctions"
       :agent-id="$route.query.agentId" @update-functions="handleUpdateFunctions" @dialog-closed="handleDialogClosed" />
   </div>
@@ -173,8 +172,9 @@ export default {
         { label: '视觉大模型(VLLM)', key: 'vllmModelId', type: 'VLLM' },
         { label: '意图识别(Intent)', key: 'intentModelId', type: 'Intent' },
         { label: '记忆(Memory)', key: 'memModelId', type: 'Memory' },
-        { label: '语音合成(TTS)', key: 'ttsModelId', type: 'TTS' },
+        { label: '语音合成(TTS)', key: 'ttsModelId', type: 'TTS' }
       ],
+      llmModeTypeMap: new Map(),
       modelOptions: {},
       templates: [],
       loadingTemplate: false,
@@ -364,16 +364,36 @@ export default {
     },
     fetchModelOptions() {
       this.models.forEach(model => {
-        Api.model.getModelNames(model.type, '', ({ data }) => {
-          if (data.code === 0) {
-            this.$set(this.modelOptions, model.type, data.data.map(item => ({
-              value: item.id,
-              label: item.modelName
-            })));
-          } else {
-            this.$message.error(data.msg || '获取模型列表失败');
-          }
-        });
+        if (model.type != "LLM") {
+          Api.model.getModelNames(model.type, '', ({ data }) => {
+            if (data.code === 0) {
+              this.$set(this.modelOptions, model.type, data.data.map(item => ({
+                value: item.id,
+                label: item.modelName,
+                isHidden: false
+              })));
+            } else {
+              this.$message.error(data.msg || '获取模型列表失败');
+            }
+          });
+        } else {
+          Api.model.getLlmModelCodeList('', ({ data }) => {
+            if (data.code === 0) {
+              let LLMdata = []
+              data.data.forEach(item => {
+                LLMdata.push({
+                  value: item.id,
+                  label: item.modelName,
+                  isHidden: false
+                })
+                this.llmModeTypeMap.set(item.id, item.type)
+              })
+              this.$set(this.modelOptions, model.type, LLMdata);
+            } else {
+              this.$message.error(data.msg || '获取LLM模型列表失败');
+            }
+          });
+        }
       });
     },
     fetchVoiceOptions(modelId) {
@@ -409,6 +429,24 @@ export default {
       }
       if (type === 'Memory' && value !== 'Memory_nomem' && (this.form.chatHistoryConf === 0 || this.form.chatHistoryConf === null)) {
         this.form.chatHistoryConf = 2;
+      }
+      if (type === 'LLM') {
+        let llmType = this.llmModeTypeMap.get(value)
+        let memory
+        for (let item of  this.modelOptions['Intent']) {
+          if(item.value == "Intent_nointent" ) {
+            memory = item
+            break
+          }
+        }
+        if (llmType == "openai" || llmType == "ollama") {
+          memory.isHidden = false
+        }else{
+          memory.isHidden = true
+        }
+        if(this.form.model.intentModelId == "Intent_nointent"){
+           this.form.model.intentModelId = '';
+        }
       }
     },
     fetchAllFunctions() {
