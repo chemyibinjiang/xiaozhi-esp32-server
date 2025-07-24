@@ -23,10 +23,7 @@ import xiaozhi.common.utils.ConvertUtils;
 import xiaozhi.modules.agent.dao.AgentDao;
 import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.model.dao.ModelConfigDao;
-import xiaozhi.modules.model.dto.ModelBasicInfoDTO;
-import xiaozhi.modules.model.dto.ModelConfigBodyDTO;
-import xiaozhi.modules.model.dto.ModelConfigDTO;
-import xiaozhi.modules.model.dto.ModelProviderDTO;
+import xiaozhi.modules.model.dto.*;
 import xiaozhi.modules.model.entity.ModelConfigEntity;
 import xiaozhi.modules.model.service.ModelConfigService;
 import xiaozhi.modules.model.service.ModelProviderService;
@@ -51,6 +48,25 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
                         .select("id", "model_name"));
         return ConvertUtils.sourceToTarget(entities, ModelBasicInfoDTO.class);
     }
+    @Override
+    public List<LlmModelBasicInfoDTO> getLlmModelCodeList(String modelName) {
+        List<ModelConfigEntity> entities = modelConfigDao.selectList(
+                new QueryWrapper<ModelConfigEntity>()
+                        .eq("model_type", "llm")
+                        .eq("is_enabled", 1)
+                        .like(StringUtils.isNotBlank(modelName), "model_name", "%" + modelName + "%")
+                        .select("id", "model_name","config_json"));
+        // 处理获取到的内容
+        return entities.stream().map(item -> {
+            LlmModelBasicInfoDTO dto = new LlmModelBasicInfoDTO();
+            dto.setId(item.getId());
+            dto.setModelName(item.getModelName());
+            String type = item.getConfigJson().get("type").toString();
+            dto.setType(type);
+            return dto;
+        }).toList();
+    }
+
 
     @Override
     public PageData<ModelConfigDTO> getPageList(String modelType, String modelName, String page, String limit) {
