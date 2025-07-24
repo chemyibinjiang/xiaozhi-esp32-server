@@ -184,8 +184,13 @@ class ConnectionHandler:
                     await ws.send("端口正常，如需测试连接，请使用test_page.html")
                     await self.close(ws)
                     return
-            # 获取客户端ip地址
-            self.client_ip = ws.remote_address[0]
+            real_ip = self.headers.get("x-real-ip") or self.headers.get(
+                "x-forwarded-for"
+            )
+            if real_ip:
+                self.client_ip = real_ip.split(",")[0].strip()
+            else:
+                self.client_ip = ws.remote_address[0]
             self.logger.bind(tag=TAG).info(
                 f"{self.client_ip} conn - Headers: {self.headers}"
             )
@@ -337,7 +342,7 @@ class ConnectionHandler:
                 self.config.get("selected_module", {})
             )
             self.logger = create_connection_logger(self.selected_module_str)
-            
+
             """初始化组件"""
             if self.config.get("prompt") is not None:
                 user_prompt = self.config["prompt"]
@@ -353,10 +358,10 @@ class ConnectionHandler:
                 self.vad = self._vad
             if self.asr is None:
                 self.asr = self._initialize_asr()
-            
+
             # 初始化声纹识别
             self._initialize_voiceprint()
-            
+
             # 打开语音识别通道
             asyncio.run_coroutine_threadsafe(
                 self.asr.open_audio_channels(self), self.loop
@@ -794,9 +799,7 @@ class ConnectionHandler:
                 if len(response_message) > 0:
                     text_buff = "".join(response_message)
                     self.tts_MessageText = text_buff
-                    self.dialogue.put(
-                        Message(role="assistant", content=text_buff)
-                    )
+                    self.dialogue.put(Message(role="assistant", content=text_buff))
                 response_message.clear()
                 self.logger.bind(tag=TAG).debug(
                     f"function_name={function_name}, function_id={function_id}, function_arguments={function_arguments}"
@@ -820,9 +823,7 @@ class ConnectionHandler:
         if len(response_message) > 0:
             text_buff = "".join(response_message)
             self.tts_MessageText = text_buff
-            self.dialogue.put(
-                Message(role="assistant", content=text_buff)
-            )
+            self.dialogue.put(Message(role="assistant", content=text_buff))
         if depth == 0:
             self.tts.tts_text_queue.put(
                 TTSMessageDTO(
@@ -899,9 +900,7 @@ class ConnectionHandler:
                     if self.executor is None:
                         continue
                     # 提交任务到线程池
-                    self.executor.submit(
-                        self._process_report, *item
-                    )
+                    self.executor.submit(self._process_report, *item)
                 except Exception as e:
                     self.logger.bind(tag=TAG).error(f"聊天记录上报线程异常: {e}")
             except queue.Empty:
