@@ -269,7 +269,7 @@ Xiaozhi is an ecosystem. When using this product, you can also check out other e
 ---
 
 ## Supported Platforms/Components List 📋
-
+![请参考-全模块安装架构图](docs/images/deploy2.png)
 ### LLM Language Models
 
 | Usage Method | Supported Platforms | Free Platforms |
