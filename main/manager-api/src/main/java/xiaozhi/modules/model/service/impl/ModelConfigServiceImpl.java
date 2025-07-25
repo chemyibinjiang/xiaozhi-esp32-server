@@ -5,10 +5,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 
@@ -24,7 +24,11 @@ import xiaozhi.common.utils.ConvertUtils;
 import xiaozhi.modules.agent.dao.AgentDao;
 import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.model.dao.ModelConfigDao;
-import xiaozhi.modules.model.dto.*;
+import xiaozhi.modules.model.dto.LlmModelBasicInfoDTO;
+import xiaozhi.modules.model.dto.ModelBasicInfoDTO;
+import xiaozhi.modules.model.dto.ModelConfigBodyDTO;
+import xiaozhi.modules.model.dto.ModelConfigDTO;
+import xiaozhi.modules.model.dto.ModelProviderDTO;
 import xiaozhi.modules.model.entity.ModelConfigEntity;
 import xiaozhi.modules.model.service.ModelConfigService;
 import xiaozhi.modules.model.service.ModelProviderService;
@@ -49,6 +53,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
                         .select("id", "model_name"));
         return ConvertUtils.sourceToTarget(entities, ModelBasicInfoDTO.class);
     }
+
     @Override
     public List<LlmModelBasicInfoDTO> getLlmModelCodeList(String modelName) {
         List<ModelConfigEntity> entities = modelConfigDao.selectList(
@@ -56,7 +61,7 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
                         .eq("model_type", "llm")
                         .eq("is_enabled", 1)
                         .like(StringUtils.isNotBlank(modelName), "model_name", "%" + modelName + "%")
-                        .select("id", "model_name","config_json"));
+                        .select("id", "model_name", "config_json"));
         // 处理获取到的内容
         return entities.stream().map(item -> {
             LlmModelBasicInfoDTO dto = new LlmModelBasicInfoDTO();
@@ -67,7 +72,6 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
             return dto;
         }).toList();
     }
-
 
     @Override
     public PageData<ModelConfigDTO> getPageList(String modelType, String modelName, String page, String limit) {
@@ -111,16 +115,18 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
         if (CollectionUtil.isEmpty(providerList)) {
             throw new RenException("供应器不存在");
         }
-        if(modelConfigBodyDTO.getConfigJson().containsKey("llm")){
+        if (modelConfigBodyDTO.getConfigJson().containsKey("llm")) {
             String llm = modelConfigBodyDTO.getConfigJson().get("llm").toString();
             ModelConfigEntity modelConfigEntity = modelConfigDao.selectOne(new LambdaQueryWrapper<ModelConfigEntity>()
                     .eq(ModelConfigEntity::getId, llm));
-            if(modelConfigEntity == null){
+            String selectModelType = (modelConfigEntity == null || modelConfigEntity.getModelType() == null) ? null
+                    : modelConfigEntity.getModelType().toUpperCase();
+            if (modelConfigEntity == null || !"LLM".equals(selectModelType)) {
                 throw new RenException("设置的LLM不存在");
             }
             String type = modelConfigEntity.getConfigJson().get("type").toString();
             // 如果查询大语言模型是openai或者ollama，意图识别选参数都可以
-            if(!"openai".equals(type) &&  !"ollama".equals(type)){
+            if (!"openai".equals(type) && !"ollama".equals(type)) {
                 throw new RenException("设置的LLM不是openai和ollama");
             }
         }
