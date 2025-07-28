@@ -167,15 +167,6 @@ export default {
         }))
       }
     },
-    agentId(newVal) {
-      if (newVal) {
-        api.agent.getRecentlyFiftyByAgentId(this.agentId, ((data) => {
-          this.valueTypeOptions = data.data.data.map(item => ({
-            ...item
-          }));
-        }))
-      }
-    },
     'form.audioId'(newVal) {
       if (newVal == null || newVal == "") {
         return
