@@ -120,7 +120,12 @@ class TTSProvider(TTSProviderBase):
 
         # WebSocket配置
         self.host = config.get("host", "nls-gateway-cn-beijing.aliyuncs.com")
-        self.ws_url = f"wss://{self.host}/ws/v1"
+        # 如果配置的是内网地址（包含-internal.aliyuncs.com），则使用ws协议，默认是wss协议
+        if "-internal." in self.host:
+            self.ws_url = f"ws://{self.host}/ws/v1"
+        else:
+            # 默认使用wss协议
+            self.ws_url = f"wss://{self.host}/ws/v1"
         self.ws = None
         self._monitor_task = None
         self.last_active_time = None
