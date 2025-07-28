@@ -279,7 +279,6 @@ class ConnectionHandler:
     async def _route_message(self, message):
         """消息路由"""
         if isinstance(message, str):
-            self.last_activity_time = time.time() * 1000
             await handleTextMessage(self, message)
         elif isinstance(message, bytes):
             if self.vad is None:
