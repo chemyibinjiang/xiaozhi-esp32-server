@@ -103,7 +103,8 @@ public class AgentChatHistoryServiceImpl extends ServiceImpl<AiAgentChatHistoryD
         wrapper.select(AgentChatHistoryEntity::getContent, AgentChatHistoryEntity::getAudioId)
                 .eq(AgentChatHistoryEntity::getAgentId, agentId)
                 .eq(AgentChatHistoryEntity::getChatType, AgentChatHistoryType.USER.getValue())
-                .isNotNull(AgentChatHistoryEntity::getAudioId);
+                .isNotNull(AgentChatHistoryEntity::getAudioId)
+                .orderByDesc(AgentChatHistoryEntity::getCreatedAt); // 添加此行，确保查询结果按照创建时间降序排列
 
         // 构建分页查询，查询前50页数据
         Page<AgentChatHistoryEntity> pageParam = new Page<>(0, 50);
