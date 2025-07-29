@@ -12,33 +12,27 @@ docker镜像已支持x86架构、arm64架构的CPU，支持在国产操作系统
 
 ### 1.1 懒人脚本
 
-你可以使用以下命令一键下载并执行部署脚本：
-请确保你的环境可以正常访问 GitHub 否则无法下载脚本。
-```bash
-curl -L -o docker-setup.sh https://raw.githubusercontent.com/xinnan-tech/xiaozhi-esp32-server/main/docker-setup.sh
-```
+脚本作者[@VanillaNahida](https://github.com/VanillaNahida)  
 
-如果您的电脑是windows系统，请使用使用 Git Bash、WSL、PowerShell 或 CMD 运行以下命令：
-```bash
-# Git Bash 或 WSL
-sh docker-setup.sh
-# PowerShell 或 CMD
-.\docker-setup.sh
-```
+你可以使用以下命令一键安装全模块版小智服务端：  
+~~请确保你的环境可以正常访问 GitHub 否则会出现一些奇奇怪怪的问题。（脚本已内置镜像源无须担心网络问题，但不排除会有拉取失败的可能）~~
+> [!NOTE]  
+> 暂且只支持Ubuntu服务器一键部署，其他系统未尝试，可能会有一些奇怪的bug
 
-如果您的电脑是linux 或者 macos 系统，请使用终端运行以下命令：
+使用SSH工具连接到服务器，以root权限执行如下脚本
 ```bash
-chmod +x docker-setup.sh
-./docker-setup.sh
+sudo bash -c "$(wget -qO- https://ghfast.top/https://raw.githubusercontent.com/xinnan-tech/xiaozhi-esp32-server/main/docker-setup.sh)"
 ```
 
 脚本会自动完成以下操作：
-> 1. 创建必要的目录结构
-> 2. 下载语音识别模型
-> 3. 下载配置文件
-> 4. 检查文件完整性
+> 1. 安装Docker
+> 2. 配置镜像源
+> 3. 下载/拉取镜像
+> 4. 下载语音识别模型文件
+> 5. 引导配置服务端
 >
-> 执行完成后，请按照提示配置 API 密钥。
+
+执行完成后简单配置即可直接食用满血版服务端
 
 当你一切顺利完成以上操作后，继续操作[配置项目文件](#2-配置项目文件)
 
