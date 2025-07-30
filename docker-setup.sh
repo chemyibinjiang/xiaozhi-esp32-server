@@ -62,6 +62,19 @@ check_whiptail() {
 
 check_whiptail
 
+# 创建确认对话框
+whiptail --title "安装确认" --yesno "即将安装小智服务端，是否继续？" \
+  --yes-button "继续" --no-button "退出" 10 50
+
+# 根据用户选择执行操作
+case $? in
+  0)
+    ;;
+  1)
+    exit 1
+    ;;
+esac
+
 # 检查root权限
 if [ $EUID -ne 0 ]; then
     whiptail --title "权限错误" --msgbox "请使用root权限运行本脚本" 10 50
@@ -187,24 +200,57 @@ fi
 
 # 检查curl安装
 if ! command -v curl &> /dev/null; then
-    whiptail --title "安装curl" --msgbox "未检测到curl，开始安装..." 10 50
+    echo "------------------------------------------------------------"
+    echo "未检测到curl，正在安装..."
     apt update
     apt install -y curl
 else
+    echo "------------------------------------------------------------"
     echo "curl已安装，跳过安装步骤"
 fi
 
 # 检查Docker安装
 if ! command -v docker &> /dev/null; then
-    whiptail --title "安装Docker" --msgbox "未检测到Docker，开始安装..." 10 50
+    echo "------------------------------------------------------------"
+    echo "未检测到Docker，正在安装..."
+    
+    # 使用国内镜像源替代官方源
+    DISTRO=$(lsb_release -cs)
+    MIRROR_URL="https://mirrors.aliyun.com/docker-ce/linux/ubuntu"
+    GPG_URL="https://mirrors.aliyun.com/docker-ce/linux/ubuntu/gpg"
+    
+    # 安装基础依赖
     apt update
-    apt install -y apt-transport-https ca-certificates curl software-properties-common
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+    apt install -y apt-transport-https ca-certificates curl software-properties-common gnupg
+    
+    # 创建密钥目录并添加国内镜像源密钥
+    mkdir -p /etc/apt/keyrings
+    curl -fsSL "$GPG_URL" | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    
+    # 添加国内镜像源
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] $MIRROR_URL $DISTRO stable" \
+        > /etc/apt/sources.list.d/docker.list
+    
+    # 添加备用官方源密钥（避免国内源密钥验证失败）
+    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 7EA0A9C3F273FCD8 2>/dev/null || \
+    echo "警告：部分密钥添加失败，继续尝试安装..."
+    
+    # 安装Docker
     apt update
-    apt install -y docker-ce
+    apt install -y docker-ce docker-ce-cli containerd.io
+    
+    # 启动服务
     systemctl start docker
     systemctl enable docker
+    
+    # 检查是否安装成功
+    if docker --version; then
+        echo "------------------------------------------------------------"
+        echo "Docker安装完成！"
+    else
+        whiptail --title "错误" --msgbox "Docker安装失败，请检查日志。" 10 50
+        exit 1
+    fi
 else
     echo "Docker已安装，跳过安装步骤"
 fi
@@ -338,9 +384,8 @@ done
 
 # 获取服务器公网地址
 PUBLIC_IP=$(hostname -I | awk '{print $1}')
-whiptail --title "设置服务器密钥" --msgbox "请使用浏览器，访问下方链接，打开智控台并注册账号: \n\n内网地址：http://127.0.0.1:8002/\n公网地址：http://$PUBLIC_IP:8002/ (若是云服务器请在服务器安全组放行端口 8000 8001 8002)。\n\n注册的第一个用户即是超级管理员，以后注册的用户都是普通用户。普通用户只能绑定设备和配置智能体; 超级管理员可以进行模型管理、用户管理、参数配置等功能。\n\n注册好后请按Enter键继续" 18 70
-
-SECRET_KEY=$(whiptail --title "服务器密钥配置" --inputbox "请使用超级管理员账号登录智控台 (http://127.0.0.1:8002)\n在顶部菜单 参数字典 → 参数管理 找到参数编码: server.secret (服务器密钥) \n复制该参数值并输入到下面输入框\n\n请输入密钥(留空则跳过配置):" 15 60 3>&1 1>&2 2>&3)
+whiptail --title "配置服务器密钥" --msgbox "请使用浏览器，访问下方链接，打开智控台并注册账号: \n\n内网地址：http://127.0.0.1:8002/\n公网地址：http://$PUBLIC_IP:8002/ (若是云服务器请在服务器安全组放行端口 8000 8001 8002)。\n\n注册的第一个用户即是超级管理员，以后注册的用户都是普通用户。普通用户只能绑定设备和配置智能体; 超级管理员可以进行模型管理、用户管理、参数配置等功能。\n\n注册好后请按Enter键继续" 18 70
+SECRET_KEY=$(whiptail --title "配置服务器密钥" --inputbox "请使用超级管理员账号登录智控台\n内网地址：http://127.0.0.1:8002/\n公网地址：http://$PUBLIC_IP:8002/\n在顶部菜单 参数字典 → 参数管理 找到参数编码: server.secret (服务器密钥) \n复制该参数值并输入到下面输入框\n\n请输入密钥(留空则跳过配置):" 15 60 3>&1 1>&2 2>&3)
 
 if [ -n "$SECRET_KEY" ]; then
     python3 -c "
