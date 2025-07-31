@@ -17,7 +17,8 @@ async def sendAudioMessage(conn, sentenceType, audios, text):
         conn.tts.tts_audio_first_sentence = False
         pre_buffer = True
 
-    await send_tts_message(conn, "sentence_start", text)
+    if sentenceType == SentenceType.FIRST:
+        await send_tts_message(conn, "sentence_start", text)
 
     await sendAudio(conn, audios, pre_buffer)
 
