@@ -8,39 +8,13 @@ docker镜像已支持x86架构、arm64架构的CPU，支持在国产操作系统
 
 如果您的电脑还没安装docker，可以按照这里的教程安装：[docker安装](https://www.runoob.com/docker/ubuntu-docker-install.html)
 
-如果你已经安装好docker，你可以[1.1使用懒人脚本](#11-懒人脚本)自动帮你下载所需的文件和配置文件，你可以使用docker[1.2手动部署](#12-手动部署)。
+安装好docker后，进继续。
 
-### 1.1 懒人脚本
-
-脚本作者[@VanillaNahida](https://github.com/VanillaNahida)  
-
-你可以使用以下命令一键安装全模块版小智服务端：  
-~~请确保你的环境可以正常访问 GitHub 否则会出现一些奇奇怪怪的问题。（脚本已内置镜像源无须担心网络问题，但不排除会有拉取失败的可能）~~
-> [!NOTE]  
-> 暂且只支持Ubuntu服务器一键部署，其他系统未尝试，可能会有一些奇怪的bug
-
-使用SSH工具连接到服务器，以root权限执行如下脚本
-```bash
-sudo bash -c "$(wget -qO- https://ghfast.top/https://raw.githubusercontent.com/xinnan-tech/xiaozhi-esp32-server/main/docker-setup.sh)"
-```
-
-脚本会自动完成以下操作：
-> 1. 安装Docker
-> 2. 配置镜像源
-> 3. 下载/拉取镜像
-> 4. 下载语音识别模型文件
-> 5. 引导配置服务端
->
-
-执行完成后简单配置即可直接食用满血版服务端
-
-当你一切顺利完成以上操作后，继续操作[配置项目文件](#2-配置项目文件)
-
-### 1.2 手动部署
+### 1.1 手动部署
 
 如果懒人脚本无法正常运行，请按本章节1.2进行手动部署。
 
-#### 1.2.1 创建目录
+#### 1.1.1 创建目录
 
 安装完后，你需要为这个项目找一个安放配置文件的目录，例如我们可以新建一个文件夹叫`xiaozhi-server`。
 
@@ -55,18 +29,18 @@ xiaozhi-server
      ├─ SenseVoiceSmall
 ```
 
-#### 1.2.2 下载语音识别模型文件
+#### 1.1.2 下载语音识别模型文件
 
 你需要下载语音识别的模型文件，因为本项目的默认语音识别用的是本地离线语音识别方案。可通过这个方式下载
 [跳转到下载语音识别模型文件](#模型文件)
 
 下载完后，回到本教程。
 
-#### 1.2.3 下载配置文件
+#### 1.1.3 下载配置文件
 
 你需要下载两个配置文件：`docker-compose.yaml` 和 `config.yaml`。需要从项目仓库下载这两个文件。
 
-##### 1.2.3.1 下载 docker-compose.yaml
+##### 1.1.3.1 下载 docker-compose.yaml
 
 用浏览器打开[这个链接](../main/xiaozhi-server/docker-compose.yml)。
 
@@ -75,7 +49,7 @@ xiaozhi-server
 
 下载完后，回到本教程继续往下。
 
-##### 1.2.3.2 创建 config.yaml
+##### 1.1.3.2 创建 config.yaml
 
 用浏览器打开[这个链接](../main/xiaozhi-server/config.yaml)。
 
@@ -254,7 +228,7 @@ LLM:
 文件放在`models/SenseVoiceSmall`
 目录下。下面两个下载路线任选一个。
 
-- 线路一：阿里魔塔下载[SenseVoiceSmall](https://modelscope.cn/models/iic/SenseVoiceSmall/resolve/master/model.pt)
+- 线路一：阿里魔搭下载[SenseVoiceSmall](https://modelscope.cn/models/iic/SenseVoiceSmall/resolve/master/model.pt)
 - 线路二：百度网盘下载[SenseVoiceSmall](https://pan.baidu.com/share/init?surl=QlgM58FHhYv1tFnUT_A8Sg&pwd=qvna) 提取码:
   `qvna`
 
