@@ -224,12 +224,9 @@ def audio_to_data(audio_file_path, is_opus=True):
     # 转换为单声道/16kHz采样率/16位小端编码（确保与编码器匹配）
     audio = audio.set_channels(1).set_frame_rate(16000).set_sample_width(2)
 
-    # 音频时长(秒)
-    duration = len(audio) / 1000.0
-
     # 获取原始PCM数据（16位小端）
     raw_data = audio.raw_data
-    return pcm_to_data(raw_data, is_opus), duration
+    return pcm_to_data(raw_data, is_opus)
 
 
 def audio_bytes_to_data(audio_bytes, file_type, is_opus=True):
@@ -245,9 +242,8 @@ def audio_bytes_to_data(audio_bytes, file_type, is_opus=True):
             BytesIO(audio_bytes), format=file_type, parameters=["-nostdin"]
         )
         audio = audio.set_channels(1).set_frame_rate(16000).set_sample_width(2)
-        duration = len(audio) / 1000.0
         raw_data = audio.raw_data
-        return pcm_to_data(raw_data, is_opus), duration
+        return pcm_to_data(raw_data, is_opus)
 
 
 def pcm_to_data(raw_data, is_opus=True):

@@ -86,7 +86,7 @@ class TTSProviderBase(ABC):
                 try:
                     audio_bytes = asyncio.run(self.text_to_speak(text, None))
                     if audio_bytes:
-                        audio_datas, _ = audio_bytes_to_data(
+                        audio_datas = audio_bytes_to_data(
                             audio_bytes, file_type=self.audio_file_type, is_opus=True
                         )
                         return audio_datas
@@ -334,11 +334,11 @@ class TTSProviderBase(ABC):
             tuple: (sentence_type, audio_datas, content_detail)
         """
         if tts_file.endswith(".p3"):
-            audio_datas, _ = p3.decode_opus_from_file(tts_file)
+            audio_datas = p3.decode_opus_from_file(tts_file)
         elif self.conn.audio_format == "pcm":
-            audio_datas, _ = self.audio_to_pcm_data(tts_file)
+            audio_datas = self.audio_to_pcm_data(tts_file)
         else:
-            audio_datas, _ = self.audio_to_opus_data(tts_file)
+            audio_datas = self.audio_to_opus_data(tts_file)
 
         if (
             self.delete_audio_file
