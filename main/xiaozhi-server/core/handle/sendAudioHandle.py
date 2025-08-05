@@ -16,8 +16,10 @@ async def sendAudioMessage(conn, sentenceType, audios, text):
         conn.logger.bind(tag=TAG).info(f"发送第一段语音: {text}")
         conn.tts.tts_audio_first_sentence = False
         pre_buffer = True
+        await send_tts_message(conn, "start", None)
 
-    await send_tts_message(conn, "sentence_start", text)
+    if sentenceType == SentenceType.FIRST:
+        await send_tts_message(conn, "sentence_start", text)
 
     await sendAudio(conn, audios, pre_buffer)
 
@@ -74,7 +76,7 @@ async def sendAudio(conn, audios, pre_buffer=True):
 
 async def send_tts_message(conn, state, text=None):
     """发送 TTS 状态消息"""
-    if text is None:
+    if text is None and state == "sentence_start":
         return
     message = {"type": "tts", "state": state, "session_id": conn.session_id}
     if text is not None:

@@ -173,8 +173,8 @@ class FlowControlConfig:
     OPUS_FRAMES_PER_SECOND = 1000 / OPUS_FRAME_DURATION_MS  # 每秒帧数
 
     # 默认流控参数
-    DEFAULT_MAX_DEVICE_BUFFER = 1000  # 设备端最大缓冲帧数
-    DEFAULT_REFILL_RATE = 20  # 默认令牌补充速率（帧/秒）
+    DEFAULT_MAX_DEVICE_BUFFER = 40  # 设备端最大缓冲帧数
+    DEFAULT_REFILL_RATE = 5  # 默认令牌补充速率（帧/秒）
     DEFAULT_MAX_WAIT_TIME = 5.0  # 流控最大等待时间（秒）
     DEFAULT_RETRY_INTERVAL = 0.1  # 流控重试间隔（秒）
 

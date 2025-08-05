@@ -631,11 +631,3 @@ class TTSProvider(TTSProviderBase):
         except Exception as e:
             logger.bind(tag=TAG).error(f"生成音频数据失败: {str(e)}")
             return []
-
-    def handle_opus(self, opus_data: bytes):
-        logger.bind(tag=TAG).debug(
-            f"推送数据到队列里面帧数～～"
-        )
-        self.tts_audio_queue.put(
-            (SentenceType.MIDDLE, opus_data, None)
-        )

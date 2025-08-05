@@ -4,13 +4,15 @@ import queue
 import uuid
 import asyncio
 import threading
+from typing import Callable, Any
+
 from core.utils import p3
 import time
 from core.utils import textUtils
 from abc import ABC, abstractmethod
 from config.logger import setup_logging
 from core.utils.audio_flow_control import FlowControlConfig, simulate_device_consumption
-from core.utils.util import audio_to_data, audio_bytes_to_data
+from core.utils.util import audio_to_data, audio_bytes_to_data, audio_bytes_to_data_stream, audio_to_data_stream
 from core.utils.tts import MarkdownCleaner
 from core.utils.output_counter import add_device_output
 from core.handle.reportHandle import enqueue_tts_report
@@ -51,11 +53,9 @@ class TTSProviderBase(ABC):
             "；",
             ";",
             "：",
-            "~",
         )
         self.first_sentence_punctuations = (
             "，",
-            "～",
             "~",
             "、",
             ",",
@@ -80,7 +80,15 @@ class TTSProviderBase(ABC):
             f"tts-{datetime.now().date()}@{uuid.uuid4().hex}{extension}",
         )
 
-    def to_tts(self, text):
+    def handle_opus(self, opus_data: bytes):
+        logger.bind(tag=TAG).debug(
+            f"推送数据到队列里面帧数～～ {len(opus_data)}"
+        )
+        self.tts_audio_queue.put(
+            (SentenceType.MIDDLE, opus_data, None)
+        )
+
+    def to_tts(self, text, opus_handler=handle_opus) -> None:
         text = MarkdownCleaner.clean_markdown(text)
         max_repeat_time = 5
         if self.delete_audio_file:
@@ -89,10 +97,13 @@ class TTSProviderBase(ABC):
                 try:
                     audio_bytes = asyncio.run(self.text_to_speak(text, None))
                     if audio_bytes:
-                        audio_datas = audio_bytes_to_data(
-                            audio_bytes, file_type=self.audio_file_type, is_opus=True
+                        self.tts_audio_queue.put(
+                            (SentenceType.FIRST, None, text)
                         )
-                        return audio_datas
+                        audio_bytes_to_data_stream(
+                            audio_bytes, file_type=self.audio_file_type, is_opus=True, callback=opus_handler
+                        )
+                        max_repeat_time = 0
                     else:
                         max_repeat_time -= 1
                 except Exception as e:
@@ -132,8 +143,10 @@ class TTSProviderBase(ABC):
                     logger.bind(tag=TAG).error(
                         f"语音生成失败: {text}，请检查网络或服务是否正常"
                     )
-
-                return tmp_file
+                    self.tts_audio_queue.put(
+                        (SentenceType.FIRST, None, text)
+                    )
+                self._process_audio_file(tmp_file, callback=opus_handler)
             except Exception as e:
                 logger.bind(tag=TAG).error(f"Failed to generate TTS file: {e}")
                 return None
@@ -142,13 +155,13 @@ class TTSProviderBase(ABC):
     async def text_to_speak(self, text, output_file):
         pass
 
-    def audio_to_pcm_data(self, audio_file_path):
+    def audio_to_pcm_data_stream(self, audio_file_path, callback: Callable[[Any], Any]=None):
         """音频文件转换为PCM编码"""
-        return audio_to_data(audio_file_path, is_opus=False)
+        return audio_to_data_stream(audio_file_path, is_opus=False, callback=callback)
 
-    def audio_to_opus_data(self, audio_file_path):
+    def audio_to_opus_data_stream(self, audio_file_path, callback: Callable[[Any], Any]=None):
         """音频文件转换为Opus编码"""
-        return audio_to_data(audio_file_path, is_opus=True)
+        return audio_to_data_stream(audio_file_path, is_opus=True, callback=callback)
 
     def tts_one_sentence(
         self,
@@ -215,28 +228,12 @@ class TTSProviderBase(ABC):
                     self.tts_text_buff.append(message.content_detail)
                     segment_text = self._get_segment_text()
                     if segment_text:
-                        if self.delete_audio_file:
-                            audio_datas = self.to_tts(segment_text)
-                            if audio_datas:
-                                self.tts_audio_queue.put(
-                                    (message.sentence_type, audio_datas, segment_text)
-                                )
-                        else:
-                            tts_file = self.to_tts(segment_text)
-                            if tts_file:
-                                audio_datas = self._process_audio_file(tts_file)
-                                self.tts_audio_queue.put(
-                                    (message.sentence_type, audio_datas, segment_text)
-                                )
+                        self.to_tts(segment_text, opus_handler=self.handle_opus)
                 elif ContentType.FILE == message.content_type:
                     self._process_remaining_text()
                     tts_file = message.content_file
                     if tts_file and os.path.exists(tts_file):
-                        audio_datas = self._process_audio_file(tts_file)
-                        self.tts_audio_queue.put(
-                            (message.sentence_type, audio_datas, message.content_detail)
-                        )
-
+                        self._process_audio_file(tts_file, callback=self.handle_opus)
                 if message.sentence_type == SentenceType.LAST:
                     self._process_remaining_text()
                     self.tts_audio_queue.put(
@@ -295,6 +292,11 @@ class TTSProviderBase(ABC):
                             # 实际应用中可能需要从设备端获取真实的消费情况
                             estimated_consumption = int(retry_interval * FlowControlConfig.DEFAULT_REFILL_RATE)
                             self.flow_controller.update_device_consumption(estimated_consumption)
+                            status = self.flow_controller.get_status()
+                            logger.bind(tag=TAG).debug(
+                                f"流控状态: 缓冲区使用率={status['buffer_usage_percent']:.1f}%, "
+                                f"可用令牌={status['available_tokens']}..."
+                            )
                         else:
                             # 可以发送，记录发送的帧数
                             self.flow_controller.record_sent_frames(frame_count)
@@ -312,11 +314,11 @@ class TTSProviderBase(ABC):
                             enqueue_tts_report(self.conn, text, audio_datas)
 
                             # 输出流控状态（调试用）
-                            if frame_count > 10:  # 只在较大的音频块时输出状态
+                            if frame_count > 0:  # 只在较大的音频块时输出状态
                                 status = self.flow_controller.get_status()
                                 logger.bind(tag=TAG).debug(
                                     f"流控状态: 缓冲区使用率={status['buffer_usage_percent']:.1f}%, "
-                                    f"可用令牌={status['available_tokens']}, 发送文本: {text[:20]}..."
+                                    f"可用令牌={status['available_tokens']}..."
                                 )
                     else:
                         # 没有音频数据，直接发送
@@ -415,7 +417,7 @@ class TTSProviderBase(ABC):
         else:
             return None
 
-    def _process_audio_file(self, tts_file):
+    def _process_audio_file(self, tts_file, callback: Callable[[Any], Any]):
         """处理音频文件并转换为指定格式
 
         Args:
@@ -426,11 +428,11 @@ class TTSProviderBase(ABC):
             tuple: (sentence_type, audio_datas, content_detail)
         """
         if tts_file.endswith(".p3"):
-            audio_datas = p3.decode_opus_from_file(tts_file)
+            p3.decode_opus_from_file_stream(tts_file, callback=callback)
         elif self.conn.audio_format == "pcm":
-            audio_datas = self.audio_to_pcm_data(tts_file)
+            self.audio_to_pcm_data_stream(tts_file, callback=callback)
         else:
-            audio_datas = self.audio_to_opus_data(tts_file)
+            self.audio_to_opus_data_stream(tts_file, callback=callback)
 
         if (
             self.delete_audio_file
@@ -439,7 +441,6 @@ class TTSProviderBase(ABC):
             and tts_file.startswith(self.output_file)
         ):
             os.remove(tts_file)
-        return audio_datas
 
     def _process_before_stop_play_files(self):
         for audio_datas, text in self.before_stop_play_files:
@@ -466,7 +467,7 @@ class TTSProviderBase(ABC):
                         )
                 else:
                     tts_file = self.to_tts(segment_text)
-                    audio_datas = self._process_audio_file(tts_file)
+                    audio_datas = self._process_audio_file(tts_file, callback=self.handle_opus)
                     self.tts_audio_queue.put(
                         (SentenceType.MIDDLE, audio_datas, segment_text)
                     )
