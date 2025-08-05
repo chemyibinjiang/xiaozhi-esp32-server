@@ -5,10 +5,11 @@ import uuid
 import asyncio
 import threading
 from core.utils import p3
-from datetime import datetime
+import time
 from core.utils import textUtils
 from abc import ABC, abstractmethod
 from config.logger import setup_logging
+from core.utils.audio_flow_control import FlowControlConfig, simulate_device_consumption
 from core.utils.util import audio_to_data, audio_bytes_to_data
 from core.utils.tts import MarkdownCleaner
 from core.utils.output_counter import add_device_output
@@ -70,6 +71,8 @@ class TTSProviderBase(ABC):
         self.tts_stop_request = False
         self.processed_chars = 0
         self.is_first_sentence = True
+        self.flow_controller = FlowControlConfig.create_flow_controller()
+        self.flow_control_enabled = config.get("enable_flow_control", True)
 
     def generate_filename(self, extension=".wav"):
         return os.path.join(
@@ -253,25 +256,114 @@ class TTSProviderBase(ABC):
             text = None
             try:
                 try:
-                    sentence_type, audio_datas, text = self.tts_audio_queue.get(
-                        timeout=1
-                    )
+                    sentence_type, audio_datas, text = self.tts_audio_queue.get(timeout=1)
                 except queue.Empty:
                     if self.conn.stop_event.is_set():
                         break
                     continue
-                future = asyncio.run_coroutine_threadsafe(
-                    sendAudioMessage(self.conn, sentence_type, audio_datas, text),
-                    self.conn.loop,
-                )
-                future.result()
-                if self.conn.max_output_size > 0 and text:
-                    add_device_output(self.conn.headers.get("device-id"), len(text))
-                enqueue_tts_report(self.conn, text, audio_datas)
+
+                # 如果启用了流控
+                if self.flow_control_enabled:
+                    # 计算音频数据的帧数
+                    if isinstance(audio_datas, bytes):
+                        frame_count = 1  # 单个字节流作为一帧
+                    elif isinstance(audio_datas, (list, tuple)):
+                        frame_count = len(audio_datas)
+                    else:
+                        frame_count = 0
+
+                    # 流控检查
+                    if frame_count > 0:
+                        max_wait_time = FlowControlConfig.DEFAULT_MAX_WAIT_TIME
+                        wait_start_time = time.time()
+                        retry_interval = FlowControlConfig.DEFAULT_RETRY_INTERVAL
+
+                        while not self.flow_controller.can_send_frames(frame_count):
+                            # 检查是否超时或需要停止
+                            if (time.time() - wait_start_time > max_wait_time or
+                                    self.conn.stop_event.is_set() or
+                                    self.conn.client_abort):
+                                logger.bind(tag=TAG).warning(
+                                    f"流控等待超时或收到停止信号，跳过音频发送: {text}"
+                                )
+                                break
+
+                            # 短暂等待后重试
+                            time.sleep(retry_interval)
+
+                            # 更新设备消费估计（这里假设设备以恒定速率消费）
+                            # 实际应用中可能需要从设备端获取真实的消费情况
+                            estimated_consumption = int(retry_interval * FlowControlConfig.DEFAULT_REFILL_RATE)
+                            self.flow_controller.update_device_consumption(estimated_consumption)
+                        else:
+                            # 可以发送，记录发送的帧数
+                            self.flow_controller.record_sent_frames(frame_count)
+
+                            # 发送音频
+                            future = asyncio.run_coroutine_threadsafe(
+                                self._send_audio_with_flow_control(sentence_type, audio_datas, text),
+                                self.conn.loop,
+                            )
+                            future.result()
+
+                            # 记录输出和报告
+                            if self.conn.max_output_size > 0 and text:
+                                add_device_output(self.conn.headers.get("device-id"), len(text))
+                            enqueue_tts_report(self.conn, text, audio_datas)
+
+                            # 输出流控状态（调试用）
+                            if frame_count > 10:  # 只在较大的音频块时输出状态
+                                status = self.flow_controller.get_status()
+                                logger.bind(tag=TAG).debug(
+                                    f"流控状态: 缓冲区使用率={status['buffer_usage_percent']:.1f}%, "
+                                    f"可用令牌={status['available_tokens']}, 发送文本: {text[:20]}..."
+                                )
+                    else:
+                        # 没有音频数据，直接发送
+                        future = asyncio.run_coroutine_threadsafe(
+                            sendAudioMessage(self.conn, sentence_type, audio_datas, text),
+                            self.conn.loop,
+                        )
+                        future.result()
+                else:
+                    # 未启用流控，直接发送
+                    future = asyncio.run_coroutine_threadsafe(
+                        sendAudioMessage(self.conn, sentence_type, audio_datas, text),
+                        self.conn.loop,
+                    )
+                    future.result()
+
+                    # 记录输出和报告
+                    if self.conn.max_output_size > 0 and text:
+                        add_device_output(self.conn.headers.get("device-id"), len(text))
+                    enqueue_tts_report(self.conn, text, audio_datas)
+
             except Exception as e:
                 logger.bind(tag=TAG).error(
-                    f"audio_play_priority priority_thread: {text} {e}"
+                    f"audio_play_priority_thread: {text} {e}"
                 )
+
+    async def _send_audio_with_flow_control(self, sentence_type, audio_datas, text):
+        """带流控的音频发送方法"""
+        await sendAudioMessage(self.conn, sentence_type, audio_datas, text)
+
+        # 模拟设备消费（实际应用中应该从设备获取反馈）
+        if isinstance(audio_datas, bytes):
+            frame_count = 1
+        elif isinstance(audio_datas, (list, tuple)):
+            frame_count = len(audio_datas)
+        else:
+            frame_count = 0
+
+        if frame_count > 0:
+            asyncio.create_task(simulate_device_consumption(self.flow_controller, frame_count))
+
+    # 在类中添加流控制器重置方法
+    def reset_flow_controller(self):
+        """重置流控制器状态，通常在新会话开始时调用"""
+        if hasattr(self, 'flow_controller'):
+            self.flow_controller.reset()
+            logger.bind(tag=TAG).info("流控制器状态已重置")
 
     async def start_session(self, session_id):
         pass
