@@ -88,7 +88,12 @@ class TTSProviderBase(ABC):
             (SentenceType.MIDDLE, opus_data, None)
         )
 
-    def to_tts(self, text, opus_handler=handle_opus) -> None:
+    def handle_audio_file(self, file_audio: bytes, text):
+        self.before_stop_play_files.append(
+            (file_audio, text)
+        )
+
+    def to_tts_stream(self, text, opus_handler=handle_opus) -> None:
         text = MarkdownCleaner.clean_markdown(text)
         max_repeat_time = 5
         if self.delete_audio_file:
@@ -146,7 +151,7 @@ class TTSProviderBase(ABC):
                     self.tts_audio_queue.put(
                         (SentenceType.FIRST, None, text)
                     )
-                self._process_audio_file(tmp_file, callback=opus_handler)
+                self._process_audio_file_stream(tmp_file, callback=opus_handler)
             except Exception as e:
                 logger.bind(tag=TAG).error(f"Failed to generate TTS file: {e}")
                 return None
@@ -228,14 +233,14 @@ class TTSProviderBase(ABC):
                     self.tts_text_buff.append(message.content_detail)
                     segment_text = self._get_segment_text()
                     if segment_text:
-                        self.to_tts(segment_text, opus_handler=self.handle_opus)
+                        self.to_tts_stream(segment_text, opus_handler=self.handle_opus)
                 elif ContentType.FILE == message.content_type:
-                    self._process_remaining_text()
+                    self._process_remaining_text_stream(opus_handler=self.handle_opus)
                     tts_file = message.content_file
                     if tts_file and os.path.exists(tts_file):
-                        self._process_audio_file(tts_file, callback=self.handle_opus)
+                        self._process_audio_file_stream(tts_file, callback=self.handle_opus)
                 if message.sentence_type == SentenceType.LAST:
-                    self._process_remaining_text()
+                    self._process_remaining_text_stream(opus_handler=self.handle_opus)
                     self.tts_audio_queue.put(
                         (message.sentence_type, [], message.content_detail)
                     )
@@ -419,15 +424,12 @@ class TTSProviderBase(ABC):
         else:
             return None
 
-    def _process_audio_file(self, tts_file, callback: Callable[[Any], Any]):
+    def _process_audio_file_stream(self, tts_file, callback: Callable[[Any], Any]) -> None:
         """处理音频文件并转换为指定格式
 
         Args:
             tts_file: 音频文件路径
-            content_detail: 内容详情
-
-        Returns:
-            tuple: (sentence_type, audio_datas, content_detail)
+            callback: 文件处理函数
         """
         if tts_file.endswith(".p3"):
             p3.decode_opus_from_file_stream(tts_file, callback=callback)
@@ -450,7 +452,7 @@ class TTSProviderBase(ABC):
         self.before_stop_play_files.clear()
         self.tts_audio_queue.put((SentenceType.LAST, [], None))
 
-    def _process_remaining_text(self):
+    def _process_remaining_text_stream(self, opus_handler=handle_opus):
         """处理剩余的文本并生成语音
 
         Returns:
@@ -461,7 +463,7 @@ class TTSProviderBase(ABC):
         if remaining_text:
             segment_text = textUtils.get_string_no_punctuation_or_emoji(remaining_text)
             if segment_text:
-                self.to_tts(segment_text, opus_handler=self.handle_opus)
+                self.to_tts_stream(segment_text, opus_handler=opus_handler)
                 self.processed_chars += len(full_text)
                 return True
         return False

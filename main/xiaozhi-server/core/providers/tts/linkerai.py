@@ -65,14 +65,10 @@ class TTSProvider(TTSProviderBase):
                     )
                     if message.content_file and os.path.exists(message.content_file):
                         # 先处理文件音频数据
-                        file_audio = self._process_audio_file(message.content_file)
-                        self.before_stop_play_files.append(
-                            (file_audio, message.content_detail)
-                        )
-
+                        self._process_audio_file_stream(message.content_file, callback=lambda audio_data: self.handle_audio_file(audio_data, message.content_detail))
                 if message.sentence_type == SentenceType.LAST:
                     # 处理剩余的文本
-                    self._process_remaining_text(True)
+                    self._process_remaining_text_stream(True)
 
             except queue.Empty:
                 continue
@@ -81,7 +77,7 @@ class TTSProvider(TTSProviderBase):
                     f"处理TTS文本失败: {str(e)}, 类型: {type(e).__name__}, 堆栈: {traceback.format_exc()}"
                 )
 
-    def _process_remaining_text(self, is_last=False):
+    def _process_remaining_text_stream(self, is_last=False):
         """处理剩余的文本并生成语音
 
         Returns:
@@ -237,7 +233,7 @@ class TTSProvider(TTSProviderBase):
             logger.bind(tag=TAG).error(f"TTS请求异常: {e}")
             self.tts_audio_queue.put((SentenceType.LAST, [], None))
 
-    def to_tts(self, text: str) -> list:
+    def to_tts_stream(self, text: str) -> list:
         """非流式TTS处理，用于测试及保存音频文件的场景
 
         Args:

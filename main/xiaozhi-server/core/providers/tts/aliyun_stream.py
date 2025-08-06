@@ -268,11 +268,7 @@ class TTSProvider(TTSProviderBase):
                     )
                     if message.content_file and os.path.exists(message.content_file):
                         # 先处理文件音频数据
-                        file_audio = self._process_audio_file(message.content_file)
-                        self.before_stop_play_files.append(
-                            (file_audio, message.content_detail)
-                        )
-
+                        self._process_audio_file_stream(message.content_file, callback=lambda audio_data: self.handle_audio_file(audio_data, message.content_detail))
                 if message.sentence_type == SentenceType.LAST:
                     try:
                         logger.bind(tag=TAG).info("开始结束TTS会话...")
@@ -486,7 +482,7 @@ class TTSProvider(TTSProviderBase):
         finally:
             self._monitor_task = None
 
-    def to_tts(self, text: str) -> list:
+    def to_tts_stream(self, text: str, opus_handler=self.handle_opus) -> None:
         """非流式TTS处理，用于测试及保存音频文件的场景"""
         try:
             # 创建新的事件循环
@@ -591,7 +587,7 @@ class TTSProvider(TTSProviderBase):
                         if isinstance(msg, (bytes, bytearray)):
                             # 编码为Opus并收集
                             self.opus_encoder.encode_pcm_to_opus_stream(
-                                msg, False, self.handle_opus
+                                msg, False, opus_handler
                             )
                             # audio_data.extend(opus_frames)
                         elif isinstance(msg, str):
@@ -621,7 +617,5 @@ class TTSProvider(TTSProviderBase):
             loop.run_until_complete(_generate_audio())
             loop.close()
 
-            return audio_data
         except Exception as e:
             logger.bind(tag=TAG).error(f"生成音频数据失败: {str(e)}")
-            return []
