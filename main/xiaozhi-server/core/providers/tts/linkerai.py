@@ -233,15 +233,15 @@ class TTSProvider(TTSProviderBase):
             logger.bind(tag=TAG).error(f"TTS请求异常: {e}")
             self.tts_audio_queue.put((SentenceType.LAST, [], None))
 
-    def to_tts_stream(self, text: str) -> list:
+    def to_tts_stream(self, text: str, opus_handler=None) -> list:
         """非流式TTS处理，用于测试及保存音频文件的场景
 
         Args:
             text: 要转换的文本
-
-        Returns:
-            list: 返回opus编码后的音频数据列表
+            opus_handler: opus数据处理方法
         """
+        if opus_handler is None:
+            opus_handler = self.handle_opus
         start_time = time.time()
         text = MarkdownCleaner.clean_markdown(text)
 
@@ -291,14 +291,9 @@ class TTSProvider(TTSProviderBase):
                         # 最后一帧可能不足，用0填充
                         frame = frame + b"\x00" * (frame_bytes - len(frame))
 
-                    opus = self.opus_encoder.encode_pcm_to_opus(
-                        frame, end_of_stream=(i + frame_bytes >= len(pcm_data))
+                    self.opus_encoder.encode_pcm_to_opus_stream(
+                        frame, end_of_stream=(i + frame_bytes >= len(pcm_data)), callback=opus_handler
                     )
-                    if opus:
-                        opus_datas.extend(opus)
-
-                return opus_datas
 
         except Exception as e:
             logger.bind(tag=TAG).error(f"TTS请求异常: {e}")
-            return []

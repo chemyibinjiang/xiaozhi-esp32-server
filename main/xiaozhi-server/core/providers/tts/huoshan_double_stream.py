@@ -629,7 +629,7 @@ class TTSProvider(TTSProviderBase):
     def wav_to_opus_data_audio_raw_stream(self, raw_data_var, is_end=False, callback: Callable[[Any], Any]=None):
         return self.opus_encoder.encode_pcm_to_opus_stream(raw_data_var, is_end, callback=callback)
 
-    def to_tts_stream(self, text: str, opus_handler=self.handle_opus) -> None:
+    def to_tts_stream(self, text: str, opus_handler=None) -> None:
         """非流式生成音频数据，用于生成音频及测试场景
 
         Args:
@@ -639,6 +639,8 @@ class TTSProvider(TTSProviderBase):
         Returns:
             list: 音频数据列表
         """
+        if opus_handler is None:
+            opus_handler = self.handle_opus
         try:
             # 创建事件循环
             loop = asyncio.new_event_loop()

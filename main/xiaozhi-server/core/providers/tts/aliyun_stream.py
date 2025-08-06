@@ -482,8 +482,10 @@ class TTSProvider(TTSProviderBase):
         finally:
             self._monitor_task = None
 
-    def to_tts_stream(self, text: str, opus_handler=self.handle_opus) -> None:
+    def to_tts_stream(self, text: str, opus_handler=None) -> None:
         """非流式TTS处理，用于测试及保存音频文件的场景"""
+        if opus_handler is None:
+            opus_handler = self.handle_opus
         try:
             # 创建新的事件循环
             loop = asyncio.new_event_loop()
