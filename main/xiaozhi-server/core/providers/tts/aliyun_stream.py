@@ -447,21 +447,15 @@ class TTSProvider(TTSProviderBase):
                             elif event_name == "SentenceBegin":
                                 opus_datas_cache = []
                             elif event_name == "SentenceEnd":
-                                if (
-                                    not is_first_sentence
-                                    or first_sentence_segment_count > 10
-                                ):
-                                    # 发送缓存的数据
-                                    if self.conn.tts_MessageText:
-                                        logger.bind(tag=TAG).info(
-                                            f"句子语音生成成功： {self.conn.tts_MessageText}"
-                                        )
-                                        self.tts_audio_queue.put(
-                                            (SentenceType.MIDDLE, [], self.conn.tts_MessageText)
-                                        )
-                                        self.conn.tts_MessageText = None
-                                # 第一句话结束后，将标志设置为False
-                                is_first_sentence = False
+                                # 发送缓存的数据
+                                if self.conn.tts_MessageText:
+                                    logger.bind(tag=TAG).info(
+                                        f"句子语音生成成功： {self.conn.tts_MessageText}"
+                                    )
+                                    self.tts_audio_queue.put(
+                                        (SentenceType.FIRST, [], self.conn.tts_MessageText)
+                                    )
+                                    self.conn.tts_MessageText = None
                             elif event_name == "SynthesisCompleted":
                                 logger.bind(tag=TAG).debug(f"会话结束～～")
                                 self._process_before_stop_play_files()

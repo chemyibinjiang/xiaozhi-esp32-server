@@ -253,7 +253,7 @@ class TTSProviderBase(ABC):
             text = None
             try:
                 try:
-                    sentence_type, audio_datas, text = self.tts_audio_queue.get(timeout=1)
+                    sentence_type, audio_datas, text = self.tts_audio_queue.get(timeout=0.1)
                 except queue.Empty:
                     if self.conn.stop_event.is_set():
                         break
@@ -288,15 +288,14 @@ class TTSProviderBase(ABC):
                             # 短暂等待后重试
                             time.sleep(retry_interval)
 
-                            # 更新设备消费估计（这里假设设备以恒定速率消费）
-                            # 实际应用中可能需要从设备端获取真实的消费情况
-                            estimated_consumption = int(retry_interval * FlowControlConfig.DEFAULT_REFILL_RATE)
-                            self.flow_controller.update_device_consumption(estimated_consumption)
-                            status = self.flow_controller.get_status()
-                            logger.bind(tag=TAG).debug(
-                                f"流控状态: 缓冲区使用率={status['buffer_usage_percent']:.1f}%, "
-                                f"可用令牌={status['available_tokens']}..."
-                            )
+                            # status = self.flow_controller.get_status()
+                            # logger.bind(tag=TAG).debug(
+                            #     f"流控状态: 缓冲区使用率={status['buffer_usage_percent']:.1f}%, "
+                            #     f"可用令牌={status['available_tokens']}..."
+                            #     f"发送帧数={status['sent_frames']}..."
+                            #     f"消费帧数={status['consumed_frames']}..."
+                            #     f"代播放帧数={status['sent_frames'] - status['consumed_frames']}..."
+                            # )
                         else:
                             # 可以发送，记录发送的帧数
                             self.flow_controller.record_sent_frames(frame_count)
@@ -314,16 +313,19 @@ class TTSProviderBase(ABC):
                             enqueue_tts_report(self.conn, text, audio_datas)
 
                             # 输出流控状态（调试用）
-                            if frame_count > 0:  # 只在较大的音频块时输出状态
-                                status = self.flow_controller.get_status()
-                                logger.bind(tag=TAG).debug(
-                                    f"流控状态: 缓冲区使用率={status['buffer_usage_percent']:.1f}%, "
-                                    f"可用令牌={status['available_tokens']}..."
-                                )
+                            # if frame_count > 0:  # 只在较大的音频块时输出状态
+                            #     status = self.flow_controller.get_status()
+                            #     logger.bind(tag=TAG).debug(
+                            #         f"流控状态: 缓冲区使用率={status['buffer_usage_percent']:.1f}%, "
+                            #         f"可用令牌={status['available_tokens']}..."
+                            #         f"发送帧数={status['sent_frames']}..."
+                            #         f"消费帧数={status['consumed_frames']}..."
+                            #         f"代播放帧数={status['sent_frames'] - status['consumed_frames']}..."
+                            #     )
                     else:
                         # 没有音频数据，直接发送
                         future = asyncio.run_coroutine_threadsafe(
-                            sendAudioMessage(self.conn, sentence_type, audio_datas, text),
+                            self._send_audio_with_flow_control(sentence_type, audio_datas, text),
                             self.conn.loop,
                         )
                         future.result()
