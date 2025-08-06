@@ -461,18 +461,7 @@ class TTSProviderBase(ABC):
         if remaining_text:
             segment_text = textUtils.get_string_no_punctuation_or_emoji(remaining_text)
             if segment_text:
-                if self.delete_audio_file:
-                    audio_datas = self.to_tts(segment_text)
-                    if audio_datas:
-                        self.tts_audio_queue.put(
-                            (SentenceType.MIDDLE, audio_datas, segment_text)
-                        )
-                else:
-                    tts_file = self.to_tts(segment_text)
-                    audio_datas = self._process_audio_file(tts_file, callback=self.handle_opus)
-                    self.tts_audio_queue.put(
-                        (SentenceType.MIDDLE, audio_datas, segment_text)
-                    )
+                self.to_tts(segment_text, opus_handler=self.handle_opus)
                 self.processed_chars += len(full_text)
                 return True
         return False
