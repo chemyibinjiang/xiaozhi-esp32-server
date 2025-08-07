@@ -12,20 +12,20 @@ Paddle 官方最新版本
 前提条件：需要先根据paddle官方教程安装好PaddlePaddle   ```https://www.paddlepaddle.org.cn/install```
 
 ## 二、启动paddlespeech服务
-### 1.从paddlespeech官方仓库拉取源码
+### 2.1从paddlespeech官方仓库拉取源码
 ```bash 
 git clone https://github.com/PaddlePaddle/PaddleSpeech.git
 ```
-### 2.建立虚拟环境
+### 2.2建立虚拟环境
 ```bash
 conda create -n paddle_env python=3.8 -y
 conda activate paddle_env
 ```
-### 3.进入paddlespeech目录
+### 2.3进入paddlespeech目录
 ```bash
 cd PaddleSpeech
 ```
-### 4.安装paddlespeech
+### 2.4安装paddlespeech
 ```bash
 pip install pytest-runner -i https://pypi.tuna.tsinghua.edu.cn/simple
 
@@ -33,17 +33,17 @@ pip install pytest-runner -i https://pypi.tuna.tsinghua.edu.cn/simple
 pip install paddlepaddle -i https://mirror.baidu.com/pypi/simple
 pip install paddlespeech -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
-### 5.使用命令自动下载语音模型
+### 2.5使用命令自动下载语音模型
 ```bash
 paddlespeech tts --input "你好，这是一次测试"
 ```
 此步骤会自动下载模型缓存至本地 .paddlespeech/models 目录
 
-### 6.修改tts_online_application.yaml配置
+### 2.6修改tts_online_application.yaml配置
 参考目录 ```"PaddleSpeech\demos\streaming_tts_server\conf\tts_online_application.yaml"```
 选择```tts_online_application.yaml```文件用编辑器打开，设置```protocol```为```websocket```
 
-### 7.启动服务
+### 2.7启动服务
 ```yaml
 paddlespeech_server start --config_file ./demos/streaming_tts_server/conf/tts_online_application.yaml
 ```
@@ -59,7 +59,7 @@ INFO:     Uvicorn running on http://0.0.0.0:8092 (Press CTRL+C to quit)
 ```
 
 ## 三、修改小智的配置文件
-### 1.```main/xiaozhi-server/core/providers/tts/paddle_speech.py```
+### 3.1```main/xiaozhi-server/core/providers/tts/paddle_speech.py```
 ```py
 import asyncio
 import json
@@ -214,7 +214,7 @@ class TTSProvider(TTSProviderBase):
         except Exception as e:
             raise Exception(f"Error during TTS WebSocket request: {e} while processing text: {text}")
 ```
-### 2.```main/xiaozhi-server/data/.config.yaml```
+### 3.2```main/xiaozhi-server/data/.config.yaml```
 使用单模块部署
 ```yaml
 selected_module:
@@ -230,7 +230,7 @@ TTS:
       volume: 1.0  # 音量，1.0 表示正常音量，>1 表示增大，<1 表示减小
       save_path: ./streaming_tts.wav  # 服务器生成的语音文件保存路径
 ```
-### 3.启动xiaozhi服务
+### 3.3启动xiaozhi服务
 ```py
 python app.py
 ```
