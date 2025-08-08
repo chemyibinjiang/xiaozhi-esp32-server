@@ -19,7 +19,11 @@ class TTSProvider(TTSProviderBase):
     def __init__(self, config, delete_audio_file):
         super().__init__(config, delete_audio_file)
         self.interface_type = InterfaceType.SINGLE_STREAM
-        self.voice = config.get("voice", "xiao_he")  # 默认音色
+        self.voice = config.get("voice", "xiao_he")
+        if config.get("private_voice"):
+            self.voice = config.get("private_voice")
+        else:
+            self.voice = config.get("voice", "xiao_he")
         self.api_url = config.get("api_url", "http://8.138.114.124:11996/tts")
         self.audio_format = "pcm"
         self.before_stop_play_files = []
@@ -80,7 +84,7 @@ class TTSProvider(TTSProviderBase):
             bool: 是否成功处理了文本
         """
         full_text = "".join(self.tts_text_buff)
-        remaining_text = full_text[self.processed_chars:]
+        remaining_text = full_text[self.processed_chars :]
         if remaining_text:
             segment_text = textUtils.get_string_no_punctuation_or_emoji(remaining_text)
             if segment_text:
@@ -118,10 +122,7 @@ class TTSProvider(TTSProviderBase):
 
     async def text_to_speak(self, text, is_last):
         """流式处理TTS音频，每句只推送一次音频列表"""
-        payload = {
-            "text": text,
-            "character": self.voice
-        }
+        payload = {"text": text, "character": self.voice}
 
         frame_bytes = int(
             self.opus_encoder.sample_rate
@@ -132,9 +133,7 @@ class TTSProvider(TTSProviderBase):
         )  # 16-bit = 2 bytes
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(
-                        self.api_url, json=payload, timeout=10
-                ) as resp:
+                async with session.post(self.api_url, json=payload, timeout=10) as resp:
 
                     if resp.status != 200:
                         logger.bind(tag=TAG).error(
@@ -220,15 +219,10 @@ class TTSProvider(TTSProviderBase):
         start_time = time.time()
         text = MarkdownCleaner.clean_markdown(text)
 
-        payload = {
-            "text": text,
-            "character": self.character
-        }
+        payload = {"text": text, "character": self.character}
 
         try:
-            with requests.post(
-                    self.api_url, json=payload, timeout=5
-            ) as response:
+            with requests.post(self.api_url, json=payload, timeout=5) as response:
                 if response.status_code != 200:
                     logger.bind(tag=TAG).error(
                         f"TTS请求失败: {response.status_code}, {response.text}"
@@ -252,7 +246,7 @@ class TTSProvider(TTSProviderBase):
 
                 # 分帧处理PCM数据
                 for i in range(0, len(pcm_data), frame_bytes):
-                    frame = pcm_data[i: i + frame_bytes]
+                    frame = pcm_data[i : i + frame_bytes]
                     if len(frame) < frame_bytes:
                         # 最后一帧可能不足，用0填充
                         frame = frame + b"\x00" * (frame_bytes - len(frame))

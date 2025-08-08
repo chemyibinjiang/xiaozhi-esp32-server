@@ -902,7 +902,7 @@ TTS:
   IndexStreamTTS:
     # 基于Index-TTS-vLLM项目的TTS接口服务
     # 参照教程：https://github.com/Ksuriuri/index-tts-vllm/blob/master/README.md
-    type: IndexStream
+    type: index_stream
     api_url: http://127.0.0.1:11996/tts
     audio_format: "pcm"
     # 默认音色，如需其他音色可到项目assets文件夹下注册
