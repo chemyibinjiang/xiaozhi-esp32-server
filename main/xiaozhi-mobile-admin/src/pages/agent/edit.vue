@@ -432,7 +432,7 @@ function loadPluginFunctions() {
   getPluginFunctions().then((res) => {
     const processedFunctions = res?.map((item) => {
       const meta = JSON.parse(item.fields || '[]')
-      const params = meta.reduce((m, f) => {
+      const params = meta.reduce((m: any, f: any) => {
         m[f.key] = f.default
         return m
       }, {})
@@ -497,7 +497,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <view class="page-container">
+  <view class="h-screen flex flex-col bg-[#f5f7fb]">
     <!-- 导航栏 -->
     <wd-navbar title="助手设置" safe-area-inset-top>
       <template #left>
@@ -512,40 +512,40 @@ onMounted(async () => {
     <scroll-view
       scroll-y
       :style="{ height: `calc(100vh - ${safeAreaInsets?.top || 0}px - 120rpx)` }"
-      class="main-content"
+      class="flex-1 px-[20rpx] bg-[#f5f7fb] box-border"
       enable-back-to-top
     >
       <!-- 基础信息标题 -->
-      <view class="section-title">
-        <text class="title-text">
+      <view class="pb-[20rpx] first:pt-[20rpx]">
+        <text class="text-[36rpx] font-bold text-[#232338]">
           基础信息
         </text>
       </view>
 
       <!-- 基础信息卡片 -->
-      <view class="settings-card plain-card">
-        <view class="form-field">
-          <text class="field-label">
+      <view class="bg-[#fbfbfb] rounded-[20rpx] mb-[24rpx] p-[24rpx] border border-[#eeeeee]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
+        <view class="mb-[24rpx] last:mb-0">
+          <text class="block text-[28rpx] text-[#232338] font-medium mb-[12rpx]">
             助手昵称
           </text>
           <input
             v-model="formData.agentName"
-            class="field-input"
+            class="w-full h-[80rpx] p-[16rpx_20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] text-[28rpx] text-[#232338] box-border leading-[1.4] outline-none focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
             type="text"
             placeholder="请输入助手昵称"
           >
         </view>
 
-        <view class="form-field">
-          <text class="field-label">
+        <view class="mb-[24rpx] last:mb-0">
+          <text class="block text-[28rpx] text-[#232338] font-medium mb-[12rpx]">
             角色模式
           </text>
-          <view class="role-tags">
+          <view class="flex flex-wrap gap-[12rpx] mt-0">
             <view
               v-for="template in roleTemplates"
               :key="template.id"
-              class="role-tag"
-              :class="{ active: selectedTemplateId === template.id }"
+              class="px-[24rpx] py-[12rpx] bg-[rgba(51,108,255,0.1)] text-[#336cff] rounded-[20rpx] text-[24rpx] border border-[rgba(51,108,255,0.2)] cursor-pointer transition-all duration-300"
+              :class="{ 'bg-[#336cff] text-white border-[#336cff]': selectedTemplateId === template.id }"
               @click="selectRoleTemplate(template.id)"
             >
               {{ template.agentName }}
@@ -553,129 +553,129 @@ onMounted(async () => {
           </view>
         </view>
 
-        <view class="form-field">
-          <text class="field-label">
+        <view class="mb-[24rpx] last:mb-0">
+          <text class="block text-[28rpx] text-[#232338] font-medium mb-[12rpx]">
             角色介绍
           </text>
           <textarea
             v-model="formData.systemPrompt"
             :maxlength="2000"
             placeholder="请输入角色介绍"
-            class="field-textarea"
+            class="w-full h-[500rpx] p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] text-[26rpx] text-[#232338] leading-[1.6] resize-none box-border outline-none break-words break-all focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
           />
-          <view class="char-count">
+          <view class="text-right text-[22rpx] text-[#9d9ea3] mt-[8rpx]">
             {{ (formData.systemPrompt || '').length }}/2000
           </view>
         </view>
       </view>
 
       <!-- 模型配置标题 -->
-      <view class="section-title">
-        <text class="title-text">
+      <view class="pb-[20rpx]">
+        <text class="text-[36rpx] font-bold text-[#232338]">
           模型配置
         </text>
       </view>
 
       <!-- 模型配置卡片 -->
-      <view class="settings-card plain-card">
-        <view class="model-grid">
-          <view class="model-item" @click="openPicker('vad')">
-            <text class="model-label">
+      <view class="bg-[#fbfbfb] rounded-[20rpx] mb-[24rpx] p-[24rpx] border border-[#eeeeee]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
+        <view class="flex flex-col gap-[16rpx]">
+          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('vad')">
+            <text class="text-[28rpx] text-[#232338] font-medium">
               语音活动检测
             </text>
-            <text class="model-value">
+            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
               {{ displayNames.vad }}
             </text>
-            <wd-icon name="arrow-right" custom-class="arrow-icon" />
+            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
           </view>
 
-          <view class="model-item" @click="openPicker('asr')">
-            <text class="model-label">
+          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('asr')">
+            <text class="text-[28rpx] text-[#232338] font-medium">
               语音识别
             </text>
-            <text class="model-value">
+            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
               {{ displayNames.asr }}
             </text>
-            <wd-icon name="arrow-right" custom-class="arrow-icon" />
+            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
           </view>
 
-          <view class="model-item" @click="openPicker('llm')">
-            <text class="model-label">
+          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('llm')">
+            <text class="text-[28rpx] text-[#232338] font-medium">
               大语言模型
             </text>
-            <text class="model-value">
+            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
               {{ displayNames.llm }}
             </text>
-            <wd-icon name="arrow-right" custom-class="arrow-icon" />
+            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
           </view>
 
-          <view class="model-item" @click="openPicker('vllm')">
-            <text class="model-label">
+          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('vllm')">
+            <text class="text-[28rpx] text-[#232338] font-medium">
               视觉大模型
             </text>
-            <text class="model-value">
+            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
               {{ displayNames.vllm }}
             </text>
-            <wd-icon name="arrow-right" custom-class="arrow-icon" />
+            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
           </view>
 
-          <view class="model-item" @click="openPicker('intent')">
-            <text class="model-label">
+          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('intent')">
+            <text class="text-[28rpx] text-[#232338] font-medium">
               意图识别
             </text>
-            <text class="model-value">
+            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
               {{ displayNames.intent }}
             </text>
-            <wd-icon name="arrow-right" custom-class="arrow-icon" />
+            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
           </view>
 
-          <view class="model-item collapsible" @click="openPicker('memory')">
-            <text class="model-label">
+          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('memory')">
+            <text class="text-[28rpx] text-[#232338] font-medium">
               记忆
             </text>
-            <text class="model-value">
+            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
               {{ displayNames.memory }}
             </text>
-            <wd-icon name="arrow-right" custom-class="arrow-icon" />
+            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
           </view>
         </view>
       </view>
 
       <!-- 语音设置标题 -->
-      <view class="section-title">
-        <text class="title-text">
+      <view class="pb-[20rpx]">
+        <text class="text-[36rpx] font-bold text-[#232338]">
           语音设置
         </text>
       </view>
 
       <!-- 语音设置卡片 -->
-      <view class="settings-card plain-card">
-        <view class="voice-settings">
-          <view class="voice-item" @click="openPicker('tts')">
-            <text class="voice-label">
+      <view class="bg-[#fbfbfb] rounded-[20rpx] mb-[24rpx] p-[24rpx] border border-[#eeeeee]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
+        <view class="flex flex-col gap-[16rpx]">
+          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('tts')">
+            <text class="text-[28rpx] text-[#232338] font-medium">
               语音合成
             </text>
-            <text class="voice-value">
+            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
               {{ displayNames.tts }}
             </text>
-            <wd-icon name="arrow-right" custom-class="arrow-icon" />
+            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
           </view>
 
-          <view class="voice-item" @click="openPicker('voiceprint')">
-            <text class="voice-label">
+          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('voiceprint')">
+            <text class="text-[28rpx] text-[#232338] font-medium">
               角色音色
             </text>
-            <text class="voice-value">
+            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
               {{ displayNames.voiceprint }}
             </text>
-            <wd-icon name="arrow-right" custom-class="arrow-icon" />
+            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
           </view>
 
-          <view class="edit-functions">
-            <view class="text-[28rpx] text-[#232338] fw-[500]">
+          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee]">
+            <view class="text-[28rpx] text-[#232338] font-medium">
               插件
             </view>
-            <view class="function-btn" @click="handleTools">
+            <view class="px-[24rpx] py-[12rpx] bg-[rgba(51,108,255,0.1)] text-[#336cff] rounded-[20rpx] text-[24rpx] cursor-pointer transition-all duration-300 active:bg-[#336cff] active:text-white" @click="handleTools">
               <text>编辑功能</text>
             </view>
           </view>
@@ -683,31 +683,31 @@ onMounted(async () => {
       </view>
 
       <!-- 记忆历史标题 -->
-      <view class="section-title">
-        <text class="title-text">
+      <view class="pb-[20rpx]">
+        <text class="text-[36rpx] font-bold text-[#232338]">
           历史记忆
         </text>
       </view>
 
       <!-- 记忆历史卡片 -->
-      <view class="settings-card plain-card">
-        <view class="form-field">
+      <view class="bg-[#fbfbfb] rounded-[20rpx] mb-[24rpx] p-[24rpx] border border-[#eeeeee]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
+        <view class="mb-[24rpx] last:mb-0">
           <textarea
             v-model="formData.summaryMemory"
             placeholder="记忆内容"
             disabled
-            class="field-textarea disabled-textarea"
+            class="w-full h-[500rpx] p-[20rpx] bg-[#f0f0f0] text-[#65686f] opacity-80 rounded-[12rpx] border border-[#eeeeee] text-[26rpx] leading-[1.6] resize-none box-border outline-none break-words break-all"
           />
         </view>
       </view>
 
       <!-- 保存按钮 -->
-      <view class="save-section">
+      <view class="p-0 mt-[40rpx]">
         <wd-button
           type="primary"
           :loading="saving"
           :disabled="saving"
-          custom-class="save-btn"
+          custom-class="w-full h-[80rpx] rounded-[16rpx] text-[30rpx] font-semibold bg-[#336cff] active:bg-[#2d5bd1]"
           @click="saveAgent"
         >
           {{ saving ? '保存中...' : '保存' }}
@@ -781,305 +781,3 @@ onMounted(async () => {
     />
   </view>
 </template>
-
-<style lang="scss" scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background: #f5f7fb;
-}
-
-.status-bar {
-  background: #ffffff;
-  width: 100%;
-}
-
-.main-content {
-  flex: 1;
-  padding: 0 20rpx;
-  background: #f5f7fb;
-  box-sizing: border-box;
-}
-
-.section-title {
-  padding: 0 0 20rpx 0;
-
-  &:first-child {
-    padding-top: 20rpx;
-  }
-
-  .title-text {
-    font-size: 36rpx;
-    font-weight: 700;
-    color: #232338;
-  }
-}
-
-.settings-card.plain-card {
-  padding: 24rpx;
-}
-
-.settings-card {
-  background: #fbfbfb;
-  border-radius: 20rpx;
-  margin-bottom: 24rpx;
-  padding: 32rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-  border: 1rpx solid #eeeeee;
-}
-
-.form-field {
-  margin-bottom: 24rpx;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-}
-
-.field-label {
-  display: block;
-  font-size: 28rpx;
-  color: #232338;
-  font-weight: 500;
-  margin-bottom: 12rpx;
-
-  &.disabled-label {
-    color: #65686f;
-  }
-}
-
-.field-input {
-  width: 100%;
-  padding: 16rpx 20rpx;
-  height: 80rpx;
-  background: #f5f7fb;
-  border-radius: 12rpx;
-  border: 1rpx solid #eeeeee;
-  font-size: 28rpx;
-  color: #232338;
-  box-sizing: border-box;
-  line-height: 1.4;
-  outline: none;
-
-  &:focus {
-    border-color: #336cff;
-    background: #ffffff;
-  }
-
-  &::placeholder {
-    color: #9d9ea3;
-  }
-}
-
-.field-textarea {
-  width: 100%;
-  height: 500rpx;
-  padding: 20rpx;
-  background: #f5f7fb;
-  border-radius: 12rpx;
-  border: 1rpx solid #eeeeee;
-  font-size: 26rpx;
-  color: #232338;
-  line-height: 1.6;
-  resize: none;
-  box-sizing: border-box;
-  outline: none;
-  word-wrap: break-word;
-  word-break: break-all;
-
-  &:focus {
-    border-color: #336cff;
-    background: #ffffff;
-  }
-
-  &.disabled-textarea {
-    background: #f0f0f0;
-    color: #65686f;
-    opacity: 0.8;
-  }
-
-  &::placeholder {
-    color: #9d9ea3;
-  }
-}
-
-.char-count {
-  text-align: right;
-  font-size: 22rpx;
-  color: #9d9ea3;
-  margin-top: 8rpx;
-}
-
-.role-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12rpx;
-  margin-top: 0;
-}
-
-.role-tag {
-  padding: 12rpx 24rpx;
-  background: rgba(51, 108, 255, 0.1);
-  color: #336cff;
-  border-radius: 20rpx;
-  font-size: 24rpx;
-  border: 1rpx solid rgba(51, 108, 255, 0.2);
-  cursor: pointer;
-  transition: all 0.3s ease;
-
-  &.active {
-    background: #336cff;
-    color: white;
-    border-color: #336cff;
-  }
-}
-
-.model-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-}
-
-.model-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20rpx;
-  background: #f5f7fb;
-  border-radius: 12rpx;
-  border: 1rpx solid #eeeeee;
-  cursor: pointer;
-  transition: all 0.3s ease;
-
-  &:active {
-    background: #eef3ff;
-  }
-
-  .model-label {
-    font-size: 28rpx;
-    color: #232338;
-    font-weight: 500;
-  }
-
-  .model-value {
-    flex: 1;
-    text-align: right;
-    font-size: 26rpx;
-    color: #65686f;
-    margin: 0 16rpx;
-  }
-
-  :deep(.arrow-icon) {
-    font-size: 20rpx;
-    color: #9d9ea3;
-  }
-}
-
-.voice-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-}
-
-.voice-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20rpx;
-  background: #f5f7fb;
-  border-radius: 12rpx;
-  border: 1rpx solid #eeeeee;
-  cursor: pointer;
-  transition: all 0.3s ease;
-
-  &:active {
-    background: #eef3ff;
-  }
-
-  .voice-label {
-    font-size: 28rpx;
-    color: #232338;
-    font-weight: 500;
-  }
-
-  .voice-value {
-    flex: 1;
-    text-align: right;
-    font-size: 26rpx;
-    color: #65686f;
-    margin: 0 16rpx;
-  }
-
-  :deep(.arrow-icon) {
-    font-size: 20rpx;
-    color: #9d9ea3;
-  }
-}
-
-.edit-functions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20rpx;
-  background: #f5f7fb;
-  border-radius: 12rpx;
-  border: 1rpx solid #eeeeee;
-
-  .function-dots {
-    display: flex;
-    gap: 12rpx;
-
-    .dot {
-      width: 16rpx;
-      height: 16rpx;
-      border-radius: 50%;
-
-      &.red {
-        background: #ff4d4f;
-      }
-
-      &.yellow {
-        background: #faad14;
-      }
-
-      &.green {
-        background: #52c41a;
-      }
-    }
-  }
-
-  .function-btn {
-    padding: 12rpx 24rpx;
-    background: rgba(51, 108, 255, 0.1);
-    color: #336cff;
-    border-radius: 20rpx;
-    font-size: 24rpx;
-    cursor: pointer;
-    transition: all 0.3s ease;
-
-    &:active {
-      background: #336cff;
-      color: white;
-    }
-  }
-}
-
-.save-section {
-  padding: 0;
-  margin-top: 40rpx;
-
-  :deep(.save-btn) {
-    width: 100%;
-    height: 80rpx;
-    border-radius: 16rpx;
-    font-size: 30rpx;
-    font-weight: 600;
-    background: #336cff;
-
-    &:active {
-      background: #2d5bd1;
-    }
-  }
-}
-</style>

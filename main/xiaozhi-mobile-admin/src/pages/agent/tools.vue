@@ -244,7 +244,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <view class="page-container">
+  <view class="h-screen flex flex-col bg-[#f5f7fb]">
     <!-- 头部导航 -->
     <wd-navbar
       title=""
@@ -261,7 +261,7 @@ onMounted(async () => {
     <!-- 内容区域 -->
     <scroll-view
       scroll-y
-      class="content-scroll-view box-border px-[20rpx]"
+      class="flex-1 box-border px-[20rpx] bg-transparent"
       :style="{ height: 'calc(100vh - 120rpx)' }"
       :scroll-with-animation="true"
     >
@@ -284,7 +284,7 @@ onMounted(async () => {
             <!-- 未选插件 -->
             <scroll-view
               v-if="currentSegmented === '未选'"
-              class="plugin-scroll-view"
+              class="max-h-[600rpx] bg-transparent"
               scroll-y
             >
               <view
@@ -322,7 +322,7 @@ onMounted(async () => {
             </scroll-view>
 
             <!-- 已选插件 -->
-            <scroll-view v-else class="plugin-scroll-view" scroll-y>
+            <scroll-view v-else class="max-h-[600rpx] bg-transparent" scroll-y>
               <view
                 v-if="selectedList.length === 0"
                 class="h-[400rpx] flex items-center justify-center"
@@ -398,7 +398,7 @@ onMounted(async () => {
           </view>
           <!-- 工具列表 -->
           <view class="mt-[20rpx] flex-1 overflow-hidden">
-            <scroll-view class="plugin-scroll-view" scroll-y>
+            <scroll-view class="max-h-[600rpx] bg-transparent" scroll-y>
               <view
                 v-if="mcpTools && mcpTools.length === 0"
                 class="h-[400rpx] flex items-center justify-center"
@@ -431,47 +431,48 @@ onMounted(async () => {
     >
       <scroll-view
         scroll-y
-        class="param-scroll-container"
+        class="bg-[#f5f7fb]"
         :style="{ height: 'calc(75vh - 60rpx)' }"
       >
-        <view class="param-content">
+        <view class="p-[30rpx] pb-[40rpx]">
           <!-- 无参数提示 -->
           <view
             v-if="
               !currentFunction?.fieldsMeta
                 || currentFunction.fieldsMeta.length === 0
             "
-            class="empty-params"
+            class="h-[400rpx] flex items-center justify-center"
           >
-            <text class="empty-text">
+            <text class="text-[28rpx] text-[#999]">
               {{ currentFunction?.name }} 无需配置参数
             </text>
           </view>
 
           <!-- 参数表单 - 卡片式布局 -->
-          <view v-else class="param-cards">
+          <view v-else class="flex flex-col gap-[24rpx]">
             <view
               v-for="field in currentFunction.fieldsMeta"
               :key="field.key"
-              class="param-card"
+              class="bg-white rounded-[20rpx] p-[30rpx] border border-[#eeeeee]" 
+              style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);"
             >
               <!-- 字段信息 -->
-              <view class="field-info">
-                <text class="field-label">
+              <view class="mb-[24rpx]">
+                <text class="block text-[32rpx] font-medium text-[#232338] mb-[8rpx]">
                   {{ field.label }}
                 </text>
-                <text v-if="getFieldRemark(field)" class="field-desc">
+                <text v-if="getFieldRemark(field)" class="block text-[24rpx] text-[#65686f] leading-[1.5]">
                   {{ getFieldRemark(field) }}
                 </text>
               </view>
 
               <!-- 输入控件 -->
-              <view class="field-input-container">
+              <view>
                 <!-- 字符串类型 -->
                 <input
                   v-if="field.type === 'string'"
                   v-model="tempParams[field.key]"
-                  class="field-input"
+                  class="w-full h-[80rpx] p-[16rpx_20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] text-[28rpx] text-[#232338] box-border focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
                   type="text"
                   :placeholder="`请输入${field.label}`"
                   @input="
@@ -480,13 +481,13 @@ onMounted(async () => {
                 >
 
                 <!-- 数组类型 -->
-                <view v-else-if="field.type === 'array'" class="array-field">
-                  <text class="field-hint">
+                <view v-else-if="field.type === 'array'">
+                  <text class="block text-[24rpx] text-[#65686f] mb-[16rpx]">
                     每行输入一个项目
                   </text>
                   <textarea
                     v-model="arrayTextCache[field.key]"
-                    class="field-textarea"
+                    class="w-full min-h-[200rpx] p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] text-[26rpx] text-[#232338] leading-[1.6] box-border focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
                     :placeholder="`请输入${field.label}，每行一个`"
                     @input="
                       handleArrayChange(field.key, $event.detail.value, field)
@@ -495,13 +496,13 @@ onMounted(async () => {
                 </view>
 
                 <!-- JSON类型 -->
-                <view v-else-if="field.type === 'json'" class="json-field">
-                  <text class="field-hint">
+                <view v-else-if="field.type === 'json'">
+                  <text class="block text-[24rpx] text-[#65686f] mb-[16rpx]">
                     请输入有效的JSON格式
                   </text>
                   <textarea
                     v-model="jsonTextCache[field.key]"
-                    class="field-textarea json-textarea"
+                    class="w-full min-h-[300rpx] p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] text-[26rpx] text-[#232338] leading-[1.6] box-border focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3] font-mono"
                     placeholder="请输入合法的JSON格式"
                     @blur="
                       handleJsonChange(field.key, $event.detail.value, field)
@@ -513,7 +514,7 @@ onMounted(async () => {
                 <input
                   v-else-if="field.type === 'number'"
                   v-model="tempParams[field.key]"
-                  class="field-input"
+                  class="w-full h-[80rpx] p-[16rpx_20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] text-[28rpx] text-[#232338] box-border focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
                   type="number"
                   :placeholder="`请输入${field.label}`"
                   @input="
@@ -528,13 +529,13 @@ onMounted(async () => {
                 <!-- 布尔类型 -->
                 <view
                   v-else-if="field.type === 'boolean' || field.type === 'bool'"
-                  class="switch-field"
+                  class="flex items-center justify-between py-[20rpx]"
                 >
-                  <view class="switch-info">
-                    <text class="switch-label">
+                  <view class="flex-1">
+                    <text class="block text-[28rpx] text-[#232338] mb-[8rpx]">
                       启用功能
                     </text>
-                    <text class="switch-desc">
+                    <text class="block text-[24rpx] text-[#65686f]">
                       开启或关闭此功能
                     </text>
                   </view>
@@ -550,7 +551,7 @@ onMounted(async () => {
                 <input
                   v-else
                   v-model="tempParams[field.key]"
-                  class="field-input"
+                  class="w-full h-[80rpx] p-[16rpx_20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] text-[28rpx] text-[#232338] box-border focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
                   type="text"
                   :placeholder="`请输入${field.label}`"
                   @input="
@@ -566,161 +567,3 @@ onMounted(async () => {
   </view>
 </template>
 
-<style lang="scss" scoped>
-.page-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background: #f5f7fb;
-}
-
-.content-scroll-view {
-  flex: 1;
-  background: transparent;
-}
-
-// 插件列表滚动视图样式
-.plugin-scroll-view {
-  max-height: 600rpx; // 最大高度为4个插件的高度
-  background: transparent;
-}
-
-// 参数编辑弹窗样式
-.param-scroll-container {
-  background: #f5f7fb;
-}
-
-.param-content {
-  padding: 30rpx;
-  padding-bottom: 40rpx;
-}
-
-.empty-params {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 400rpx;
-
-  .empty-text {
-    font-size: 28rpx;
-    color: #999;
-  }
-}
-
-.param-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 24rpx;
-}
-
-.param-card {
-  background: #ffffff;
-  border-radius: 20rpx;
-  padding: 30rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-  border: 1rpx solid #eeeeee;
-}
-
-.field-info {
-  margin-bottom: 24rpx;
-
-  .field-label {
-    display: block;
-    font-size: 32rpx;
-    font-weight: 500;
-    color: #232338;
-    margin-bottom: 8rpx;
-  }
-
-  .field-desc {
-    display: block;
-    font-size: 24rpx;
-    color: #65686f;
-    line-height: 1.5;
-  }
-}
-
-.field-input-container {
-  .field-input {
-    width: 100%;
-    padding: 16rpx 20rpx;
-    height: 80rpx;
-    background: #f5f7fb;
-    border-radius: 12rpx;
-    border: 1rpx solid #eeeeee;
-    font-size: 28rpx;
-    color: #232338;
-    box-sizing: border-box;
-
-    &:focus {
-      border-color: #336cff;
-      background: #ffffff;
-    }
-
-    &::placeholder {
-      color: #9d9ea3;
-    }
-  }
-
-  .field-textarea {
-    width: 100%;
-    min-height: 200rpx;
-    padding: 20rpx;
-    background: #f5f7fb;
-    border-radius: 12rpx;
-    border: 1rpx solid #eeeeee;
-    font-size: 26rpx;
-    color: #232338;
-    line-height: 1.6;
-    box-sizing: border-box;
-
-    &:focus {
-      border-color: #336cff;
-      background: #ffffff;
-    }
-
-    &.json-textarea {
-      min-height: 300rpx;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    }
-
-    &::placeholder {
-      color: #9d9ea3;
-    }
-  }
-}
-
-.array-field,
-.json-field {
-  .field-hint {
-    display: block;
-    font-size: 24rpx;
-    color: #65686f;
-    margin-bottom: 16rpx;
-  }
-}
-
-.switch-field {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20rpx 0;
-
-  .switch-info {
-    flex: 1;
-
-    .switch-label {
-      display: block;
-      font-size: 28rpx;
-      color: #232338;
-      margin-bottom: 8rpx;
-    }
-
-    .switch-desc {
-      display: block;
-      font-size: 24rpx;
-      color: #65686f;
-    }
-  }
-}
-</style>
