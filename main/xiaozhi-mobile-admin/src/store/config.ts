@@ -12,7 +12,7 @@ const initialConfigState: PublicConfig = {
   mobileAreaList: [],
   beianIcpNum: '',
   beianGaNum: '',
-  name: '小智智能助手',
+  name: import.meta.env.VITE_APP_TITLE,
 }
 
 export const useConfigStore = defineStore(
