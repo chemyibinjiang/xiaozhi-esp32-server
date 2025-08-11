@@ -1,18 +1,16 @@
-<route lang="jsonc" type="page">
-{
+<route lang="jsonc" type="page">{
   "layout": "default",
   "style": {
     "navigationBarTitleText": "设置",
     "navigationStyle": "custom"
   }
-}
-</route>
+}</route>
 
 <script lang="ts" setup>
-import { computed, onMounted, reactive, ref } from 'vue'
-import { useToast } from 'wot-design-uni'
 import { clearServerBaseUrlOverride, getEnvBaseUrl, getServerBaseUrlOverride, setServerBaseUrlOverride } from '@/utils'
 import { isMp } from '@/utils/platform'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useToast } from 'wot-design-uni'
 
 defineOptions({
   name: 'SettingsPage',
@@ -165,7 +163,7 @@ async function clearCache() {
 function showAbout() {
   uni.showModal({
     title: `关于${import.meta.env.VITE_APP_TITLE}`,
-    content: `${import.meta.env.VITE_APP_TITLE}\n\n基于 Vue.js 3 + uni-app 构建的跨平台移动端管理应用，为小智ESP32智能硬件提供设备管理、智能体配置等功能。\n\n© 2025 Xiaozhi Team`,
+    content: `${import.meta.env.VITE_APP_TITLE}\n\n基于 Vue.js 3 + uni-app 构建的跨平台移动端管理应用，为小智ESP32智能硬件提供设备管理、智能体配置等功能。\n\n© 2025 xiaozhi-esp32-server`,
     showCancel: false,
     confirmText: '确定',
   })
@@ -193,7 +191,8 @@ onMounted(async () => {
           </text>
         </view>
 
-        <view class="border border-[#eeeeee] rounded-[24rpx] bg-[#fbfbfb] p-[32rpx]" style="box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);">
+        <view class="border border-[#eeeeee] rounded-[24rpx] bg-[#fbfbfb] p-[32rpx]"
+          style="box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);">
           <view class="mb-[24rpx]">
             <text class="text-[28rpx] text-[#232338] font-semibold">
               服务端接口地址
@@ -204,27 +203,20 @@ onMounted(async () => {
           </view>
 
           <view class="mb-[24rpx]">
-            <input
-              v-model="baseUrlInput"
+            <input v-model="baseUrlInput"
               class="h-[88rpx] w-full border border-[#eeeeee] rounded-[16rpx] bg-[#f5f7fb] px-[24rpx] text-[28rpx] text-[#232338] transition-all focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3] focus:shadow-[0_0_0_4rpx_rgba(51,108,255,0.1)]"
-              type="text"
-              placeholder="输入服务端地址，如 https://example.com/api"
-            >
+              type="text" placeholder="输入服务端地址，如 https://example.com/api">
           </view>
 
           <view class="flex gap-[16rpx]">
-            <wd-button
-              type="primary"
+            <wd-button type="primary"
               custom-class="flex-1 h-[88rpx] rounded-[20rpx] text-[28rpx] font-semibold bg-[#336cff] border-none shadow-[0_4rpx_16rpx_rgba(51,108,255,0.3)] active:shadow-[0_2rpx_8rpx_rgba(51,108,255,0.4)] active:scale-98"
-              @click="saveServerBaseUrl"
-            >
+              @click="saveServerBaseUrl">
               保存设置
             </wd-button>
-            <wd-button
-              type="default"
+            <wd-button type="default"
               custom-class="flex-1 h-[88rpx] rounded-[20rpx] text-[28rpx] font-semibold bg-white border-[#eeeeee] text-[#65686f] active:bg-[#f5f7fb]"
-              @click="resetServerBaseUrl"
-            >
+              @click="resetServerBaseUrl">
               恢复默认
             </wd-button>
           </view>
@@ -239,10 +231,12 @@ onMounted(async () => {
           </text>
         </view>
 
-        <view class="border border-[#eeeeee] rounded-[24rpx] bg-[#fbfbfb] p-[32rpx]" style="box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);">
+        <view class="border border-[#eeeeee] rounded-[24rpx] bg-[#fbfbfb] p-[32rpx]"
+          style="box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);">
           <view class="space-y-[16rpx]">
             <!-- 缓存信息展示，参考插件样式 -->
-            <view class="flex items-center justify-between border border-[#eeeeee] rounded-[16rpx] bg-[#f5f7fb] p-[24rpx] transition-all active:bg-[#eef3ff]">
+            <view
+              class="flex items-center justify-between border border-[#eeeeee] rounded-[16rpx] bg-[#f5f7fb] p-[24rpx] transition-all active:bg-[#eef3ff]">
               <view>
                 <text class="text-[28rpx] text-[#232338] font-medium">
                   总缓存大小
@@ -257,7 +251,8 @@ onMounted(async () => {
             </view>
 
             <!-- 清除缓存按钮，参考插件编辑按钮样式 -->
-            <view class="flex items-center justify-between border border-[#eeeeee] rounded-[16rpx] bg-[#f5f7fb] p-[24rpx]">
+            <view
+              class="flex items-center justify-between border border-[#eeeeee] rounded-[16rpx] bg-[#f5f7fb] p-[24rpx]">
               <view>
                 <text class="text-[28rpx] text-[#232338] font-medium">
                   缓存清理
@@ -268,8 +263,7 @@ onMounted(async () => {
               </view>
               <view
                 class="cursor-pointer rounded-[24rpx] bg-[rgba(255,107,107,0.1)] px-[28rpx] py-[16rpx] text-[24rpx] text-[#ff6b6b] font-semibold transition-all duration-300 active:scale-95 active:bg-[#ff6b6b] active:text-white"
-                @click="clearCache"
-              >
+                @click="clearCache">
                 清除缓存
               </view>
             </view>
@@ -285,11 +279,11 @@ onMounted(async () => {
           </text>
         </view>
 
-        <view class="border border-[#eeeeee] rounded-[24rpx] bg-[#fbfbfb] p-[32rpx]" style="box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);">
+        <view class="border border-[#eeeeee] rounded-[24rpx] bg-[#fbfbfb] p-[32rpx]"
+          style="box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);">
           <view
             class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[16rpx] bg-[#f5f7fb] p-[24rpx] transition-all active:bg-[#eef3ff]"
-            @click="showAbout"
-          >
+            @click="showAbout">
             <view>
               <text class="text-[28rpx] text-[#232338] font-medium">
                 关于我们
@@ -310,5 +304,4 @@ onMounted(async () => {
 </template>
 
 <style lang="scss" scoped>
-// 保持与 edit.vue 一致的风格，样式主要通过类名控制
-</style>
+// 保持与 edit.vue 一致的风格，样式主要通过类名控制</style>

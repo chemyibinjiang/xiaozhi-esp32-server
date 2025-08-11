@@ -26,6 +26,7 @@ pnpm i
 ```
 
 3) 本地开发（热更新）
+- h5: `pnpm dev:h5`，然后观察启动日志显示的ip端口号
 - 微信小程序：`pnpm dev:mp` 或 `pnpm dev:mp-weixin`，然后用微信开发者工具导入 `dist/dev/mp-weixin`
 - App：用 HBuilderX 导入 `manager-mobile`，然后参考下面的教程就能运行了
 
