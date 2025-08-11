@@ -16,7 +16,6 @@ import { ref } from 'vue'
 import { useMessage } from 'wot-design-uni'
 import useZPaging from 'z-paging/components/z-paging/js/hooks/useZPaging.js'
 import { createAgent, deleteAgent, getAgentList } from '@/api/agent/agent'
-import { useAgentStore } from '@/store'
 import { toast } from '@/utils/toast'
 
 defineOptions({
@@ -47,7 +46,6 @@ safeAreaInsets = systemInfo.safeAreaInsets
 // #endif
 
 // 智能体数据
-const agentStore = useAgentStore()
 const agentList = ref<Agent[]>([])
 const pagingRef = ref()
 useZPaging(pagingRef)
@@ -61,16 +59,8 @@ async function queryList(pageNo: number, pageSize: number) {
 
     const response = await getAgentList()
 
-    // 将数据存入 Pinia store
-    agentStore.agentList = response
-    agentStore.isLoaded = true
-
-    // 如果没有当前选中的智能体，且列表不为空，选择第一个
-    console.log(!agentStore.currentAgentId && response.length > 0, agentStore.currentAgentId)
-
-    if (!agentStore.currentAgentId && response.length > 0) {
-      agentStore.setCurrentAgent(response[0].id)
-    }
+    // 更新本地列表
+    agentList.value = response
 
     // 直接返回全部数据，不需要分页处理
     pagingRef.value.complete(response)
@@ -114,10 +104,9 @@ async function handleDeleteAgent(agent: Agent) {
 
 // 进入编辑页面
 function goToEditAgent(agent: Agent) {
-  // 设置当前编辑的智能体
-  agentStore.setCurrentAgent(agent.id)
+  // 传递智能体ID到编辑页面
   uni.navigateTo({
-    url: `/pages/agent/edit?id=${agent.id}`,
+    url: `/pages/agent/index?agentId=${agent.id}`,
   })
 }
 
@@ -163,12 +152,6 @@ function formatTime(timeStr: string) {
   return `${Math.floor(diff / 86400000)}天前`
 }
 
-function goToDeviceConfig() {
-  uni.navigateTo({
-    url: '/pages/device-config/index',
-  })
-}
-
 // 页面显示时刷新列表
 onShow(() => {
   console.log('首页 onShow，刷新智能体列表')
@@ -193,10 +176,6 @@ onShow(() => {
     <template #top>
       <view class="banner-section" :style="{ paddingTop: `${safeAreaInsets?.top + 100}rpx` }">
         <view class="banner-content">
-          <wd-icon
-            name="setting1" size="40rpx" class="absolute right-0 top-[-50rpx] text-white"
-            @click="goToDeviceConfig"
-          />
           <view class="welcome-info">
             <text class="greeting">
               你好，小智

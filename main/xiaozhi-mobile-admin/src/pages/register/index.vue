@@ -12,6 +12,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { register, sendSmsCode } from '@/api/auth'
 import { useConfigStore } from '@/store'
+import { getEnvBaseUrl } from '@/utils'
 import { toast } from '@/utils/toast'
 
 // 获取屏幕边界到安全区域距离
@@ -127,7 +128,7 @@ function generateUUID() {
 async function refreshCaptcha() {
   const uuid = generateUUID()
   formData.value.captchaId = uuid
-  captchaImage.value = `${import.meta.env.VITE_SERVER_BASEURL}/user/captcha?uuid=${uuid}&t=${Date.now()}`
+  captchaImage.value = `${getEnvBaseUrl()}/user/captcha?uuid=${uuid}&t=${Date.now()}`
 }
 
 // 发送短信验证码

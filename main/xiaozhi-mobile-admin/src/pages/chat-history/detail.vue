@@ -13,7 +13,7 @@ import type { ChatMessage, UserMessageContent } from '@/api/chat-history/types'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 import { getAudioId, getChatHistory } from '@/api/chat-history/chat-history'
-import { useAgentStore } from '@/store'
+import { getEnvBaseUrl } from '@/utils'
 import { toast } from '@/utils/toast'
 
 defineOptions({
@@ -45,12 +45,12 @@ safeAreaInsets = systemInfo.safeAreaInsets
 const sessionId = ref('')
 const agentId = ref('')
 
-// 智能体管理
-const agentStore = useAgentStore()
-
-// 获取当前智能体信息
+// 智能体信息（简化）
 const currentAgent = computed(() => {
-  return agentStore.agentList.find(agent => agent.id === agentId.value)
+  return {
+    id: agentId.value,
+    agentName: '智能助手',
+  }
 })
 
 // 聊天数据
@@ -146,8 +146,8 @@ async function playAudio(audioId: string) {
     const downloadId = await getAudioId(audioId)
 
     // 构造音频播放地址
-    const baseURL = import.meta.env.VITE_SERVER_BASEURL
-    const audioUrl = `${baseURL}/agent/play/${downloadId}`
+    const baseUrl = getEnvBaseUrl()
+    const audioUrl = `${baseUrl}/agent/play/${downloadId}`
 
     // 创建音频上下文
     audioContext.value = uni.createInnerAudioContext()

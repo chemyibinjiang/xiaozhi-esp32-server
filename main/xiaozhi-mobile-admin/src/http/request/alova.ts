@@ -4,6 +4,7 @@ import AdapterUniapp from '@alova/adapter-uniapp'
 import { createAlova } from 'alova'
 import { createServerTokenAuthentication } from 'alova/client'
 import VueHook from 'alova/vue'
+import { getEnvBaseUrl } from '@/utils'
 import { toast } from '@/utils/toast'
 import { ContentTypeEnum, ResultEnum, ShowMessage } from './enum'
 
@@ -35,7 +36,7 @@ const { onAuthRequired, onResponseRefreshToken } = createServerTokenAuthenticati
  * alova 请求实例
  */
 const alovaInstance = createAlova({
-  baseURL: import.meta.env.VITE_SERVER_BASEURL,
+  baseURL: getEnvBaseUrl(),
   ...AdapterUniapp(),
   timeout: 5000,
   statesHook: VueHook,

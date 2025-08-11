@@ -37,42 +37,21 @@ export const tabbarList: FgTabBarItem[] = [
     iconType: 'uiLib',
   },
   {
-    iconPath: 'static/tabbar/device.png',
-    selectedIconPath: 'static/tabbar/device_activate.png',
-    pagePath: 'pages/device/index',
-    text: '设备管理',
-    icon: 'i-carbon-laptop',
-    // 注意 unocss 的图标需要在 页面上引入一下，或者配置到 unocss.config.ts 的 safelist 中
+    iconPath: 'static/tabbar/network.png',
+    selectedIconPath: 'static/tabbar/network_activate.png',
+    pagePath: 'pages/device-config/index',
+    text: '配网',
+    icon: 'i-carbon-network-3',
     iconType: 'uiLib',
   },
   {
-    iconPath: 'static/tabbar/microphone.png',
-    selectedIconPath: 'static/tabbar/microphone_activate.png',
-    pagePath: 'pages/voiceprint/index',
-    text: '声纹识别',
-    icon: 'i-carbon-microphone-filled',
+    iconPath: 'static/tabbar/system.png',
+    selectedIconPath: 'static/tabbar/system_activate.png',
+    pagePath: 'pages/settings/index',
+    text: '系统',
+    icon: 'i-carbon-settings',
     iconType: 'uiLib',
   },
-  {
-    iconPath: 'static/tabbar/chat.png',
-    selectedIconPath: 'static/tabbar/chat_activate.png',
-    pagePath: 'pages/chat-history/index',
-    text: '聊天记录',
-    icon: 'i-carbon-chat-bot',
-    iconType: 'uiLib',
-  },
-  // {
-  //   pagePath: 'pages/my/index',
-  //   text: '我的',
-  //   icon: '/static/logo.svg',
-  //   iconType: 'local',
-  // },
-  // {
-  //   pagePath: 'pages/mine/index',
-  //   text: '我的',
-  //   icon: 'iconfont icon-my',
-  //   iconType: 'iconfont',
-  // },
 ]
 
 // NATIVE_TABBAR(1) 和 CUSTOM_TABBAR_WITH_CACHE(2) 时，需要tabbar缓存

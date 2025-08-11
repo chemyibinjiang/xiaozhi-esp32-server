@@ -261,7 +261,7 @@ onMounted(async () => {
     <!-- 内容区域 -->
     <scroll-view
       scroll-y
-      class="flex-1 box-border px-[20rpx] bg-transparent"
+      class="box-border flex-1 bg-transparent px-[20rpx]"
       :style="{ height: 'calc(100vh - 120rpx)' }"
       :scroll-with-animation="true"
     >
@@ -453,12 +453,12 @@ onMounted(async () => {
             <view
               v-for="field in currentFunction.fieldsMeta"
               :key="field.key"
-              class="bg-white rounded-[20rpx] p-[30rpx] border border-[#eeeeee]" 
+              class="border border-[#eeeeee] rounded-[20rpx] bg-white p-[30rpx]"
               style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);"
             >
               <!-- 字段信息 -->
               <view class="mb-[24rpx]">
-                <text class="block text-[32rpx] font-medium text-[#232338] mb-[8rpx]">
+                <text class="mb-[8rpx] block text-[32rpx] text-[#232338] font-medium">
                   {{ field.label }}
                 </text>
                 <text v-if="getFieldRemark(field)" class="block text-[24rpx] text-[#65686f] leading-[1.5]">
@@ -472,7 +472,7 @@ onMounted(async () => {
                 <input
                   v-if="field.type === 'string'"
                   v-model="tempParams[field.key]"
-                  class="w-full h-[80rpx] p-[16rpx_20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] text-[28rpx] text-[#232338] box-border focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
+                  class="box-border h-[80rpx] w-full border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[16rpx_20rpx] text-[28rpx] text-[#232338] focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
                   type="text"
                   :placeholder="`请输入${field.label}`"
                   @input="
@@ -482,12 +482,12 @@ onMounted(async () => {
 
                 <!-- 数组类型 -->
                 <view v-else-if="field.type === 'array'">
-                  <text class="block text-[24rpx] text-[#65686f] mb-[16rpx]">
+                  <text class="mb-[16rpx] block text-[24rpx] text-[#65686f]">
                     每行输入一个项目
                   </text>
                   <textarea
                     v-model="arrayTextCache[field.key]"
-                    class="w-full min-h-[200rpx] p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] text-[26rpx] text-[#232338] leading-[1.6] box-border focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
+                    class="box-border min-h-[200rpx] w-full border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] text-[26rpx] text-[#232338] leading-[1.6] focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
                     :placeholder="`请输入${field.label}，每行一个`"
                     @input="
                       handleArrayChange(field.key, $event.detail.value, field)
@@ -497,12 +497,12 @@ onMounted(async () => {
 
                 <!-- JSON类型 -->
                 <view v-else-if="field.type === 'json'">
-                  <text class="block text-[24rpx] text-[#65686f] mb-[16rpx]">
+                  <text class="mb-[16rpx] block text-[24rpx] text-[#65686f]">
                     请输入有效的JSON格式
                   </text>
                   <textarea
                     v-model="jsonTextCache[field.key]"
-                    class="w-full min-h-[300rpx] p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] text-[26rpx] text-[#232338] leading-[1.6] box-border focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3] font-mono"
+                    class="box-border min-h-[300rpx] w-full border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] text-[26rpx] text-[#232338] leading-[1.6] font-mono focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
                     placeholder="请输入合法的JSON格式"
                     @blur="
                       handleJsonChange(field.key, $event.detail.value, field)
@@ -514,7 +514,7 @@ onMounted(async () => {
                 <input
                   v-else-if="field.type === 'number'"
                   v-model="tempParams[field.key]"
-                  class="w-full h-[80rpx] p-[16rpx_20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] text-[28rpx] text-[#232338] box-border focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
+                  class="box-border h-[80rpx] w-full border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[16rpx_20rpx] text-[28rpx] text-[#232338] focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
                   type="number"
                   :placeholder="`请输入${field.label}`"
                   @input="
@@ -532,7 +532,7 @@ onMounted(async () => {
                   class="flex items-center justify-between py-[20rpx]"
                 >
                   <view class="flex-1">
-                    <text class="block text-[28rpx] text-[#232338] mb-[8rpx]">
+                    <text class="mb-[8rpx] block text-[28rpx] text-[#232338]">
                       启用功能
                     </text>
                     <text class="block text-[24rpx] text-[#65686f]">
@@ -551,7 +551,7 @@ onMounted(async () => {
                 <input
                   v-else
                   v-model="tempParams[field.key]"
-                  class="w-full h-[80rpx] p-[16rpx_20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] text-[28rpx] text-[#232338] box-border focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
+                  class="box-border h-[80rpx] w-full border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[16rpx_20rpx] text-[28rpx] text-[#232338] focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
                   type="text"
                   :placeholder="`请输入${field.label}`"
                   @input="
@@ -566,4 +566,3 @@ onMounted(async () => {
     </wd-action-sheet>
   </view>
 </template>
-

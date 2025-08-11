@@ -17,6 +17,9 @@ export function getChatSessions(agentId: string, params: GetSessionsParams) {
       ignoreAuth: false,
       toast: false,
     },
+    cacheFor: {
+      expire: 0,
+    },
   })
 }
 

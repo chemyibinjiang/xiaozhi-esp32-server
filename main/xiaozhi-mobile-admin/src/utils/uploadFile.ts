@@ -1,3 +1,4 @@
+import { getEnvBaseUrl } from './index'
 import { toast } from './toast'
 
 /**
@@ -20,8 +21,10 @@ import { toast } from './toast'
  * 上传文件的URL配置
  */
 export const uploadFileUrl = {
-  /** 用户头像上传地址 */
-  USER_AVATAR: `${import.meta.env.VITE_SERVER_BASEURL}/user/avatar`,
+  /** 用户头像上传地址（动态读取当前生效的 BaseURL） */
+  get USER_AVATAR() {
+    return `${getEnvBaseUrl()}/user/avatar`
+  },
 }
 
 /**

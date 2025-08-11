@@ -1,81 +1,24 @@
-<route lang="jsonc" type="page">
-{
-  "layout": "default",
-  "style": {
-    "navigationStyle": "custom",
-    "navigationBarTitleText": "编辑"
-  }
-}
-</route>
-
 <script lang="ts" setup>
 import type { AgentDetail, ModelOption, PluginDefinition, RoleTemplate } from '@/api/agent/types'
-import { onLoad } from '@dcloudio/uni-app'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { getAgentDetail, getModelOptions, getPluginFunctions, getRoleTemplates, getTTSVoices, updateAgent } from '@/api/agent/agent'
-import { useAgentStore, usePluginStore } from '@/store'
+import { usePluginStore } from '@/store'
 import { toast } from '@/utils/toast'
 
 defineOptions({
   name: 'AgentEdit',
 })
 
-// 页面参数
-const agentId = ref('')
-
-// 获取屏幕边界到安全区域距离
-let safeAreaInsets: any
-let systemInfo: any
-
-// #ifdef MP-WEIXIN
-systemInfo = uni.getWindowInfo()
-safeAreaInsets = systemInfo.safeArea
-  ? {
-      top: systemInfo.safeArea.top,
-      right: systemInfo.windowWidth - systemInfo.safeArea.right,
-      bottom: systemInfo.windowHeight - systemInfo.safeArea.bottom,
-      left: systemInfo.safeArea.left,
-    }
-  : null
-// #endif
-
-// #ifndef MP-WEIXIN
-systemInfo = uni.getSystemInfoSync()
-safeAreaInsets = systemInfo.safeAreaInsets
-// #endif
-
-// 智能体管理
-const agentStore = useAgentStore()
-const showAgentPicker = ref<boolean>(false)
-
-// 获取智能体选项
-const agentOptions = computed(() => {
-  return agentStore.getAgentOptions
+const props = withDefaults(defineProps<Props>(), {
+  agentId: '',
 })
 
-// 显示智能体选择器
-function showAgentSelector() {
-  showAgentPicker.value = true
+// 组件参数
+interface Props {
+  agentId?: string
 }
 
-// 关闭智能体选择器
-function closeAgentSelector() {
-  showAgentPicker.value = false
-}
-
-// 处理智能体切换
-function handleAgentSwitch({ item }: { item: any }) {
-  const selectedAgentId = item.value
-  if (selectedAgentId !== agentId.value) {
-    // 设置当前智能体
-    agentStore.setCurrentAgent(selectedAgentId)
-    // 跳转到新的智能体编辑页面
-    uni.redirectTo({
-      url: `/pages/agent/edit?id=${selectedAgentId}`,
-    })
-  }
-  closeAgentSelector()
-}
+const agentId = computed(() => props.agentId)
 
 // 表单数据
 const formData = ref<Partial<AgentDetail>>({
@@ -147,13 +90,33 @@ const allFunctions = ref<PluginDefinition[]>([])
 // 使用插件store
 const pluginStore = usePluginStore()
 
-// 监听当前智能体变化，自动加载数据
-watch(() => agentStore.currentAgentId, async (newId) => {
-  if (newId && newId !== agentId.value) {
-    agentId.value = newId
-    await loadAgentDetail()
-  }
-}, { immediate: true })
+// tabs
+const tabList = [
+  {
+    label: '角色配置',
+    value: 'home',
+    icon: '/static/tabbar/robot.png',
+    activeIcon: '/static/tabbar/robot_activate.png',
+  },
+  {
+    label: '设备管理',
+    value: 'category',
+    icon: '/static/tabbar/device.png',
+    activeIcon: '/static/tabbar/device_activate.png',
+  },
+  {
+    label: '聊天记录',
+    value: 'settings',
+    icon: '/static/tabbar/chat.png',
+    activeIcon: '/static/tabbar/chat_activate.png',
+  },
+  {
+    label: '声纹管理',
+    value: 'profile',
+    icon: '/static/tabbar/voiceprint.png',
+    activeIcon: '/static/tabbar/voiceprint_activate.png',
+  },
+]
 
 // 加载智能体详情
 async function loadAgentDetail() {
@@ -409,10 +372,6 @@ async function saveAgent() {
     await updateAgent(agentId.value, formData.value)
 
     toast.success('保存成功')
-
-    setTimeout(() => {
-      uni.navigateBack()
-    }, 1000)
   }
   catch (error) {
     console.error('保存失败:', error)
@@ -421,11 +380,6 @@ async function saveAgent() {
   finally {
     saving.value = false
   }
-}
-
-// 返回上一页
-function goBack() {
-  uni.navigateBack()
 }
 
 function loadPluginFunctions() {
@@ -467,20 +421,9 @@ function watchPluginUpdates() {
   }, { deep: true })
 }
 
-onLoad((options) => {
-  if (options?.id) {
-    agentId.value = options.id
-  }
-})
-
 onMounted(async () => {
   // 初始化插件配置监听
   watchPluginUpdates()
-
-  // 确保 agent store 中有数据，如果没有则加载
-  if (!agentStore.isLoaded) {
-    await agentStore.loadAgentList()
-  }
 
   // 先加载模型选项和角色模板
   await Promise.all([
@@ -497,223 +440,207 @@ onMounted(async () => {
 </script>
 
 <template>
-  <view class="h-screen flex flex-col bg-[#f5f7fb]">
-    <!-- 导航栏 -->
-    <wd-navbar title="助手设置" safe-area-inset-top>
-      <template #left>
-        <wd-icon name="arrow-left" size="18" @click="goBack" />
-      </template>
-      <template #right>
-        <wd-icon name="filter1" size="18" @click="showAgentSelector" />
-      </template>
-    </wd-navbar>
+  <view class="bg-[#f5f7fb] px-[20rpx]">
+    <!-- 基础信息标题 -->
+    <view class="pb-[20rpx] first:pt-[20rpx]">
+      <text class="text-[32rpx] text-[#232338] font-bold">
+        基础信息
+      </text>
+    </view>
 
-    <!-- 主内容滚动区域 -->
-    <scroll-view
-      scroll-y
-      :style="{ height: `calc(100vh - ${safeAreaInsets?.top || 0}px - 120rpx)` }"
-      class="flex-1 px-[20rpx] bg-[#f5f7fb] box-border"
-      enable-back-to-top
-    >
-      <!-- 基础信息标题 -->
-      <view class="pb-[20rpx] first:pt-[20rpx]">
-        <text class="text-[36rpx] font-bold text-[#232338]">
-          基础信息
+    <!-- 基础信息卡片 -->
+    <view class="mb-[24rpx] border border-[#eeeeee] rounded-[20rpx] bg-[#fbfbfb] p-[24rpx]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
+      <view class="mb-[24rpx] last:mb-0">
+        <text class="mb-[12rpx] block text-[28rpx] text-[#232338] font-medium">
+          助手昵称
         </text>
-      </view>
-
-      <!-- 基础信息卡片 -->
-      <view class="bg-[#fbfbfb] rounded-[20rpx] mb-[24rpx] p-[24rpx] border border-[#eeeeee]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
-        <view class="mb-[24rpx] last:mb-0">
-          <text class="block text-[28rpx] text-[#232338] font-medium mb-[12rpx]">
-            助手昵称
-          </text>
-          <input
-            v-model="formData.agentName"
-            class="w-full h-[80rpx] p-[16rpx_20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] text-[28rpx] text-[#232338] box-border leading-[1.4] outline-none focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
-            type="text"
-            placeholder="请输入助手昵称"
-          >
-        </view>
-
-        <view class="mb-[24rpx] last:mb-0">
-          <text class="block text-[28rpx] text-[#232338] font-medium mb-[12rpx]">
-            角色模式
-          </text>
-          <view class="flex flex-wrap gap-[12rpx] mt-0">
-            <view
-              v-for="template in roleTemplates"
-              :key="template.id"
-              class="px-[24rpx] py-[12rpx] bg-[rgba(51,108,255,0.1)] text-[#336cff] rounded-[20rpx] text-[24rpx] border border-[rgba(51,108,255,0.2)] cursor-pointer transition-all duration-300"
-              :class="{ 'bg-[#336cff] text-white border-[#336cff]': selectedTemplateId === template.id }"
-              @click="selectRoleTemplate(template.id)"
-            >
-              {{ template.agentName }}
-            </view>
-          </view>
-        </view>
-
-        <view class="mb-[24rpx] last:mb-0">
-          <text class="block text-[28rpx] text-[#232338] font-medium mb-[12rpx]">
-            角色介绍
-          </text>
-          <textarea
-            v-model="formData.systemPrompt"
-            :maxlength="2000"
-            placeholder="请输入角色介绍"
-            class="w-full h-[500rpx] p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] text-[26rpx] text-[#232338] leading-[1.6] resize-none box-border outline-none break-words break-all focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
-          />
-          <view class="text-right text-[22rpx] text-[#9d9ea3] mt-[8rpx]">
-            {{ (formData.systemPrompt || '').length }}/2000
-          </view>
-        </view>
-      </view>
-
-      <!-- 模型配置标题 -->
-      <view class="pb-[20rpx]">
-        <text class="text-[36rpx] font-bold text-[#232338]">
-          模型配置
-        </text>
-      </view>
-
-      <!-- 模型配置卡片 -->
-      <view class="bg-[#fbfbfb] rounded-[20rpx] mb-[24rpx] p-[24rpx] border border-[#eeeeee]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
-        <view class="flex flex-col gap-[16rpx]">
-          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('vad')">
-            <text class="text-[28rpx] text-[#232338] font-medium">
-              语音活动检测
-            </text>
-            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
-              {{ displayNames.vad }}
-            </text>
-            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-          </view>
-
-          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('asr')">
-            <text class="text-[28rpx] text-[#232338] font-medium">
-              语音识别
-            </text>
-            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
-              {{ displayNames.asr }}
-            </text>
-            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-          </view>
-
-          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('llm')">
-            <text class="text-[28rpx] text-[#232338] font-medium">
-              大语言模型
-            </text>
-            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
-              {{ displayNames.llm }}
-            </text>
-            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-          </view>
-
-          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('vllm')">
-            <text class="text-[28rpx] text-[#232338] font-medium">
-              视觉大模型
-            </text>
-            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
-              {{ displayNames.vllm }}
-            </text>
-            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-          </view>
-
-          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('intent')">
-            <text class="text-[28rpx] text-[#232338] font-medium">
-              意图识别
-            </text>
-            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
-              {{ displayNames.intent }}
-            </text>
-            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-          </view>
-
-          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('memory')">
-            <text class="text-[28rpx] text-[#232338] font-medium">
-              记忆
-            </text>
-            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
-              {{ displayNames.memory }}
-            </text>
-            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-          </view>
-        </view>
-      </view>
-
-      <!-- 语音设置标题 -->
-      <view class="pb-[20rpx]">
-        <text class="text-[36rpx] font-bold text-[#232338]">
-          语音设置
-        </text>
-      </view>
-
-      <!-- 语音设置卡片 -->
-      <view class="bg-[#fbfbfb] rounded-[20rpx] mb-[24rpx] p-[24rpx] border border-[#eeeeee]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
-        <view class="flex flex-col gap-[16rpx]">
-          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('tts')">
-            <text class="text-[28rpx] text-[#232338] font-medium">
-              语音合成
-            </text>
-            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
-              {{ displayNames.tts }}
-            </text>
-            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-          </view>
-
-          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee] cursor-pointer transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('voiceprint')">
-            <text class="text-[28rpx] text-[#232338] font-medium">
-              角色音色
-            </text>
-            <text class="flex-1 text-right text-[26rpx] text-[#65686f] mx-[16rpx]">
-              {{ displayNames.voiceprint }}
-            </text>
-            <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
-          </view>
-
-          <view class="flex items-center justify-between p-[20rpx] bg-[#f5f7fb] rounded-[12rpx] border border-[#eeeeee]">
-            <view class="text-[28rpx] text-[#232338] font-medium">
-              插件
-            </view>
-            <view class="px-[24rpx] py-[12rpx] bg-[rgba(51,108,255,0.1)] text-[#336cff] rounded-[20rpx] text-[24rpx] cursor-pointer transition-all duration-300 active:bg-[#336cff] active:text-white" @click="handleTools">
-              <text>编辑功能</text>
-            </view>
-          </view>
-        </view>
-      </view>
-
-      <!-- 记忆历史标题 -->
-      <view class="pb-[20rpx]">
-        <text class="text-[36rpx] font-bold text-[#232338]">
-          历史记忆
-        </text>
-      </view>
-
-      <!-- 记忆历史卡片 -->
-      <view class="bg-[#fbfbfb] rounded-[20rpx] mb-[24rpx] p-[24rpx] border border-[#eeeeee]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
-        <view class="mb-[24rpx] last:mb-0">
-          <textarea
-            v-model="formData.summaryMemory"
-            placeholder="记忆内容"
-            disabled
-            class="w-full h-[500rpx] p-[20rpx] bg-[#f0f0f0] text-[#65686f] opacity-80 rounded-[12rpx] border border-[#eeeeee] text-[26rpx] leading-[1.6] resize-none box-border outline-none break-words break-all"
-          />
-        </view>
-      </view>
-
-      <!-- 保存按钮 -->
-      <view class="p-0 mt-[40rpx]">
-        <wd-button
-          type="primary"
-          :loading="saving"
-          :disabled="saving"
-          custom-class="w-full h-[80rpx] rounded-[16rpx] text-[30rpx] font-semibold bg-[#336cff] active:bg-[#2d5bd1]"
-          @click="saveAgent"
+        <input
+          v-model="formData.agentName"
+          class="box-border h-[80rpx] w-full border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[16rpx_20rpx] text-[28rpx] text-[#232338] leading-[1.4] outline-none focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
+          type="text"
+          placeholder="请输入助手昵称"
         >
-          {{ saving ? '保存中...' : '保存' }}
-        </wd-button>
       </view>
-    </scroll-view>
+
+      <view class="mb-[24rpx] last:mb-0">
+        <text class="mb-[12rpx] block text-[28rpx] text-[#232338] font-medium">
+          角色模式
+        </text>
+        <view class="mt-0 flex flex-wrap gap-[12rpx]">
+          <view
+            v-for="template in roleTemplates"
+            :key="template.id"
+            class="cursor-pointer rounded-[20rpx] px-[24rpx] py-[12rpx] text-[24rpx] transition-all duration-300"
+            :class="selectedTemplateId === template.id
+              ? 'bg-[#336cff] text-white border border-[#336cff]'
+              : 'bg-[rgba(51,108,255,0.1)] text-[#336cff] border border-[rgba(51,108,255,0.2)]'"
+            @click="selectRoleTemplate(template.id)"
+          >
+            {{ template.agentName }}
+          </view>
+        </view>
+      </view>
+
+      <view class="mb-[24rpx] last:mb-0">
+        <text class="mb-[12rpx] block text-[28rpx] text-[#232338] font-medium">
+          角色介绍
+        </text>
+        <textarea
+          v-model="formData.systemPrompt"
+          :maxlength="2000"
+          placeholder="请输入角色介绍"
+          class="box-border h-[500rpx] w-full resize-none break-words break-all border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] text-[26rpx] text-[#232338] leading-[1.6] outline-none focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3]"
+        />
+        <view class="mt-[8rpx] text-right text-[22rpx] text-[#9d9ea3]">
+          {{ (formData.systemPrompt || '').length }}/2000
+        </view>
+      </view>
+    </view>
+
+    <!-- 模型配置标题 -->
+    <view class="pb-[20rpx]">
+      <text class="text-[32rpx] text-[#232338] font-bold">
+        模型配置
+      </text>
+    </view>
+
+    <!-- 模型配置卡片 -->
+    <view class="mb-[24rpx] border border-[#eeeeee] rounded-[20rpx] bg-[#fbfbfb] p-[24rpx]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
+      <view class="flex flex-col gap-[16rpx]">
+        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('vad')">
+          <text class="text-[28rpx] text-[#232338] font-medium">
+            语音活动检测
+          </text>
+          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
+            {{ displayNames.vad }}
+          </text>
+          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
+        </view>
+
+        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('asr')">
+          <text class="text-[28rpx] text-[#232338] font-medium">
+            语音识别
+          </text>
+          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
+            {{ displayNames.asr }}
+          </text>
+          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
+        </view>
+
+        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('llm')">
+          <text class="text-[28rpx] text-[#232338] font-medium">
+            大语言模型
+          </text>
+          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
+            {{ displayNames.llm }}
+          </text>
+          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
+        </view>
+
+        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('vllm')">
+          <text class="text-[28rpx] text-[#232338] font-medium">
+            视觉大模型
+          </text>
+          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
+            {{ displayNames.vllm }}
+          </text>
+          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
+        </view>
+
+        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('intent')">
+          <text class="text-[28rpx] text-[#232338] font-medium">
+            意图识别
+          </text>
+          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
+            {{ displayNames.intent }}
+          </text>
+          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
+        </view>
+
+        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('memory')">
+          <text class="text-[28rpx] text-[#232338] font-medium">
+            记忆
+          </text>
+          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
+            {{ displayNames.memory }}
+          </text>
+          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
+        </view>
+      </view>
+    </view>
+
+    <!-- 语音设置标题 -->
+    <view class="pb-[20rpx]">
+      <text class="text-[32rpx] text-[#232338] font-bold">
+        语音设置
+      </text>
+    </view>
+
+    <!-- 语音设置卡片 -->
+    <view class="mb-[24rpx] border border-[#eeeeee] rounded-[20rpx] bg-[#fbfbfb] p-[24rpx]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
+      <view class="flex flex-col gap-[16rpx]">
+        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('tts')">
+          <text class="text-[28rpx] text-[#232338] font-medium">
+            语音合成
+          </text>
+          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
+            {{ displayNames.tts }}
+          </text>
+          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
+        </view>
+
+        <view class="flex cursor-pointer items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx] transition-all duration-300 active:bg-[#eef3ff]" @click="openPicker('voiceprint')">
+          <text class="text-[28rpx] text-[#232338] font-medium">
+            角色音色
+          </text>
+          <text class="mx-[16rpx] flex-1 text-right text-[26rpx] text-[#65686f]">
+            {{ displayNames.voiceprint }}
+          </text>
+          <wd-icon name="arrow-right" custom-class="text-[20rpx] text-[#9d9ea3]" />
+        </view>
+
+        <view class="flex items-center justify-between border border-[#eeeeee] rounded-[12rpx] bg-[#f5f7fb] p-[20rpx]">
+          <view class="text-[28rpx] text-[#232338] font-medium">
+            插件
+          </view>
+          <view class="cursor-pointer rounded-[20rpx] bg-[rgba(51,108,255,0.1)] px-[24rpx] py-[12rpx] text-[24rpx] text-[#336cff] transition-all duration-300 active:bg-[#336cff] active:text-white" @click="handleTools">
+            <text>编辑功能</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 记忆历史标题 -->
+    <view class="pb-[20rpx]">
+      <text class="text-[32rpx] text-[#232338] font-bold">
+        历史记忆
+      </text>
+    </view>
+
+    <!-- 记忆历史卡片 -->
+    <view class="mb-[24rpx] border border-[#eeeeee] rounded-[20rpx] bg-[#fbfbfb] p-[24rpx]" style="box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);">
+      <view class="mb-[24rpx] last:mb-0">
+        <textarea
+          v-model="formData.summaryMemory"
+          placeholder="记忆内容"
+          disabled
+          class="box-border h-[500rpx] w-full resize-none break-words break-all border border-[#eeeeee] rounded-[12rpx] bg-[#f0f0f0] p-[20rpx] text-[26rpx] text-[#65686f] leading-[1.6] opacity-80 outline-none"
+        />
+      </view>
+    </view>
+
+    <!-- 保存按钮 -->
+    <view class="mt-[40rpx] p-0">
+      <wd-button
+        type="primary"
+        :loading="saving"
+        :disabled="saving"
+        custom-class="w-full h-[80rpx] rounded-[16rpx] text-[30rpx] font-semibold bg-[#336cff] active:bg-[#2d5bd1]"
+        @click="saveAgent"
+      >
+        {{ saving ? '保存中...' : '保存' }}
+      </wd-button>
+    </view>
     <!-- 模型选择器 -->
     <wd-action-sheet
       v-model="pickerShow.vad"
@@ -769,15 +696,6 @@ onMounted(async () => {
       :actions="voiceOptions && voiceOptions.map(item => ({ name: item.name, value: item.id }))"
       @close="onPickerCancel('voiceprint')"
       @select="({ item }) => onPickerConfirm('voiceprint', item.value, item.name)"
-    />
-
-    <!-- 智能体选择器 -->
-    <wd-action-sheet
-      v-model="showAgentPicker"
-      :actions="agentOptions"
-      title="切换智能体"
-      @close="closeAgentSelector"
-      @select="handleAgentSwitch"
     />
   </view>
 </template>

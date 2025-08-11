@@ -67,24 +67,16 @@ function onNetworkSelected(network: WiFiNetwork | null, password: string) {
 function onConnectionStatusChange(connected: boolean) {
   console.log('ESP32连接状态:', connected)
 }
-
-function goBack() {
-  uni.navigateBack()
-}
 </script>
 
 <template>
   <view class="min-h-screen bg-[#f5f7fb]">
-    <wd-navbar title="设备配网" safe-area-inset-top>
-      <template #left>
-        <wd-icon name="arrow-left" size="18" @click="goBack" />
-      </template>
-    </wd-navbar>
+    <wd-navbar title="设备配网" safe-area-inset-top />
 
     <view class="box-border px-[20rpx]">
       <!-- 配网方式选择 -->
       <view class="pb-[20rpx] first:pt-[20rpx]">
-        <text class="text-[36rpx] text-[#232338] font-bold">
+        <text class="text-[32rpx] text-[#232338] font-bold">
           配网方式
         </text>
       </view>
@@ -103,7 +95,7 @@ function goBack() {
 
       <!-- WiFi网络选择 -->
       <view class="pb-[20rpx]">
-        <text class="text-[36rpx] text-[#232338] font-bold">
+        <text class="text-[32rpx] text-[#232338] font-bold">
           网络配置
         </text>
       </view>

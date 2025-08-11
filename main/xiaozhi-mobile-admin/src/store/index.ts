@@ -13,7 +13,6 @@ store.use(
 
 export default store
 
-export * from './agent'
 export * from './config'
 export * from './plugin'
 // 模块统一导出

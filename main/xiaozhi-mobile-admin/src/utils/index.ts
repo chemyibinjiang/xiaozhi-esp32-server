@@ -1,6 +1,27 @@
 import { pages, subPackages } from '@/pages.json'
 import { isMpWeixin } from './platform'
 
+/**
+ * 运行时服务端地址覆盖存储键
+ */
+export const SERVER_BASE_URL_OVERRIDE_KEY = 'server_base_url_override'
+
+/**
+ * 设置/清除/获取 运行时覆盖的服务端地址
+ */
+export function setServerBaseUrlOverride(url: string) {
+  uni.setStorageSync(SERVER_BASE_URL_OVERRIDE_KEY, url)
+}
+
+export function clearServerBaseUrlOverride() {
+  uni.removeStorageSync(SERVER_BASE_URL_OVERRIDE_KEY)
+}
+
+export function getServerBaseUrlOverride(): string | null {
+  const value = uni.getStorageSync(SERVER_BASE_URL_OVERRIDE_KEY)
+  return value || null
+}
+
 export function getLastPage() {
   // getCurrentPages() 至少有1个元素，所以不再额外判断
   // const lastPage = getCurrentPages().at(-1)
@@ -108,7 +129,12 @@ export const needLoginPages: string[] = getAllPages('needLogin').map(page => pag
  * 根据微信小程序当前环境，判断应该获取的 baseUrl
  */
 export function getEnvBaseUrl() {
-  // 请求基准地址
+  // 若存在用户设置的覆盖地址，优先返回
+  const override = getServerBaseUrlOverride()
+  if (override)
+    return override
+
+  // 请求基准地址（默认来源于 env）
   let baseUrl = import.meta.env.VITE_SERVER_BASEURL
 
   // # 有些同学可能需要在微信小程序里面根据 develop、trial、release 分别设置上传地址，参考代码如下。
