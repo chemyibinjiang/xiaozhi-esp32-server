@@ -12,6 +12,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useToast } from 'wot-design-uni'
 import { clearServerBaseUrlOverride, getEnvBaseUrl, getServerBaseUrlOverride, setServerBaseUrlOverride } from '@/utils'
+import { isMp } from '@/utils/platform'
 
 defineOptions({
   name: 'SettingsPage',
@@ -171,7 +172,10 @@ function showAbout() {
 }
 
 onMounted(async () => {
-  loadServerBaseUrl()
+  // 仅在非小程序环境加载服务端地址设置
+  if (!isMp) {
+    loadServerBaseUrl()
+  }
   getCacheInfo()
 })
 </script>
@@ -181,8 +185,8 @@ onMounted(async () => {
     <wd-navbar title="设置" placeholder safe-area-inset-top fixed />
 
     <view class="p-[24rpx]">
-      <!-- 网络设置 -->
-      <view class="mb-[32rpx]">
+      <!-- 网络设置 - 仅在非小程序环境显示 -->
+      <view v-if="!isMp" class="mb-[32rpx]">
         <view class="mb-[24rpx] flex items-center">
           <text class="text-[32rpx] text-[#232338] font-bold">
             网络设置
