@@ -1,4 +1,7 @@
-const logContainer = document.getElementById('logContainer');
+import { getLogContainer } from '../document.js'
+
+const logContainer = getLogContainer();
+// 日志记录函数
 export function log(message, type = 'info') {
     // 将消息按换行符分割成多行
     const lines = message.split('\n');

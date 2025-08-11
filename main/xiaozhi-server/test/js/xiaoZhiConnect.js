@@ -1,4 +1,5 @@
 import { log } from './utils/logger.js';
+import { otaStatusStyle } from './document.js'
 
 // WebSocket 连接
 export async function webSocketConnect(otaUrl,wsUrl,config){
@@ -88,12 +89,10 @@ async function sendOTA(otaUrl, config) {
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
 
         const result = await res.json();
-        document.getElementById('otaStatus').textContent = 'ota已连接';
-        document.getElementById('otaStatus').style.color = 'green';
+        otaStatusStyle(true)
         return true; // 成功
     } catch (err) {
-        document.getElementById('otaStatus').textContent = 'ota未连接';
-        document.getElementById('otaStatus').style.color = 'red';
+        otaStatusStyle(false)
         return false; // 失败
     }
 }
