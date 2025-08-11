@@ -101,6 +101,7 @@
 
     <script type="module">
         import { log } from './js/utils/logger.js';
+        import { webSocketConnect } from './js/xiaoZhiConnect.js';
         // 需要加载的脚本列表 - 移除Opus依赖
         const scriptFiles = [];
 
@@ -838,102 +839,19 @@
         // 连接WebSocket服务器
         async function connectToServer() {
             const url = serverUrlInput.value.trim();
-            if (url === '') return;
+            const config = getConfig();
+            // 先检查OTA状态
+            log('正在检查OTA状态...', 'info');
+            const otaUrl = document.getElementById('otaUrl').value.trim();
+            localStorage.setItem('otaUrl', otaUrl);
+            localStorage.setItem('wsUrl', url);
 
             try {
-                // 获取并验证配置
-                const config = getConfig();
-                if (!validateConfig(config)) {
-                    return;
+                const ws = await webSocketConnect(otaUrl,url,config)
+                if (ws === undefined){
+                    return
                 }
-
-                // 检查URL格式
-                if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
-                    log('URL格式错误，必须以ws://或wss://开头', 'error');
-                    return;
-                }
-
-                // 先检查OTA状态
-                log('正在检查OTA状态...', 'info');
-                const otaUrl = document.getElementById('otaUrl').value.trim();
-                localStorage.setItem('otaUrl', otaUrl);
-                localStorage.setItem('wsUrl', url);
-                try {
-                    const otaResponse = await fetch(otaUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Device-Id': config.deviceId,
-                            'Client-Id': config.clientId
-                        },
-                        body: JSON.stringify({
-                            "version": 0,
-                            "uuid": "",
-                            "application": {
-                                "name": "xiaozhi-web-test",
-                                "version": "1.0.0",
-                                "compile_time": "2025-04-16 10:00:00",
-                                "idf_version": "4.4.3",
-                                "elf_sha256": "1234567890abcdef1234567890abcdef1234567890abcdef"
-                            },
-                            "ota": {
-                                "label": "xiaozhi-web-test",
-                            },
-                            "board": {
-                                "type": "xiaozhi-web-test",
-                                "ssid": "xiaozhi-web-test",
-                                "rssi": 0,
-                                "channel": 0,
-                                "ip": "192.168.1.1",
-                                "mac": config.deviceMac
-                            },
-                            "flash_size": 0,
-                            "minimum_free_heap_size": 0,
-                            "mac_address": config.deviceMac,
-                            "chip_model_name": "",
-                            "chip_info": {
-                                "model": 0,
-                                "cores": 0,
-                                "revision": 0,
-                                "features": 0
-                            },
-                            "partition_table": [
-                                {
-                                    "label": "",
-                                    "type": 0,
-                                    "subtype": 0,
-                                    "address": 0,
-                                    "size": 0
-                                }
-                            ]
-                        })
-                    });
-
-                    if (!otaResponse.ok) {
-                        throw new Error(`OTA检查失败: ${otaResponse.status} ${otaResponse.statusText}`);
-                    }
-
-                    const otaResult = await otaResponse.json();
-                    log(`OTA检查结果: ${JSON.stringify(otaResult)}`, 'info');
-
-                    log('OTA检查通过，开始连接WebSocket...', 'success');
-                    document.getElementById('otaStatus').textContent = 'ota已连接';
-                    document.getElementById('otaStatus').style.color = 'green';
-                } catch (error) {
-                    log(`OTA检查错误: ${error.message}`, 'error');
-                    document.getElementById('otaStatus').textContent = 'ota未连接';
-                    document.getElementById('otaStatus').style.color = 'red';
-                }
-
-                // 使用自定义WebSocket实现以添加认证头信息
-                let connUrl = new URL(url);
-
-                // 添加认证参数
-                connUrl.searchParams.append('device-id', config.deviceId);
-                connUrl.searchParams.append('client-id', config.clientId);
-
-                log(`正在连接: ${connUrl.toString()}`, 'info');
-                websocket = new WebSocket(connUrl.toString());
+                websocket = ws
 
                 // 设置接收二进制数据的类型为ArrayBuffer
                 websocket.binaryType = 'arraybuffer';
