@@ -26,3 +26,14 @@ export function getLogContainer (flan) {
     return  logContainer;
 }
 
+// 更新Opus库状态显示
+export function updateScriptStatus(message, type) {
+    const statusElement = document.getElementById('scriptStatus');
+    if (statusElement) {
+        statusElement.textContent = message;
+        statusElement.className = `script-status ${type}`;
+        statusElement.style.display = 'block';
+        statusElement.style.width = 'auto';
+    }
+}
+
