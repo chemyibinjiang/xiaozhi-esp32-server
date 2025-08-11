@@ -586,6 +586,9 @@ TTS:
     access_token: 你的火山引擎语音合成服务access_token
     resource_id: volc.service_type.10029
     speaker: zh_female_wanwanxiaohe_moon_bigtts
+    speech_rate: 0
+    loudness_rate: 0
+    pitch: 0
   CosyVoiceSiliconflow:
     type: siliconflow
     # 硅基流动TTS
