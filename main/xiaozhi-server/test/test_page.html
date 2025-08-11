@@ -99,7 +99,8 @@
     <!-- Opus解码库 -->
     <script src="libopus.js"></script>
 
-    <script>
+    <script type="module">
+        import { log } from './js/utils/logger.js';
         // 需要加载的脚本列表 - 移除Opus依赖
         const scriptFiles = [];
 
@@ -201,40 +202,6 @@
         const conversationDiv = document.getElementById('conversation');
         const logContainer = document.getElementById('logContainer');
 
-        // 日志函数
-        function log(message, type = 'info') {
-            // 将消息按换行符分割成多行
-            const lines = message.split('\n');
-            const now = new Date();
-            // const timestamp = `[${now.toLocaleTimeString()}] `;
-            const timestamp = `[${now.toLocaleTimeString()}.${now.getMilliseconds().toString().padStart(3, '0')}] `;
-            // 为每一行创建日志条目
-            lines.forEach((line, index) => {
-                const logEntry = document.createElement('div');
-                logEntry.className = `log-entry log-${type}`;
-                // 如果是第一条日志，显示时间戳
-                const prefix = index === 0 ? timestamp : ' '.repeat(timestamp.length);
-                logEntry.textContent = `${prefix}${line}`;
-                // logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-                // logEntry.style 保留起始的空格
-                logEntry.style.whiteSpace = 'pre';
-                if (type === 'error') {
-                    logEntry.style.color = 'red';
-                } else if (type === 'debug') {
-                    logEntry.style.color = 'gray';
-                    return;
-                } else if (type === 'warning') {
-                    logEntry.style.color = 'orange';
-                } else if (type === 'success') {
-                    logEntry.style.color = 'green';
-                } else {
-                    logEntry.style.color = 'black';
-                }
-                logContainer.appendChild(logEntry);
-            });
-
-            logContainer.scrollTop = logContainer.scrollHeight;
-        }
 
         // 初始化可视化器
         function initVisualizer() {
@@ -1976,7 +1943,6 @@
         async function handleBinaryMessage(data) {
             try {
                 let arrayBuffer;
-
                 // 根据数据类型进行处理
                 if (data instanceof ArrayBuffer) {
                     arrayBuffer = data;
