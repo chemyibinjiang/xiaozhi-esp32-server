@@ -175,3 +175,6 @@ uploadfile
 *.json
 .vscode
 .cursor
+ 
+!package.json
+!**/package.json
