@@ -1,0 +1,154 @@
+name: Build Android APK
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # 只在以 v 开头的标签推送时触发，例如 v1.0.0
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: 'dev'
+      create_release:
+        description: 'Create GitHub Release'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      issues: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.10.0
+
+      - name: Extract version from tag or input
+        id: get_version
+        run: |
+          if [[ "$GITHUB_REF" =~ ^refs/tags/v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            # 从标签获取版本号
+            echo "VERSION=${BASH_REMATCH[1]}" >> $GITHUB_ENV
+            echo "IS_VERSION=true" >> $GITHUB_ENV
+            echo "BUILD_TYPE=tag" >> $GITHUB_ENV
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # 手动触发时从输入获取版本号
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+            echo "IS_VERSION=${{ github.event.inputs.create_release }}" >> $GITHUB_ENV
+            echo "BUILD_TYPE=manual" >> $GITHUB_ENV
+          else
+            # 其他情况使用默认版本
+            echo "VERSION=latest" >> $GITHUB_ENV
+            echo "IS_VERSION=false" >> $GITHUB_ENV
+            echo "BUILD_TYPE=other" >> $GITHUB_ENV
+          fi
+          
+          echo "Version: ${{ env.VERSION }}"
+          echo "Is Version: ${{ env.IS_VERSION }}"
+          echo "Build Type: ${{ env.BUILD_TYPE }}"
+
+      - name: Install dependencies
+        run: |
+          cd main/manager-mobile
+          pnpm install
+
+      - name: Build Android APK
+        run: |
+          cd main/manager-mobile
+          pnpm build:app-android
+        env:
+          NODE_ENV: production
+
+      - name: Find APK file
+        id: find_apk
+        run: |
+          cd main/manager-mobile
+          APK_PATH=$(find unpackage -name "*.apk" | head -1)
+          if [ -n "$APK_PATH" ]; then
+            echo "APK_PATH=$APK_PATH" >> $GITHUB_ENV
+            echo "APK_NAME=$(basename $APK_PATH)" >> $GITHUB_ENV
+            echo "APK_FOUND=true" >> $GITHUB_ENV
+          else
+            echo "APK_FOUND=false" >> $GITHUB_ENV
+            echo "APK_NAME=" >> $GITHUB_ENV
+          fi
+
+      - name: Create Release (only for version tags or manual with create_release=true)
+        if: env.IS_VERSION == 'true'
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.BUILD_TYPE == 'tag' && github.ref || format('v{0}', env.VERSION) }}
+          release_name: Release ${{ env.VERSION }}
+          body: |
+            ## What's Changed
+            
+            ### 🚀 New Features
+            - Android APK build included
+            
+            ### 📱 Mobile App
+            - APK: `xiaozhi-server-${{ env.VERSION }}.apk`
+            
+            ### 🔧 Build Info
+            - Build Type: ${{ env.BUILD_TYPE }}
+            - Version: ${{ env.VERSION }}
+            
+            ### 📋 Full Changelog
+            ${{ env.BUILD_TYPE == 'tag' && format('See the [commit history](https://github.com/{0}/compare/...{1})', github.repository, github.ref) || 'Manual build - no changelog available' }}
+          draft: false
+          prerelease: ${{ env.BUILD_TYPE == 'manual' }}
+
+      - name: Upload APK to Release
+        if: steps.create_release.outputs.upload_url != '' && env.APK_FOUND == 'true'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: main/manager-mobile/${{ steps.find_apk.outputs.APK_PATH }}
+          asset_name: xiaozhi-server-${{ env.VERSION }}.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload APK as Artifact (for debugging)
+        if: env.APK_FOUND == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-${{ env.VERSION }}
+          path: main/manager-mobile/${{ steps.find_apk.outputs.APK_PATH }}
+          retention-days: 30
+
+      - name: Show build info
+        run: |
+          echo "Build completed!"
+          echo "Version: ${{ env.VERSION }}"
+          echo "Build Type: ${{ env.BUILD_TYPE }}"
+          echo "APK found: ${{ env.APK_FOUND }}"
+          if [ "${{ env.APK_FOUND }}" = "true" ]; then
+            echo "APK path: ${{ steps.find_apk.outputs.APK_PATH }}"
+            echo "APK name: ${{ steps.find_apk.outputs.APK_NAME }}"
+          fi
+          
+          if [ "${{ env.IS_VERSION }}" = "true" ]; then
+            echo "✅ Release will be created"
+          else
+            echo "ℹ️  No Release created (manual build or no version)"
+          fi
