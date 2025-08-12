@@ -1865,19 +1865,6 @@
             };
         }
 
-        // 验证配置
-        function validateConfig(config) {
-            if (!config.deviceMac) {
-                log('设备MAC地址不能为空', 'error');
-                return false;
-            }
-            if (!config.clientId) {
-                log('客户端ID不能为空', 'error');
-                return false;
-            }
-            return true;
-        }
-
         initApp();
     </script>
 </body>
