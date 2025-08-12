@@ -29,21 +29,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.10.0
+          run_install: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'pnpm'
           cache-dependency-path: 'main/manager-mobile/pnpm-lock.yaml'
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.10.0
-          run_install: false
-          store_dir: ~/.pnpm-store
-        env:
-          PNPM_HOME: ~/.pnpm-store
 
       - name: Extract version from tag or input
         id: get_version
@@ -73,8 +70,6 @@ jobs:
         run: |
           cd main/manager-mobile
           pnpm install --frozen-lockfile
-        env:
-          PNPM_HOME: ~/.pnpm-store
 
       - name: Build Android APK
         run: |
@@ -82,7 +77,6 @@ jobs:
           pnpm build:app-android
         env:
           NODE_ENV: production
-          PNPM_HOME: ~/.pnpm-store
 
       - name: Find APK file
         id: find_apk
