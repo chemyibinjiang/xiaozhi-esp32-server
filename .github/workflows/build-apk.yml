@@ -33,12 +33,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
+          cache: 'pnpm'
+          cache-dependency-path: 'main/manager-mobile/pnpm-lock.yaml'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10.10.0
+          run_install: false
+          store_dir: ~/.pnpm-store
+        env:
+          PNPM_HOME: ~/.pnpm-store
 
       - name: Extract version from tag or input
         id: get_version
@@ -67,7 +72,9 @@ jobs:
       - name: Install dependencies
         run: |
           cd main/manager-mobile
-          pnpm install
+          pnpm install --frozen-lockfile
+        env:
+          PNPM_HOME: ~/.pnpm-store
 
       - name: Build Android APK
         run: |
@@ -75,6 +82,7 @@ jobs:
           pnpm build:app-android
         env:
           NODE_ENV: production
+          PNPM_HOME: ~/.pnpm-store
 
       - name: Find APK file
         id: find_apk
@@ -91,13 +99,13 @@ jobs:
           fi
 
       - name: Create Release (only for version tags or manual with create_release=true)
-        if: env.IS_VERSION == 'true'
+        if: env.IS_VERSION == 'true' && env.BUILD_TYPE == 'tag'
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ env.BUILD_TYPE == 'tag' && github.ref || format('v{0}', env.VERSION) }}
+          tag_name: ${{ github.ref }}
           release_name: Release ${{ env.VERSION }}
           body: |
             ## What's Changed
@@ -118,7 +126,7 @@ jobs:
           prerelease: ${{ env.BUILD_TYPE == 'manual' }}
 
       - name: Upload APK to Release
-        if: steps.create_release.outputs.upload_url != '' && env.APK_FOUND == 'true'
+        if: steps.create_release.outputs.upload_url != '' && env.APK_FOUND == 'true' && env.BUILD_TYPE == 'tag'
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
