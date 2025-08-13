@@ -6,6 +6,7 @@ const messageInput = document.getElementById('messageInput');
 const sendTextButton = document.getElementById('sendTextButton');
 const recordButton = document.getElementById('recordButton');
 const stopButton = document.getElementById('stopButton');
+// 会话记录
 const conversationDiv = document.getElementById('conversation');
 const logContainer = document.getElementById('logContainer');
 let visualizerCanvas = document.getElementById('audioVisualizer');
@@ -35,5 +36,14 @@ export function updateScriptStatus(message, type) {
         statusElement.style.display = 'block';
         statusElement.style.width = 'auto';
     }
+}
+
+// 添加消息到会话记录
+export function addMessage(text, isUser = false) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${isUser ? 'user' : 'server'}`;
+    messageDiv.textContent = text;
+    conversationDiv.appendChild(messageDiv);
+    conversationDiv.scrollTop = conversationDiv.scrollHeight;
 }
 
