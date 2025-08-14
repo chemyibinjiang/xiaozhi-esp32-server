@@ -104,6 +104,7 @@
         import { webSocketConnect } from './js/xiaoZhiConnect.js';
         import { checkOpusLoaded , initOpusEncoder } from './js/opus.js';
         import { addMessage } from './js/document.js'
+        import BlockingQueue from './js/utils/BlockingQueue.js'
         // 需要加载的脚本列表 - 移除Opus依赖
         const scriptFiles = [];
 
@@ -134,7 +135,6 @@
         let totalAudioSize = 0; // 跟踪累积的音频大小
 
         let audioBufferQueue = [];     // 存储接收到的音频包
-        let isAudioBuffering = false;  // 是否正在缓冲音频
         let isAudioPlaying = false;    // 是否正在播放音频
         const BUFFER_THRESHOLD = 3;    // 缓冲包数量阈值，至少累积3个包再开始播放
         const MIN_AUDIO_DURATION = 0.1; // 最小音频长度(秒)，小于这个长度的音频会被合并
@@ -188,13 +188,9 @@
             }
         }
 
-
-
+        const queue = new BlockingQueue();
         // 开始音频缓冲过程
-        function startAudioBuffering() {
-            if (isAudioBuffering || isAudioPlaying) return;
-
-            isAudioBuffering = true;
+        async function startAudioBuffering() {
             log("开始音频缓冲...", 'info');
 
             // 先尝试初始化解码器，以便在播放时已准备好
@@ -202,29 +198,29 @@
                 log(`预初始化Opus解码器失败: ${error.message}`, 'warning');
                 // 继续缓冲，我们会在播放时再次尝试初始化
             });
-
-            // 设置超时，如果在一定时间内没有收集到足够的音频包，就开始播放
-            setTimeout(() => {
-                if (isAudioBuffering && audioBufferQueue.length > 0) {
-                    log(`缓冲超时，当前缓冲包数: ${audioBufferQueue.length}，开始播放`, 'info');
+            const timeout = 300;
+            while (true) {
+                const packets = await queue.dequeue(
+                    3,                       // 至少 3 条
+                    timeout,                     // 最多等 300 ms
+                    (count) => {             // 超时额外回调
+                        log(`缓冲超时，当前缓冲包数: ${count}，开始播放`, 'info');
+                    }
+                );
+                if (packets.length) {
+                    log(`已缓冲 ${packets.length} 个音频包，开始播放`, 'info');
+                    audioBufferQueue.push(...packets)
                     playBufferedAudio();
                 }
-            }, 300); // 300ms超时
-
-            // 监控缓冲进度
-            const bufferCheckInterval = setInterval(() => {
-                if (!isAudioBuffering) {
-                    clearInterval(bufferCheckInterval);
-                    return;
+                console.log(queue.length)
+                while (true){
+                    const data =  await queue.dequeue(99,50)
+                    if(data.length){
+                        audioBufferQueue.push(...data)
+                        playBufferedAudio();
+                    }
                 }
-
-                // 当累积了足够的音频包，开始播放
-                if (audioBufferQueue.length >= BUFFER_THRESHOLD) {
-                    clearInterval(bufferCheckInterval);
-                    log(`已缓冲 ${audioBufferQueue.length} 个音频包，开始播放`, 'info');
-                    playBufferedAudio();
-                }
-            }, 50);
+            }
         }
 
         // 播放已缓冲的音频
@@ -232,7 +228,6 @@
             if (isAudioPlaying || audioBufferQueue.length === 0) return;
 
             isAudioPlaying = true;
-            isAudioBuffering = false;
 
             // 确保Opus解码器已初始化
             const initDecoderAndPlay = async () => {
@@ -360,7 +355,6 @@
 
                                     // 使用setTimeout避免递归调用
                                     setTimeout(() => {
-                                        console.log(this.i++,this.queue.length ,audioBufferQueue.length)
                                         // 如果队列中还有数据，继续播放
                                         if (this.queue.length > 0) {
                                             this.startPlaying();
@@ -378,7 +372,6 @@
                                         } else {
                                             // 等待更多数据
                                             setTimeout(() => {
-                                                console.log(this.i,this.queue.length ,audioBufferQueue.length)
                                                 // 如果仍然没有新数据，但有更多的包到达
                                                 if (this.queue.length === 0 && audioBufferQueue.length > 0) {
                                                     const frames = [...audioBufferQueue];
@@ -999,7 +992,6 @@
             if (message === '' || !websocket || websocket.readyState !== WebSocket.OPEN) return;
 
             audioBufferQueue = [];
-            isAudioBuffering = false;
             isAudioPlaying = false;
 
             try {
@@ -1252,6 +1244,7 @@
             }).catch(error => {
                 log(`Opus解码器预加载失败: ${error.message}，将在需要时重试`, 'warning');
             });
+            startAudioBuffering()
         }
 
         // PCM录音处理器代码 - 会被注入到AudioWorklet中
@@ -1680,18 +1673,11 @@
                     log(`收到未知类型的二进制数据: ${typeof data}`, 'warning');
                     return;
                 }
-
                 // 创建Uint8Array用于处理
                 const opusData = new Uint8Array(arrayBuffer);
-                console.log(audioBufferQueue.length)
                 if (opusData.length > 0) {
                     // 将数据添加到缓冲队列
-                    audioBufferQueue.push(opusData);
-
-                    // 如果收到的是第一个音频包，开始缓冲过程
-                    if (audioBufferQueue.length === 1 && !isAudioBuffering && !isAudioPlaying) {
-                        startAudioBuffering();
-                    }
+                    queue.enqueue(opusData);
                 } else {
                     log('收到空音频数据帧，可能是结束标志', 'warning');
 
