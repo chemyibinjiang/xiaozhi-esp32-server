@@ -10,7 +10,7 @@ from core.utils.vllm import create_instance
 
 # 设置全局日志级别为WARNING，抑制INFO级别日志
 logging.basicConfig(level=logging.WARNING)
-
+description = "视觉识别模型性能测试"
 
 class AsyncVisionPerformanceTester:
     def __init__(self):

@@ -15,7 +15,7 @@ from core.utils.tts import create_instance as create_tts_instance
 
 # 设置全局日志级别为WARNING，抑制INFO级别日志
 logging.basicConfig(level=logging.WARNING)
-
+description = "基础性能测试工具"
 
 class AsyncPerformanceTester:
     def __init__(self):
