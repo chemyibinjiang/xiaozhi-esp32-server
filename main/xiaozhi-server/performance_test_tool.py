@@ -2,6 +2,7 @@ import os
 import importlib.util
 import asyncio
 
+print("使用前请根据doc/performance_texter.md的说明准备配置。")
 def list_performance_text_modules():
     performance_text_dir = os.path.join(os.path.dirname(__file__), "performance_text")
     modules = []
