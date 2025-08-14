@@ -4,22 +4,29 @@ import os
 import statistics
 import time
 from typing import Dict
+import yaml  
 
 import aiohttp
 from tabulate import tabulate
 
-from config.settings import load_config
 from core.utils.asr import create_instance as create_stt_instance
 from core.utils.llm import create_instance as create_llm_instance
 from core.utils.tts import create_instance as create_tts_instance
 
 # 设置全局日志级别为WARNING，抑制INFO级别日志
 logging.basicConfig(level=logging.WARNING)
-
+description = "基础性能测试工具"
 
 class AsyncPerformanceTester:
     def __init__(self):
-        self.config = load_config()
+        # 从data/.config.yaml读取配置
+        config_path = os.path.join("data", ".config.yaml")
+        if not os.path.exists(config_path):
+            raise FileNotFoundError(f"配置文件 {config_path} 不存在")
+
+        with open(config_path, "r", encoding="utf-8") as f:
+            self.config = yaml.safe_load(f) or {}
+
         self.test_sentences = self.config.get("module_test", {}).get(
             "test_sentences",
             [
