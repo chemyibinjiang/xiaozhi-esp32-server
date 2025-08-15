@@ -216,6 +216,7 @@ class TTSProvider(TTSProviderBase):
 
                 if message.sentence_type == SentenceType.FIRST:
                     self.conn.client_abort = False
+                    self.reset_flow_controller()
 
                 if self.conn.client_abort:
                     logger.bind(tag=TAG).info("收到打断信息，终止TTS文本处理线程")
@@ -418,8 +419,6 @@ class TTSProvider(TTSProviderBase):
 
     async def _start_monitor_tts_response(self):
         """监听TTS响应"""
-        is_first_sentence = True
-        first_sentence_segment_count = 0  # 添加计数器
         try:
             session_finished = False  # 标记会话是否正常结束
             while not self.conn.stop_event.is_set():
@@ -440,8 +439,6 @@ class TTSProvider(TTSProviderBase):
                                 self.tts_audio_queue.put(
                                     (SentenceType.FIRST, [], None)
                                 )
-                            elif event_name == "SentenceBegin":
-                                opus_datas_cache = []
                             elif event_name == "SentenceEnd":
                                 # 发送缓存的数据
                                 if self.conn.tts_MessageText:
@@ -482,142 +479,3 @@ class TTSProvider(TTSProviderBase):
         finally:
             self._monitor_task = None
 
-    def to_tts_stream(self, text: str, opus_handler=None) -> None:
-        """非流式TTS处理，用于测试及保存音频文件的场景"""
-        if opus_handler is None:
-            opus_handler = self.handle_opus
-        try:
-            # 创建新的事件循环
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            # 生成会话ID
-            session_id = uuid.uuid4().hex
-            # 存储音频数据
-            audio_data = []
-
-            async def _generate_audio():
-                # 刷新Token（如果需要）
-                if self._is_token_expired():
-                    self._refresh_token()
-
-                # 建立WebSocket连接
-                ws = await websockets.connect(
-                    self.ws_url,
-                    additional_headers={"X-NLS-Token": self.token},
-                    ping_interval=30,
-                    ping_timeout=10,
-                    close_timeout=10,
-                )
-                try:
-                    # 发送StartSynthesis请求
-                    start_message_id = str(uuid.uuid4().hex)
-                    start_request = {
-                        "header": {
-                            "message_id": start_message_id,
-                            "task_id": session_id,
-                            "namespace": "FlowingSpeechSynthesizer",
-                            "name": "StartSynthesis",
-                            "appkey": self.appkey,
-                        },
-                        "payload": {
-                            "voice": self.voice,
-                            "format": self.format,
-                            "sample_rate": self.sample_rate,
-                            "volume": self.volume,
-                            "speech_rate": self.speech_rate,
-                            "pitch_rate": self.pitch_rate,
-                            "enable_subtitle": True,
-                        },
-                    }
-                    await ws.send(json.dumps(start_request))
-
-                    # 等待SynthesisStarted响应
-                    synthesis_started = False
-                    while not synthesis_started:
-                        msg = await ws.recv()
-                        if isinstance(msg, str):
-                            data = json.loads(msg)
-                            header = data.get("header", {})
-                            if header.get("name") == "SynthesisStarted":
-                                synthesis_started = True
-                                logger.bind(tag=TAG).debug("TTS合成已启动")
-                            elif header.get("name") == "TaskFailed":
-                                error_info = data.get("payload", {}).get(
-                                    "error_info", {}
-                                )
-                                error_code = error_info.get("error_code")
-                                error_message = error_info.get(
-                                    "error_message", "未知错误"
-                                )
-                                raise Exception(
-                                    f"启动合成失败: {error_code} - {error_message}"
-                                )
-
-                    # 发送文本合成请求
-                    filtered_text = MarkdownCleaner.clean_markdown(text)
-                    run_message_id = str(uuid.uuid4().hex)
-                    run_request = {
-                        "header": {
-                            "message_id": run_message_id,
-                            "task_id": session_id,
-                            "namespace": "FlowingSpeechSynthesizer",
-                            "name": "RunSynthesis",
-                            "appkey": self.appkey,
-                        },
-                        "payload": {"text": filtered_text},
-                    }
-                    await ws.send(json.dumps(run_request))
-
-                    # 发送停止合成请求
-                    stop_message_id = str(uuid.uuid4().hex)
-                    stop_request = {
-                        "header": {
-                            "message_id": stop_message_id,
-                            "task_id": session_id,
-                            "namespace": "FlowingSpeechSynthesizer",
-                            "name": "StopSynthesis",
-                            "appkey": self.appkey,
-                        }
-                    }
-                    await ws.send(json.dumps(stop_request))
-
-                    # 接收音频数据
-                    synthesis_completed = False
-                    while not synthesis_completed:
-                        msg = await ws.recv()
-                        if isinstance(msg, (bytes, bytearray)):
-                            # 编码为Opus并收集
-                            self.opus_encoder.encode_pcm_to_opus_stream(
-                                msg, False, opus_handler
-                            )
-                            # audio_data.extend(opus_frames)
-                        elif isinstance(msg, str):
-                            data = json.loads(msg)
-                            header = data.get("header", {})
-                            event_name = header.get("name")
-                            if event_name == "SynthesisCompleted":
-                                synthesis_completed = True
-                                logger.bind(tag=TAG).debug("TTS合成完成")
-                            elif event_name == "TaskFailed":
-                                error_info = data.get("payload", {}).get(
-                                    "error_info", {}
-                                )
-                                error_code = error_info.get("error_code")
-                                error_message = error_info.get(
-                                    "error_message", "未知错误"
-                                )
-                                raise Exception(
-                                    f"合成失败: {error_code} - {error_message}"
-                                )
-                finally:
-                    try:
-                        await ws.close()
-                    except:
-                        pass
-
-            loop.run_until_complete(_generate_audio())
-            loop.close()
-
-        except Exception as e:
-            logger.bind(tag=TAG).error(f"生成音频数据失败: {str(e)}")
