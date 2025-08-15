@@ -5,6 +5,8 @@ import requests
 from urllib.parse import urlparse, parse_qs
 from typing import Optional, Dict
 from config.logger import setup_logging
+from core.utils.cache.manager import cache_manager
+from core.utils.cache.config import CacheType
 
 TAG = __name__
 logger = setup_logging()
@@ -85,7 +87,18 @@ class VoiceprintProvider:
         """检查声纹识别服务器健康状态"""
         if not self.api_url or not self.api_key:
             return False
-            
+    
+        cache_key = f"{self.api_url}:{self.api_key}"
+        
+        # 检查缓存
+        cached_result = cache_manager.get(CacheType.VOICEPRINT_HEALTH, cache_key)
+        if cached_result is not None:
+            logger.bind(tag=TAG).debug(f"使用缓存的健康状态: {cached_result}")
+            return cached_result
+        
+        # 缓存过期或不存在
+        logger.bind(tag=TAG).info("执行声纹服务器健康检查")
+        
         try:
             # 健康检查URL
             parsed_url = urlparse(self.api_url)
@@ -98,23 +111,29 @@ class VoiceprintProvider:
                 result = response.json()
                 if result.get("status") == "healthy":
                     logger.bind(tag=TAG).info("声纹识别服务器健康检查通过")
-                    return True
+                    is_healthy = True
                 else:
                     logger.bind(tag=TAG).warning(f"声纹识别服务器状态异常: {result}")
-                    return False
+                    is_healthy = False
             else:
                 logger.bind(tag=TAG).warning(f"声纹识别服务器健康检查失败: HTTP {response.status_code}")
-                return False
+                is_healthy = False
                 
         except requests.exceptions.ConnectTimeout:
             logger.bind(tag=TAG).warning("声纹识别服务器连接超时")
-            return False
+            is_healthy = False
         except requests.exceptions.ConnectionError:
             logger.bind(tag=TAG).warning("声纹识别服务器连接被拒绝")
-            return False
+            is_healthy = False
         except Exception as e:
             logger.bind(tag=TAG).warning(f"声纹识别服务器健康检查异常: {e}")
-            return False
+            is_healthy = False
+        
+        # 使用全局缓存管理器缓存结果
+        cache_manager.set(CacheType.VOICEPRINT_HEALTH, cache_key, is_healthy)
+        logger.bind(tag=TAG).info(f"健康检查结果已缓存: {is_healthy}")
+        
+        return is_healthy
     
     async def identify_speaker(self, audio_data: bytes, session_id: str) -> Optional[str]:
         """识别说话人"""
