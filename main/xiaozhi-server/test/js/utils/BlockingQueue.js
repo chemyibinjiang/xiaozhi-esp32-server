@@ -7,9 +7,16 @@ export default class BlockingQueue {
     #emptyResolve = null;
 
     /* 生产者：把数据塞进去 */
-    enqueue(item) {
-        this.#items.push(item);
-
+    enqueue(item, ...restItems) {
+        if (restItems.length === 0) {
+            this.#items.push(item);
+        }
+        // 如果有额外参数，批量处理所有项
+        else {
+            const items = [item, ...restItems].filter(i => i);
+            if (items.length === 0) return;
+            this.#items.push(...items);
+        }
         // 若有空队列闸门，一次性放行所有等待者
         if (this.#emptyResolve) {
             this.#emptyResolve();
