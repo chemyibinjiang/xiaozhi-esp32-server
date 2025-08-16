@@ -23,7 +23,5 @@ ASR:
 ```
 4.在main/xiaozhi-server目录下运行performance_tester.py: 
 ```
-python performance_test_tool.py 
+python performance_tester.py
 ```
-5.性能测试结果将保存在test_result目录。
-6.得到测试结果
