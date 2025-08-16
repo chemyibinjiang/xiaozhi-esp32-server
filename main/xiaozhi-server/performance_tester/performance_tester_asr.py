@@ -7,50 +7,30 @@ from typing import Dict
 import aiohttp
 from tabulate import tabulate
 from core.utils.asr import create_instance as create_stt_instance
+from config.settings import load_config
 
 # 设置全局日志级别为WARNING，抑制INFO级别日志
 logging.basicConfig(level=logging.WARNING)
 
 description = "语音识别模型性能测试"
+
+
 class ASRPerformanceTester:
     def __init__(self):
-        self.config = self._load_config_from_data_dir()
+        self.config = load_config()
         self.test_wav_list = self._load_test_wav_files()
         self.results = {"stt": {}}
-        
+
         # 调试日志
         print(f"[DEBUG] 加载的ASR配置: {self.config.get('ASR', {})}")
         print(f"[DEBUG] 音频文件数量: {len(self.test_wav_list)}")
-
-    def _load_config_from_data_dir(self) -> Dict:
-        """从 data 目录加载所有 .config.yaml 文件的配置"""
-        config = {"ASR": {}}
-        data_dir = os.path.join(os.getcwd(), "data")
-        print(f"[DEBUG] 扫描配置文件目录: {data_dir}")
-
-        for root, _, files in os.walk(data_dir):
-            for file in files:
-                if file.endswith(".config.yaml"):
-                    file_path = os.path.join(root, file)
-                    try:
-                        with open(file_path, "r", encoding="utf-8") as f:
-                            import yaml
-                            file_config = yaml.safe_load(f)
-                            # 兼容大小写的 ASR/asr 配置
-                            asr_config = file_config.get("ASR") or file_config.get("asr")
-                            if asr_config:
-                                config["ASR"].update(asr_config)
-                                print(f"[DEBUG] 从 {file_path} 加载 ASR 配置成功")
-                    except Exception as e:
-                        print(f" 加载配置文件 {file_path} 失败: {str(e)}")
-        return config
 
     def _load_test_wav_files(self) -> list:
         """加载测试用的音频文件（添加路径调试）"""
         wav_root = os.path.join(os.getcwd(), "config", "assets")
         print(f"[DEBUG] 音频文件目录: {wav_root}")
         test_wav_list = []
-        
+
         if os.path.exists(wav_root):
             file_list = os.listdir(wav_root)
             print(f"[DEBUG] 找到音频文件: {file_list}")

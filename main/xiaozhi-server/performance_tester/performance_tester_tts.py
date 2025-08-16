@@ -8,14 +8,17 @@ from tabulate import tabulate
 
 # 确保从 core.utils.tts 导入 create_tts_instance
 from core.utils.tts import create_instance as create_tts_instance
+from config.settings import load_config
 
 # 设置全局日志级别为 WARNING
 logging.basicConfig(level=logging.WARNING)
 
 description = "非流式语音合成性能测试"
+
+
 class TTSPerformanceTester:
     def __init__(self):
-        self.config = self._load_config_from_data_dir()
+        self.config = load_config()
         self.test_sentences = self.config.get("module_test", {}).get(
             "test_sentences",
             [
@@ -25,27 +28,6 @@ class TTSPerformanceTester:
             ],
         )
         self.results = {}
-
-    def _load_config_from_data_dir(self) -> Dict:
-        """从 data 目录加载所有 .config.yaml 文件的配置"""
-        config = {"TTS": {}}
-        data_dir = os.path.join(os.getcwd(), "data")
-        print(f"[DEBUG] 扫描配置文件目录: {data_dir}")
-
-        for root, _, files in os.walk(data_dir):
-            for file in files:
-                if file.endswith(".config.yaml"):
-                    file_path = os.path.join(root, file)
-                    try:
-                        with open(file_path, "r", encoding="utf-8") as f:
-                            file_config = yaml.safe_load(f)
-                            tts_config = file_config.get("TTS")
-                            if tts_config:
-                                config["TTS"].update(tts_config)
-                                print(f"[DEBUG] 从 {file_path} 加载 TTS 配置成功")
-                    except Exception as e:
-                        print(f"加载配置文件 {file_path} 失败: {str(e)}")
-        return config
 
     async def _test_tts(self, tts_name: str, config: Dict) -> Dict:
         """测试单个TTS模块的性能"""
@@ -107,19 +89,19 @@ class TTSPerformanceTester:
         table = []
         for name, data in self.results.items():
             if data["errors"] == 0:
-                table.append([
-                    name,
-                    f"{data['avg_time']:.3f}秒/句",
-                    len(self.test_sentences[:3])
-                ])
+                table.append(
+                    [name, f"{data['avg_time']:.3f}秒/句", len(self.test_sentences[:3])]
+                )
 
         print("\nTTS性能测试结果:")
-        print(tabulate(
-            table,
-            headers=["TTS模块", "平均耗时", "测试句子数"],
-            tablefmt="github",
-            colalign=("left", "right", "right")
-        ))
+        print(
+            tabulate(
+                table,
+                headers=["TTS模块", "平均耗时", "测试句子数"],
+                tablefmt="github",
+                colalign=("left", "right", "right"),
+            )
+        )
 
     async def run(self):
         """执行测试"""
@@ -136,7 +118,7 @@ class TTSPerformanceTester:
 
         # 并发执行测试
         results = await asyncio.gather(*tasks)
-        
+
         # 保存有效结果
         for result in results:
             if result["errors"] == 0:
@@ -145,10 +127,12 @@ class TTSPerformanceTester:
         # 打印结果
         self._print_results()
 
-#为了performance_tester.py的调用需求
+
+# 为了performance_tester.py的调用需求
 async def main():
     tester = TTSPerformanceTester()
     await tester.run()
+
 
 if __name__ == "__main__":
     tester = TTSPerformanceTester()

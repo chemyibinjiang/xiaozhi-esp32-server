@@ -21,7 +21,7 @@ VLLM:
 
 ASR:
 ```
-4.在main/xiaozhi-server目录下运行performance_text_tool.py: 
+4.在main/xiaozhi-server目录下运行performance_tester.py: 
 ```
 python performance_test_tool.py 
 ```
