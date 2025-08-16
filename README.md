@@ -227,8 +227,7 @@ Websocket接口地址: wss://2662r3426b.vicp.fun/xiaozhi/v1/
 | 工具名称 | 位置 | 使用方法 | 功能说明 |
 |:---:|:---|:---:|:---:|
 | 音频交互测试工具 | main》xiaozhi-server》test》test_page.html | 使用谷歌浏览器直接打开 | 测试音频播放和接收功能，验证Python端音频处理是否正常 |
-| 模型响应测试工具1 | main》xiaozhi-server》performance_tester.py | 执行 `python performance_tester.py` | 测试ASR(语音识别)、LLM(大模型)、TTS(语音合成)三个核心模块的响应速度 |
-| 模型响应测试工具2 | main》xiaozhi-server》performance_tester_vllm.py | 执行 `python performance_tester_vllm.py` | 测试VLLM(视觉模型)的响应速度 |
+| 模型响应测试工具 | main》xiaozhi-server》performance_tester.py | 执行 `python performance_tester.py` | 测试ASR(语音识别)、LLM(大模型)、VLLM(视觉模型)、TTS(语音合成)三个核心模块的响应速度 |
 
 > 💡 提示：测试模型速度时，只会测试配置了密钥的模型。
 

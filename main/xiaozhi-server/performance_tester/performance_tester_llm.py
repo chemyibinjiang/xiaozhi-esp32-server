@@ -8,14 +8,17 @@ import yaml
 import aiohttp
 from tabulate import tabulate
 from core.utils.llm import create_instance as create_llm_instance
+from config.settings import load_config
 
 # 设置全局日志级别为 WARNING，抑制 INFO 级别日志
 logging.basicConfig(level=logging.WARNING)
 
 description = "大语言模型性能测试"
+
+
 class LLMPerformanceTester:
     def __init__(self):
-        self.config = self._load_config()
+        self.config = load_config()
         self.test_sentences = self.config.get("module_test", {}).get(
             "test_sentences",
             [
@@ -25,24 +28,6 @@ class LLMPerformanceTester:
             ],
         )
         self.results = {}
-
-    def _load_config(self) -> Dict:
-        """从 data/.config.yaml 加载配置"""
-        config = {}
-        config_file_path = os.path.join(os.getcwd(), "data", ".config.yaml")
-        print(f"[DEBUG] 加载配置文件: {config_file_path}")
-
-        if not os.path.exists(config_file_path):
-            print(f"[DEBUG] 配置文件 {config_file_path} 不存在")
-            return config
-
-        try:
-            with open(config_file_path, "r", encoding="utf-8") as f:
-                config = yaml.safe_load(f)
-                print(f"[DEBUG] 从 {config_file_path} 加载配置成功")
-        except Exception as e:
-            print(f"加载配置文件 {config_file_path} 失败: {str(e)}")
-        return config
 
     async def _check_ollama_service(self, base_url: str, model_name: str) -> bool:
         """异步检查 Ollama 服务状态"""
