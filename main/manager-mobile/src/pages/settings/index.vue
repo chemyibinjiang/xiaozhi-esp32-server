@@ -116,6 +116,9 @@ function restartApp() {
 // 切换地址后自动清空所有缓存
 function clearAllCacheAfterUrlChange() {
   try {
+    // 备份运行时覆盖地址，确保清理后恢复
+    const preservedOverride = getServerBaseUrlOverride()
+
     // 完全清空所有缓存，包括token
     uni.clearStorageSync()
 
@@ -125,6 +128,11 @@ function clearAllCacheAfterUrlChange() {
       localStorage.clear()
     }
     // #endif
+
+    // 恢复运行时覆盖地址（如有），需要在清理完成后再写入
+    if (preservedOverride) {
+      setServerBaseUrlOverride(preservedOverride)
+    }
 
     // 重新获取缓存信息
     getCacheInfo()
@@ -164,6 +172,8 @@ function showAbout() {
   uni.showModal({
     title: `关于${import.meta.env.VITE_APP_TITLE}`,
     content: `${import.meta.env.VITE_APP_TITLE}\n\n基于 Vue.js 3 + uni-app 构建的跨平台移动端管理应用，为小智ESP32智能硬件提供设备管理、智能体配置等功能。\n\n© 2025 xiaozhi-esp32-server`,
+    title: `关于小智智控台`,
+    content: `小智智控台\n\n基于 Vue.js 3 + uni-app 构建的跨平台移动端管理应用，为小智智控台ESP32智能硬件提供设备管理、智能体配置等功能。\n\n© 2025 xiaozhi-esp32-server 0.7.5`,
     showCancel: false,
     confirmText: '确定',
   })
@@ -192,6 +202,7 @@ onMounted(async () => {
         </view>
 
         <view class="border border-[#eeeeee] rounded-[24rpx] bg-[#fbfbfb] p-[32rpx]"
+        <view class="border border-[#eeeeee] rounded-[24rpx] bg-[#fbfbfb] p-[32rpx] overflow-hidden"
           style="box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);">
           <view class="mb-[24rpx]">
             <text class="text-[28rpx] text-[#232338] font-semibold">
@@ -206,6 +217,17 @@ onMounted(async () => {
             <input v-model="baseUrlInput"
               class="h-[88rpx] w-full border border-[#eeeeee] rounded-[16rpx] bg-[#f5f7fb] px-[24rpx] text-[28rpx] text-[#232338] transition-all focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3] focus:shadow-[0_0_0_4rpx_rgba(51,108,255,0.1)]"
               type="text" placeholder="输入服务端地址，如 https://example.com/api">
+            <view class="w-full rounded-[16rpx] border border-[#eeeeee] bg-[#f5f7fb] overflow-hidden">
+              <wd-input
+                v-model="baseUrlInput"
+                type="text"
+                clearable
+                :maxlength="200"
+                placeholder="输入服务端地址，如 https://example.com/api"
+                custom-class="!border-none !bg-transparent h-[88rpx] px-[24rpx] items-center"
+                input-class="text-[28rpx] text-[#232338]"
+              />
+            </view>
           </view>
 
           <view class="flex gap-[16rpx]">
