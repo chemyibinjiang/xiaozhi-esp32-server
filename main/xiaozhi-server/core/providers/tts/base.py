@@ -80,17 +80,11 @@ class TTSProviderBase(ABC):
         )
 
     def handle_opus(self, opus_data: bytes):
-        logger.bind(tag=TAG).debug(
-            f"推送数据到队列里面帧数～～ {len(opus_data)}"
-        )
-        self.tts_audio_queue.put(
-            (SentenceType.MIDDLE, opus_data, None)
-        )
+        logger.bind(tag=TAG).debug(f"推送数据到队列里面帧数～～ {len(opus_data)}")
+        self.tts_audio_queue.put((SentenceType.MIDDLE, opus_data, None))
 
     def handle_audio_file(self, file_audio: bytes, text):
-        self.before_stop_play_files.append(
-            (file_audio, text)
-        )
+        self.before_stop_play_files.append((file_audio, text))
 
     def to_tts_stream(self, text, opus_handler: Callable[[bytes], None] = None) -> None:
         text = MarkdownCleaner.clean_markdown(text)
@@ -101,11 +95,12 @@ class TTSProviderBase(ABC):
                 try:
                     audio_bytes = asyncio.run(self.text_to_speak(text, None))
                     if audio_bytes:
-                        self.tts_audio_queue.put(
-                            (SentenceType.FIRST, None, text)
-                        )
+                        self.tts_audio_queue.put((SentenceType.FIRST, None, text))
                         audio_bytes_to_data_stream(
-                            audio_bytes, file_type=self.audio_file_type, is_opus=True, callback=opus_handler
+                            audio_bytes,
+                            file_type=self.audio_file_type,
+                            is_opus=True,
+                            callback=opus_handler,
                         )
                         break
                     else:
@@ -147,9 +142,7 @@ class TTSProviderBase(ABC):
                     logger.bind(tag=TAG).error(
                         f"语音生成失败: {text}，请检查网络或服务是否正常"
                     )
-                    self.tts_audio_queue.put(
-                        (SentenceType.FIRST, None, text)
-                    )
+                    self.tts_audio_queue.put((SentenceType.FIRST, None, text))
                 self._process_audio_file_stream(tmp_file, callback=opus_handler)
             except Exception as e:
                 logger.bind(tag=TAG).error(f"Failed to generate TTS file: {e}")
@@ -159,11 +152,15 @@ class TTSProviderBase(ABC):
     async def text_to_speak(self, text, output_file):
         pass
 
-    def audio_to_pcm_data_stream(self, audio_file_path, callback: Callable[[Any], Any] = None):
+    def audio_to_pcm_data_stream(
+        self, audio_file_path, callback: Callable[[Any], Any] = None
+    ):
         """音频文件转换为PCM编码"""
         return audio_to_data_stream(audio_file_path, is_opus=False, callback=callback)
 
-    def audio_to_opus_data_stream(self, audio_file_path, callback: Callable[[Any], Any] = None):
+    def audio_to_opus_data_stream(
+        self, audio_file_path, callback: Callable[[Any], Any] = None
+    ):
         """音频文件转换为Opus编码"""
         return audio_to_data_stream(audio_file_path, is_opus=True, callback=callback)
 
@@ -238,7 +235,9 @@ class TTSProviderBase(ABC):
                     self._process_remaining_text_stream(opus_handler=self.handle_opus)
                     tts_file = message.content_file
                     if tts_file and os.path.exists(tts_file):
-                        self._process_audio_file_stream(tts_file, callback=self.handle_opus)
+                        self._process_audio_file_stream(
+                            tts_file, callback=self.handle_opus
+                        )
                 if message.sentence_type == SentenceType.LAST:
                     self._process_remaining_text_stream(opus_handler=self.handle_opus)
                     self.tts_audio_queue.put(
@@ -261,7 +260,9 @@ class TTSProviderBase(ABC):
             text = None
             try:
                 try:
-                    sentence_type, audio_datas, text = self.tts_audio_queue.get(timeout=0.1)
+                    sentence_type, audio_datas, text = self.tts_audio_queue.get(
+                        timeout=0.1
+                    )
                 except queue.Empty:
                     if self.conn.stop_event.is_set():
                         break
@@ -300,10 +301,14 @@ class TTSProviderBase(ABC):
 
                     while not self.flow_controller.can_send_frames(frame_count):
                         # 检查是否超时或需要停止
-                        if (time.time() - wait_start_time > max_wait_time or
-                                self.conn.stop_event.is_set() or
-                                self.conn.client_abort):
-                            logger.bind(tag=TAG).debug("流控等待超时或收到停止信号，跳过音频发送")
+                        if (
+                            time.time() - wait_start_time > max_wait_time
+                            or self.conn.stop_event.is_set()
+                            or self.conn.client_abort
+                        ):
+                            logger.bind(tag=TAG).debug(
+                                "流控等待超时或收到停止信号，跳过音频发送"
+                            )
                             break
                         # 短暂等待后重试
                         time.sleep(retry_interval)
@@ -313,7 +318,9 @@ class TTSProviderBase(ABC):
 
                         # 发送音频
                         future = asyncio.run_coroutine_threadsafe(
-                            self._send_audio_with_flow_control(sentence_type, audio_datas, text),
+                            self._send_audio_with_flow_control(
+                                sentence_type, audio_datas, text
+                            ),
                             self.conn.loop,
                         )
                         future.result()
@@ -330,15 +337,15 @@ class TTSProviderBase(ABC):
                 else:
                     # 没有音频数据，直接发送
                     future = asyncio.run_coroutine_threadsafe(
-                        self._send_audio_with_flow_control(sentence_type, audio_datas, text),
+                        self._send_audio_with_flow_control(
+                            sentence_type, audio_datas, text
+                        ),
                         self.conn.loop,
                     )
                     future.result()
 
             except Exception as e:
-                logger.bind(tag=TAG).error(
-                    f"audio_play_priority_thread: {text} {e}"
-                )
+                logger.bind(tag=TAG).error(f"audio_play_priority_thread: {text} {e}")
 
     async def _send_audio_with_flow_control(self, sentence_type, audio_datas, text):
         """
@@ -350,13 +357,13 @@ class TTSProviderBase(ABC):
         # 模拟设备消费（实际应用中应该从设备获取反馈）防止音字不同步
         if isinstance(audio_datas, bytes):
             # 模拟设备播放延迟（60ms per frame）, 实际情况可以低一点（50ms），增加使用体验
-            await asyncio.sleep(0.055)
+            await asyncio.sleep(0.06)
             self.flow_controller.update_device_consumption(1)
 
     # 在类中添加流控制器重置方法
     def reset_flow_controller(self):
         """重置流控制器状态，通常在新会话开始时调用"""
-        if hasattr(self, 'flow_controller'):
+        if hasattr(self, "flow_controller"):
             self.flow_controller.reset()
             logger.bind(tag=TAG).info("流控制器状态已重置")
 
@@ -410,7 +417,9 @@ class TTSProviderBase(ABC):
         else:
             return None
 
-    def _process_audio_file_stream(self, tts_file, callback: Callable[[Any], Any]) -> None:
+    def _process_audio_file_stream(
+        self, tts_file, callback: Callable[[Any], Any]
+    ) -> None:
         """处理音频文件并转换为指定格式
 
         Args:
@@ -438,7 +447,9 @@ class TTSProviderBase(ABC):
         self.before_stop_play_files.clear()
         self.tts_audio_queue.put((SentenceType.LAST, [], None))
 
-    def _process_remaining_text_stream(self, opus_handler: Callable[[bytes], None] = None):
+    def _process_remaining_text_stream(
+        self, opus_handler: Callable[[bytes], None] = None
+    ):
         """处理剩余的文本并生成语音
 
         Returns:
