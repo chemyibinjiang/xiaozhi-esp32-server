@@ -7,13 +7,13 @@ docker镜像已支持x86架构、arm64架构的CPU，支持在国产操作系统
 
 如果您的电脑还没安装docker，可以按照这里的教程安装：[docker安装](https://www.runoob.com/docker/ubuntu-docker-install.html)
 
-docker 安装全模块有两种方式，你可以[1.1使用懒人脚本](./docs/Deployment_all.md#1.1+%e6%87%92%e4%ba%ba%e8%84%9a%e6%9c%ac)（作者[@VanillaNahida](https://github.com/VanillaNahida)）  
-脚本会自动帮你下载所需的文件和配置文件，你可以使用[1.2 手动部署](./docs/Deployment_all.md#1.2+%e6%89%8b%e5%8a%a8%e9%83%a8%e7%bd%b2)从零搭建。
+docker 安装全模块有两种方式，你可以[使用懒人脚本](./Deployment_all.md#11-懒人脚本)（作者[@VanillaNahida](https://github.com/VanillaNahida)）  
+脚本会自动帮你下载所需的文件和配置文件，你也可以使用[手动部署](./Deployment_all.md#12-手动部署)从零搭建。
 
 
 
 ### 1.1 懒人脚本
-
+**推荐使用**，**全自动部署**，只需**简单配置**即可使用，视频教程：[https://www.bilibili.com/video/BV17bbvzHExd/](https://www.bilibili.com/video/BV17bbvzHExd/)  
 你可以使用以下命令一键安装全模块版小智服务端：  
 > [!NOTE]  
 > 暂且只支持Ubuntu服务器一键部署，其他系统未尝试，可能会有一些奇怪的bug
