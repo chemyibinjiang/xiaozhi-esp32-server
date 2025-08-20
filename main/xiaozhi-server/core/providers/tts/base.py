@@ -11,7 +11,7 @@ from datetime import datetime
 from core.utils import textUtils
 from abc import ABC, abstractmethod
 from config.logger import setup_logging
-from core.utils.audio_flow_control import FlowControlConfig
+from core.utils.audio_flow_control import FlowControlConfig, simulate_device_consumption
 from core.utils.util import audio_bytes_to_data_stream, audio_to_data_stream
 from core.utils.tts import MarkdownCleaner
 from core.utils.output_counter import add_device_output
@@ -356,9 +356,8 @@ class TTSProviderBase(ABC):
 
         # 模拟设备消费（实际应用中应该从设备获取反馈）防止音字不同步
         if isinstance(audio_datas, bytes):
-            # 模拟设备播放延迟（60ms per frame）, 实际情况可以低一点（50ms），增加使用体验
-            await asyncio.sleep(0.06)
-            self.flow_controller.update_device_consumption(1)
+            frame_count = 1
+            asyncio.create_task(simulate_device_consumption(self.flow_controller, frame_count))
 
     # 在类中添加流控制器重置方法
     def reset_flow_controller(self):
