@@ -1,4 +1,5 @@
 import json
+import asyncio
 from core.providers.tts.dto.dto import SentenceType
 from core.utils import textUtils
 
@@ -52,8 +53,12 @@ async def send_tts_message(conn, state, text=None):
             stop_tts_notify_voice = conn.config.get(
                 "stop_tts_notify_voice", "config/assets/tts_notify.mp3"
             )
-            audios, _ = conn.tts.audio_to_opus_data(stop_tts_notify_voice)
-            await sendAudio(conn, audios)
+            conn.tts.audio_to_opus_data_stream(
+                stop_tts_notify_voice,
+                callback=lambda audio_data: asyncio.run_coroutine_threadsafe(
+                    sendAudio(conn, audio_data), conn.loop
+                ),
+            )
         # 清除服务端讲话状态
         conn.clearSpeakStatus()
 

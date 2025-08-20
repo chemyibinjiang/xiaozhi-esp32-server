@@ -151,6 +151,21 @@ class AudioFlowController:
             )
 
 
+async def simulate_device_consumption(
+    flow_controller: AudioFlowController, frame_count: int
+):
+    """
+    模拟设备消费音频帧的过程
+    实际应用中应该根据设备反馈来更新消费情况
+    Args:
+        flow_controller: 流控制器实例
+        frame_count: 消费的帧数
+    """
+    # 模拟设备播放延迟（60ms per frame）
+    await asyncio.sleep(frame_count * 0.06)
+    flow_controller.update_device_consumption(frame_count)
+
+
 # 流控配置常量
 class FlowControlConfig:
     """流控配置常量"""
