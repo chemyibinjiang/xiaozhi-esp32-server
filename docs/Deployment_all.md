@@ -13,8 +13,7 @@ docker 安装全模块有两种方式，你可以[使用懒人脚本](./Deployme
 
 
 ### 1.1 懒人脚本
-**推荐使用**，**全自动部署**，只需**简单配置**即可使用，视频教程：[https://www.bilibili.com/video/BV17bbvzHExd/](https://www.bilibili.com/video/BV17bbvzHExd/)  
-你可以使用以下命令一键安装全模块版小智服务端：  
+部署简便，可以参考[视频教程](https://www.bilibili.com/video/BV17bbvzHExd/) ，文字版教程如下：
 > [!NOTE]  
 > 暂且只支持Ubuntu服务器一键部署，其他系统未尝试，可能会有一些奇怪的bug
 
