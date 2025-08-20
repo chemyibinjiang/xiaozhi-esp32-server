@@ -402,8 +402,6 @@ fi
 
 # 获取并显示地址信息
 LOCAL_IP=$(hostname -I | awk '{print $1}')
-# WEBSOCKET_ADDR=$(docker logs xiaozhi-esp32-server 2>&1 | tac | grep -m 1 -E -o "ws://[^ ]+")
-# VISION_ADDR=$(docker logs xiaozhi-esp32-server 2>&1 | tac | grep -m 1 "视觉" | grep -m 1 -E -o "http://[^ ]+")
 
 # 修复日志文件获取不到ws的问题，改为硬编码
 whiptail --title "安装完成！" --msgbox "\
