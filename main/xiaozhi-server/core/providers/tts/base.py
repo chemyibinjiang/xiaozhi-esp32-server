@@ -11,7 +11,6 @@ from datetime import datetime
 from core.utils import textUtils
 from abc import ABC, abstractmethod
 from config.logger import setup_logging
-from core.utils.audio_flow_control import FlowControlConfig, simulate_device_consumption
 from core.utils.util import audio_bytes_to_data_stream, audio_to_data_stream
 from core.utils.tts import MarkdownCleaner
 from core.utils.output_counter import add_device_output
@@ -71,7 +70,6 @@ class TTSProviderBase(ABC):
         self.tts_stop_request = False
         self.processed_chars = 0
         self.is_first_sentence = True
-        self.flow_controller = FlowControlConfig.create_flow_controller()
 
     def generate_filename(self, extension=".wav"):
         return os.path.join(
@@ -225,7 +223,6 @@ class TTSProviderBase(ABC):
                     self.tts_text_buff = []
                     self.is_first_sentence = True
                     self.tts_audio_first_sentence = True
-                    self.reset_flow_controller()
                 elif ContentType.TEXT == message.content_type:
                     self.tts_text_buff.append(message.content_detail)
                     segment_text = self._get_segment_text()
@@ -270,12 +267,19 @@ class TTSProviderBase(ABC):
 
                 if self.conn.client_abort:
                     logger.bind(tag=TAG).debug("收到打断信号，跳过当前音频数据")
-                    # 打断时丢弃未上报的音频数据
                     enqueue_text, enqueue_audio = None, []
                     continue
 
                 # 收到下一个文本开始或会话结束时进行上报
                 if sentence_type is not SentenceType.MIDDLE:
+                    # 重置音频流控状态（新句子开始或者结束）
+                    if hasattr(self.conn, 'audio_flow_control'):
+                        self.conn.audio_flow_control = {
+                            'last_send_time': 0,
+                            'packet_count': 0,
+                            'start_time': time.perf_counter()
+                        }
+                    
                     # 上报TTS数据
                     if enqueue_text is not None and enqueue_audio is not None:
                         enqueue_tts_report(self.conn, enqueue_text, enqueue_audio)
@@ -284,87 +288,21 @@ class TTSProviderBase(ABC):
 
                 # 计算音频数据的帧数
                 if isinstance(audio_datas, bytes):
-                    frame_count = 1  # 单个字节流作为一帧
                     enqueue_audio.append(audio_datas)
-                else:
-                    frame_count = 0
+
+                # 发送音频
+                future = asyncio.run_coroutine_threadsafe(
+                    sendAudioMessage(self.conn, sentence_type, audio_datas, text),
+                    self.conn.loop,
+                )
+                future.result()
 
                 # 记录输出和报告
                 if self.conn.max_output_size > 0 and text:
                     add_device_output(self.conn.headers.get("device-id"), len(text))
 
-                # 流控检查
-                if frame_count > 0:
-                    max_wait_time = FlowControlConfig.DEFAULT_MAX_WAIT_TIME
-                    wait_start_time = time.time()
-                    retry_interval = FlowControlConfig.DEFAULT_RETRY_INTERVAL
-
-                    while not self.flow_controller.can_send_frames(frame_count):
-                        # 检查是否超时或需要停止
-                        if (
-                            time.time() - wait_start_time > max_wait_time
-                            or self.conn.stop_event.is_set()
-                            or self.conn.client_abort
-                        ):
-                            logger.bind(tag=TAG).debug(
-                                "流控等待超时或收到停止信号，跳过音频发送"
-                            )
-                            break
-                        # 短暂等待后重试
-                        time.sleep(retry_interval)
-                    else:
-                        # 可以发送，记录发送的帧数
-                        self.flow_controller.record_sent_frames(frame_count)
-
-                        # 发送音频
-                        future = asyncio.run_coroutine_threadsafe(
-                            self._send_audio_with_flow_control(
-                                sentence_type, audio_datas, text
-                            ),
-                            self.conn.loop,
-                        )
-                        future.result()
-
-                        # 输出流控状态（调试用）
-                        # status = self.flow_controller.get_status()
-                        # logger.bind(tag=TAG).debug(
-                        #     f"流控状态: 缓冲区使用率={status['buffer_usage_percent']:.1f}%, "
-                        #     f"可用令牌={status['available_tokens']}..."
-                        #     f"发送帧数={status['sent_frames']}..."
-                        #     f"消费帧数={status['consumed_frames']}..."
-                        #     f"代播放帧数={status['sent_frames'] - status['consumed_frames']}..."
-                        # )
-                else:
-                    # 没有音频数据，直接发送
-                    future = asyncio.run_coroutine_threadsafe(
-                        self._send_audio_with_flow_control(
-                            sentence_type, audio_datas, text
-                        ),
-                        self.conn.loop,
-                    )
-                    future.result()
-
             except Exception as e:
                 logger.bind(tag=TAG).error(f"audio_play_priority_thread: {text} {e}")
-
-    async def _send_audio_with_flow_control(self, sentence_type, audio_datas, text):
-        """
-        带流控的音频发送方法 模拟设备消费音频帧的过程
-        实际应用中应该根据设备反馈来更新消费情况
-        """
-        await sendAudioMessage(self.conn, sentence_type, audio_datas, text)
-
-        # 模拟设备消费（实际应用中应该从设备获取反馈）防止音字不同步
-        if isinstance(audio_datas, bytes):
-            frame_count = 1
-            asyncio.create_task(simulate_device_consumption(self.flow_controller, frame_count))
-
-    # 在类中添加流控制器重置方法
-    def reset_flow_controller(self):
-        """重置流控制器状态，通常在新会话开始时调用"""
-        if hasattr(self, "flow_controller"):
-            self.flow_controller.reset()
-            logger.bind(tag=TAG).info("流控制器状态已重置")
 
     async def start_session(self, session_id):
         pass
