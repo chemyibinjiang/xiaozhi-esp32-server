@@ -33,7 +33,6 @@ class TTSProviderBase(ABC):
     def __init__(self, config, delete_audio_file):
         self.interface_type = InterfaceType.NON_STREAM
         self.conn = None
-        self.tts_timeout = 10
         self.delete_audio_file = delete_audio_file
         self.audio_file_type = "wav"
         self.output_file = config.get("output_dir", "tmp/")
@@ -192,7 +191,6 @@ class TTSProviderBase(ABC):
 
     async def open_audio_channels(self, conn):
         self.conn = conn
-        self.tts_timeout = conn.config.get("tts_timeout", 10)
         # tts 消化线程
         self.tts_priority_thread = threading.Thread(
             target=self.tts_text_priority_thread, daemon=True
