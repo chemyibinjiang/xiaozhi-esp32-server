@@ -34,7 +34,7 @@ class TTSProvider(TTSProviderBase):
         volume = config.get("volume", 1.0)
         self.volume = float(volume) if volume else 1.0
         
-        self.delete_audio_file = config.get("delete_audio_file", True)
+        self.delete_audio_file = config.get("delete_audio", True)
         if not self.delete_audio_file:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             self.save_path = config.get("save_path", f"./streaming_tts_{timestamp}.wav")
