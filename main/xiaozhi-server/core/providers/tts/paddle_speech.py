@@ -37,7 +37,16 @@ class TTSProvider(TTSProviderBase):
         self.delete_audio_file = config.get("delete_audio", True)
         if not self.delete_audio_file:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.save_path = config.get("save_path", f"./streaming_tts_{timestamp}.wav")
+            save_path = config.get("save_path")
+            if save_path:
+                if not save_path.endswith('.wav'):
+                    save_path = f"{save_path}_{timestamp}.wav"
+                else:
+                    other_path = save_path[:-4]
+                    save_path = f"{other_path}_{timestamp}.wav"
+                self.save_path = save_path
+            else:
+                self.save_path = f"./streaming_tts_{timestamp}.wav"
         else:
             self.save_path = None
 
