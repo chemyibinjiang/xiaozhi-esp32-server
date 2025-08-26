@@ -1,3 +1,4 @@
+
 import asyncio
 import json
 import base64
@@ -32,7 +33,7 @@ class TTSProvider(TTSProviderBase):
         volume = config.get("volume", 1.0)
         self.volume = float(volume) if volume else 1.0
         
-        self.save_path = config.get("save_path", "./streaming_tts.wav")
+        self.save_path = config.get("save_path", "None")
 
     async def pcm_to_wav(self, pcm_data: bytes, sample_rate: int = 24000, num_channels: int = 1,
                          bits_per_sample: int = 16) -> bytes:
@@ -55,22 +56,22 @@ class TTSProvider(TTSProviderBase):
 
         return wav_io.getvalue()
 
-    async def text_to_speak(self, text, output_file):
+    async def text_to_speak(self, text, output_file=None):
         if self.protocol == "websocket":
-            return await self.text_streaming(text, output_file)
+            return await self.text_streaming(text)
         elif self.protocol == "http":
-            return await self.text(text, output_file)
+            return await self.text(text)
         else:
             raise ValueError("Unsupported protocol. Please use 'websocket' or 'http'.")
 
-    async def text(self, text, output_file):
+    async def text(self, text):
         request_json = {
             "text": text,
             "spk_id": self.spk_id,
             "speed": self.speed,
             "volume": self.volume,
             "sample_rate": self.sample_rate,
-            "save_path": self.save_path
+            "save_path": None,
         }
 
         try:
@@ -81,11 +82,7 @@ class TTSProvider(TTSProviderBase):
                         if resp_json.get("success"):
                             data = resp_json["result"]
                             audio_bytes = base64.b64decode(data["audio"])
-                            if output_file:
-                                with open(output_file, "wb") as file_to_save:
-                                    file_to_save.write(audio_bytes)
-                            else:
-                                return audio_bytes
+                            return audio_bytes
                         else:
                             raise Exception(
                                 f"Error: {resp_json.get('message', 'Unknown error')} while processing text: {text}")
@@ -95,7 +92,7 @@ class TTSProvider(TTSProviderBase):
         except Exception as e:
             raise Exception(f"Error during TTS HTTP request: {e} while processing text: {text}")
 
-    async def text_streaming(self, text, output_file):
+    async def text_streaming(self, text):
         try:
             # 使用 websockets 异步连接到 WebSocket 服务器
             async with websockets.connect(self.url) as ws:
@@ -151,12 +148,8 @@ class TTSProvider(TTSProviderBase):
                 # 接收结束响应避免服务抛出异常
                 await ws.recv()
 
-                # 返回或保存音频数据
-                if output_file:
-                    with open(output_file, "wb") as file_to_save:
-                        file_to_save.write(wav_data)
-                else:
-                    return wav_data
+                # 直接返回音频数据
+                return wav_data
 
         except Exception as e:
             raise Exception(f"Error during TTS WebSocket request: {e} while processing text: {text}")
