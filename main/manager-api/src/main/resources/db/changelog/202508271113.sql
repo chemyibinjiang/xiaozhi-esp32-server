@@ -5,7 +5,7 @@ INSERT INTO `ai_model_provider` (`id`, `model_type`, `provider_code`, `name`, `f
 
 -- VOSK ASR模型配置
 delete from `ai_model_config` where id = 'ASR_VoskASR';
-INSERT INTO `ai_model_config` VALUES ('ASR_VoskASR', 'ASR', 'VoskASR', 'VOSK离线语音识别', 0, 1, '{\"type\": \"vosk\", \"model_path\": \"models/vosk/vosk-model-small-cn-0.22\", \"output_dir\": \"tmp/\"}', NULL, NULL, 11, NULL, NULL, NULL, NULL);
+INSERT INTO `ai_model_config` VALUES ('ASR_VoskASR', 'ASR', 'VoskASR', 'VOSK离线语音识别', 0, 1, '{\"type\": \"vosk\", \"model_path\": \"\", \"output_dir\": \"tmp/\"}', NULL, NULL, 11, NULL, NULL, NULL, NULL);
 
 -- 更新VOSK ASR配置说明
 UPDATE `ai_model_config` SET 
