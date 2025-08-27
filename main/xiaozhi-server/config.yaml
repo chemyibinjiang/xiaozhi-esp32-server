@@ -383,6 +383,13 @@ ASR:
     base_url: https://api.groq.com/openai/v1/audio/transcriptions
     model_name: whisper-large-v3-turbo
     output_dir: tmp/
+  VoskASR:
+    # 官方网站：https://alphacephei.com/vosk/
+    # 模型下载地址：https://alphacephei.com/vosk/models
+    # 解压后放到models/vosk目录下
+    type: vosk
+    model_path: 你的模型路径，如：models/vosk/vosk-model-small-cn-0.22
+    output_dir: tmp/
 
 
   
