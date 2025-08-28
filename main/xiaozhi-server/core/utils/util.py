@@ -1,7 +1,6 @@
 import re
 import os
 import json
-import wave
 import copy
 import socket
 import requests
@@ -12,6 +11,7 @@ from io import BytesIO
 from core.utils import p3
 from pydub import AudioSegment
 from typing import Callable, Any
+from core.providers.tts.dto.dto import SentenceType
 
 TAG = __name__
 emoji_map = {
@@ -274,33 +274,23 @@ def pcm_to_data_stream(raw_data, is_opus=True, callback: Callable[[Any], Any] = 
             frame_data = chunk if isinstance(chunk, bytes) else bytes(chunk)
             callback(frame_data)
 
+def play_audio_response(conn, response):
+    """音频响应处理"""
+    conn.tts.tts_audio_queue.put((SentenceType.FIRST, [], response.get("text")))
+    play_audio_frames(conn, response.get("file_path"))
+    conn.tts.tts_audio_queue.put((SentenceType.LAST, [], None))
 
-def opus_datas_to_wav_bytes(opus_datas, sample_rate=16000, channels=1):
-    """
-    将opus帧列表解码为wav字节流
-    """
-    decoder = opuslib_next.Decoder(sample_rate, channels)
-    pcm_datas = []
 
-    frame_duration = 60  # ms
-    frame_size = int(sample_rate * frame_duration / 1000)  # 960
+def play_audio_frames(conn, file_path):
+    """播放音频文件并处理发送帧数据"""
+    def handle_audio_frame(frame_data):
+        conn.tts.tts_audio_queue.put((SentenceType.MIDDLE, frame_data, None))
 
-    for opus_frame in opus_datas:
-        # 解码为PCM（返回bytes，2字节/采样点）
-        pcm = decoder.decode(opus_frame, frame_size)
-        pcm_datas.append(pcm)
-
-    pcm_bytes = b"".join(pcm_datas)
-
-    # 写入wav字节流
-    wav_buffer = BytesIO()
-    with wave.open(wav_buffer, "wb") as wf:
-        wf.setnchannels(channels)
-        wf.setsampwidth(2)  # 16bit
-        wf.setframerate(sample_rate)
-        wf.writeframes(pcm_bytes)
-    return wav_buffer.getvalue()
-
+    audio_to_data_stream(
+        file_path,
+        is_opus=True,
+        callback=handle_audio_frame
+    )
 
 def check_vad_update(before_config, new_config):
     if (

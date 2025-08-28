@@ -30,7 +30,7 @@ async def sendAudioMessage(conn, sentenceType, audios, text):
 
 
 # 播放音频
-async def sendAudio(conn, audios, pre_buffer=False, frame_duration=60):
+async def sendAudio(conn, audios, pre_buffer=False):
     """
     发送单个opus包，支持流控
     Args:
@@ -38,7 +38,7 @@ async def sendAudio(conn, audios, pre_buffer=False, frame_duration=60):
         opus_packet: 单个opus数据包
         pre_buffer: 快速发送音频
     """
-    if audios is None:
+    if audios is None or len(audios) == 0:
         return
 
     if isinstance(audios, bytes):
@@ -60,6 +60,7 @@ async def sendAudio(conn, audios, pre_buffer=False, frame_duration=60):
                 "start_time": time.perf_counter(),
             }
 
+        frame_duration=60
         flow_control = conn.audio_flow_control
         current_time = time.perf_counter()
         # 计算预期发送时间
@@ -76,38 +77,6 @@ async def sendAudio(conn, audios, pre_buffer=False, frame_duration=60):
         # 更新流控状态
         flow_control["packet_count"] += 1
         flow_control["last_send_time"] = time.perf_counter()
-    else:
-        if audios is None or len(audios) == 0:
-            return
-        # 流控参数优化
-        frame_duration = 60  # 帧时长（毫秒），匹配 Opus 编码
-        start_time = time.perf_counter()
-        play_position = 0
-
-        # 执行预缓冲
-        pre_buffer_frames = min(3, len(audios))
-        for i in range(pre_buffer_frames):
-            await conn.websocket.send(audios[i])
-        remaining_audios = audios[pre_buffer_frames:]
-
-        # 播放剩余音频帧
-        for opus_packet in remaining_audios:
-            if conn.client_abort:
-                break
-
-            # 重置没有声音的状态
-            conn.last_activity_time = time.time() * 1000
-
-            # 计算预期发送时间
-            expected_time = start_time + (play_position / 1000)
-            current_time = time.perf_counter()
-            delay = expected_time - current_time
-            if delay > 0:
-                await asyncio.sleep(delay)
-
-            await conn.websocket.send(opus_packet)
-
-            play_position += frame_duration
 
 
 async def send_tts_message(conn, state, text=None):
