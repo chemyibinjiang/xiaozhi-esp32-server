@@ -94,7 +94,7 @@ Spearheaded by Professor Siyuan Liu's Team (South China University of Technology
   </tr>
   <tr>
     <td>
-        <a href="https://www.bilibili.com/video/BV1Vy96YCE3R" target="_blank">
+        <a href="https://www.bilibili.com/video/BV1vchQzaEse" target="_blank">
          <picture>
            <img alt="自定义音色" src="docs/images/demo6.png" />
          </picture>
