@@ -1,19 +1,21 @@
 import time
 import json
-from core.handle.sendAudioHandle import send_stt_message
+from core.handle.abortHandle import handleAbortMessage
 from core.handle.intentHandler import handle_user_intent
 from core.utils.output_counter import check_device_output_limit
-from core.handle.abortHandle import handleAbortMessage
-from core.handle.sendAudioHandle import SentenceType
-from core.utils.util import audio_to_data_stream
+from core.utils.util import play_audio_frames, play_audio_response
+from core.handle.sendAudioHandle import send_stt_message, SentenceType
 
 TAG = __name__
 
 
 async def handleAudioMessage(conn, audio):
+    # 检查是否在唤醒处理锁定期内
+    if getattr(conn, 'wakeup_processing_lock', 0) > time.monotonic():
+        return
+    
     # 当前片段是否有人说话
     have_voice = conn.vad.is_vad(conn, audio)
-
     if have_voice:
         if conn.client_is_speaking:
             await handleAbortMessage(conn)
@@ -105,9 +107,7 @@ async def max_out_size(conn):
     text = "不好意思，我现在有点事情要忙，明天这个时候我们再聊，约好了哦！明天不见不散，拜拜！"
     await send_stt_message(conn, text)
     file_path = "config/assets/max_output_size.wav"
-    conn.tts.tts_audio_queue.put((SentenceType.FIRST, [], text))
-    play_audio_frames(conn, file_path)
-    conn.tts.tts_audio_queue.put((SentenceType.LAST, [], None))
+    play_audio_response(conn, {"text": text, "file_path": file_path})
     conn.close_after_chat = True
 
 
@@ -142,18 +142,4 @@ async def check_bind_device(conn):
         text = f"没有找到该设备的版本信息，请正确配置 OTA地址，然后重新编译固件。"
         await send_stt_message(conn, text)
         music_path = "config/assets/bind_not_found.wav"
-        conn.tts.tts_audio_queue.put((SentenceType.FIRST, [], text))
-        play_audio_frames(conn, music_path)
-        conn.tts.tts_audio_queue.put((SentenceType.LAST, [], None))
-
-
-def play_audio_frames(conn, file_path):
-    """播放音频文件并处理发送帧数据"""
-    def handle_audio_frame(frame_data):
-        conn.tts.tts_audio_queue.put((SentenceType.MIDDLE, frame_data, None))
-
-    audio_to_data_stream(
-        file_path,
-        is_opus=True,
-        callback=handle_audio_frame
-    )
+        play_audio_response(conn, {"text": text, "file_path": music_path})

@@ -8,7 +8,6 @@ from core.providers.tools.device_mcp import (
 
 TAG = __name__
 
-
 async def handleHelloMessage(conn, msg_json):
     """处理hello消息"""
     audio_params = msg_json.get("audio_params")

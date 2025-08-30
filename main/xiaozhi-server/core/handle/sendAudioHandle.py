@@ -1,8 +1,8 @@
 import json
-import asyncio
 import time
-from core.providers.tts.dto.dto import SentenceType
+import asyncio
 from core.utils import textUtils
+from core.providers.tts.dto.dto import SentenceType
 
 TAG = __name__
 
@@ -38,7 +38,7 @@ async def sendAudio(conn, audios, pre_buffer=False):
         opus_packet: 单个opus数据包
         pre_buffer: 快速发送音频
     """
-    if audios is None:
+    if audios is None or len(audios) == 0:
         return
 
     if isinstance(audios, bytes):
@@ -50,11 +50,7 @@ async def sendAudio(conn, audios, pre_buffer=False):
             await conn.websocket.send(audios)
             return
 
-        # 重置没有声音的状态
         conn.last_activity_time = time.time() * 1000
-
-        # 流控逻辑：确保按60ms的帧时长间隔发送
-        frame_duration = 60  # 毫秒
 
         # 获取或初始化流控状态
         if not hasattr(conn, "audio_flow_control"):
@@ -64,15 +60,13 @@ async def sendAudio(conn, audios, pre_buffer=False):
                 "start_time": time.perf_counter(),
             }
 
+        frame_duration=60
         flow_control = conn.audio_flow_control
         current_time = time.perf_counter()
-
-        # 计算期望的发送时间
+        # 计算预期发送时间
         expected_time = flow_control["start_time"] + (
             flow_control["packet_count"] * frame_duration / 1000
         )
-
-        # 流控延迟
         delay = expected_time - current_time
         if delay > 0:
             await asyncio.sleep(delay)

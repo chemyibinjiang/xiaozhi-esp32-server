@@ -284,8 +284,8 @@ class TTSProviderBase(ABC):
                     enqueue_audio = []
                     enqueue_text = text
 
-                # 计算音频数据的帧数
-                if isinstance(audio_datas, bytes):
+                # 收集上报音频数据
+                if isinstance(audio_datas, bytes) and enqueue_audio is not None:
                     enqueue_audio.append(audio_datas)
 
                 # 发送音频

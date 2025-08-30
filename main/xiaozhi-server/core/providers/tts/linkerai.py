@@ -1,8 +1,8 @@
 import os
 import queue
+import aiohttp
 import asyncio
 import traceback
-import aiohttp
 from config.logger import setup_logging
 from core.utils.tts import MarkdownCleaner
 from core.providers.tts.base import TTSProviderBase
@@ -108,10 +108,6 @@ class TTSProvider(TTSProviderBase):
             logger.bind(tag=TAG).error(f"Failed to generate TTS file: {e}")
         finally:
             return None
-
-    ###################################################################################
-    # linkerai单流式TTS重写父类的方法--结束
-    ###################################################################################
 
     async def text_to_speak(self, text, is_last):
         """流式处理TTS音频，每句只推送一次音频列表"""
