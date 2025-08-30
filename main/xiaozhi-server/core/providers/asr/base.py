@@ -1,18 +1,18 @@
 import os
-import io
 import wave
 import uuid
-import json
-import time
 import queue
 import asyncio
 import traceback
 import threading
 import opuslib_next
+import json
+import io
+import time
 import concurrent.futures
 from abc import ABC, abstractmethod
 from config.logger import setup_logging
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict, Any
 from core.handle.receiveAudioHandle import startToChat
 from core.handle.reportHandle import enqueue_asr_report
 from core.utils.util import remove_punctuation_and_length
@@ -53,10 +53,6 @@ class ASRProviderBase(ABC):
 
     # 接收音频
     async def receive_audio(self, conn, audio, audio_have_voice):
-        # 检查是否在唤醒处理锁定期内
-        if getattr(conn, 'wakeup_processing_lock', 0) > time.monotonic():
-            return
-            
         if conn.client_listen_mode == "auto" or conn.client_listen_mode == "realtime":
             have_voice = audio_have_voice
         else:
@@ -66,14 +62,6 @@ class ASRProviderBase(ABC):
         if not have_voice and not conn.client_have_voice:
             conn.asr_audio = conn.asr_audio[-10:]
             return
-        
-        # 检查是否处于唤醒模式
-        if getattr(conn, 'wakeup_mode', False) and len(conn.asr_audio) >= 10:
-            asr_audio_task = conn.asr_audio.copy()
-            conn.reset_vad_states()
-            conn.asr_audio.clear()
-                
-            await self.handle_voice_stop(conn, asr_audio_task)
 
         if conn.client_voice_stop:
             asr_audio_task = conn.asr_audio.copy()
@@ -99,13 +87,32 @@ class ASRProviderBase(ABC):
             
             # 预先准备WAV数据
             wav_data = None
+            # 使用连接的声纹识别提供者
             if conn.voiceprint_provider and combined_pcm_data:
                 wav_data = self._pcm_to_wav(combined_pcm_data)
             
-            # 检查是否处于唤醒模式
-            wakeup_mode = getattr(conn, 'wakeup_mode', False)
             
-            # 声纹识别任务（公共逻辑）
+            # 定义ASR任务
+            def run_asr():
+                start_time = time.monotonic()
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        result = loop.run_until_complete(
+                            self.speech_to_text(asr_audio_task, conn.session_id, conn.audio_format)
+                        )
+                        end_time = time.monotonic()
+                        logger.bind(tag=TAG).info(f"ASR耗时: {end_time - start_time:.3f}s")
+                        return result
+                    finally:
+                        loop.close()
+                except Exception as e:
+                    end_time = time.monotonic()
+                    logger.bind(tag=TAG).error(f"ASR失败: {e}")
+                    return ("", None)
+            
+            # 定义声纹识别任务
             def run_voiceprint():
                 if not wav_data:
                     return None
@@ -124,83 +131,50 @@ class ASRProviderBase(ABC):
                     logger.bind(tag=TAG).error(f"声纹识别失败: {e}")
                     return None
             
-            if wakeup_mode and conn.voiceprint_provider and wav_data:
-                conn.wakeup_mode = False
-                # 设置处理锁，防止后续音频片段重复处理
-                conn.wakeup_processing_lock = time.monotonic() + 3  # 3秒锁定期
+            # 使用线程池执行器并行运行
+            parallel_start_time = time.monotonic()
+            
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as thread_executor:
+                asr_future = thread_executor.submit(run_asr)
                 
-                # 唤醒模式：只执行声纹识别
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as thread_executor:
+                if conn.voiceprint_provider and wav_data:
                     voiceprint_future = thread_executor.submit(run_voiceprint)
+                    
+                    # 等待两个线程都完成
+                    asr_result = asr_future.result(timeout=15)
                     voiceprint_result = voiceprint_future.result(timeout=15)
-
-                speaker_name = voiceprint_result
+                    
+                    results = {"asr": asr_result, "voiceprint": voiceprint_result}
+                else:
+                    asr_result = asr_future.result(timeout=15)
+                    results = {"asr": asr_result, "voiceprint": None}
+            
+            
+            # 处理结果
+            raw_text, file_path = results.get("asr", ("", None))
+            speaker_name = results.get("voiceprint", None)
+            
+            # 记录识别结果
+            if raw_text:
+                logger.bind(tag=TAG).info(f"识别文本: {raw_text}")
+            if speaker_name:
                 logger.bind(tag=TAG).info(f"识别说话人: {speaker_name}")
-
-                fixed_text = "嘿，你好啊"
-                enhanced_text = self._build_enhanced_text(fixed_text, speaker_name)
+            
+            # 性能监控
+            total_time = time.monotonic() - total_start_time
+            logger.bind(tag=TAG).info(f"总处理耗时: {total_time:.3f}s")
+            
+            # 检查文本长度
+            text_len, _ = remove_punctuation_and_length(raw_text)
+            self.stop_ws_connection()
+            
+            if text_len > 0:
+                # 构建包含说话人信息的JSON字符串
+                enhanced_text = self._build_enhanced_text(raw_text, speaker_name)
                 
-                # 性能监控
-                total_time = time.monotonic() - total_start_time
-                logger.bind(tag=TAG).info(f"唤醒模式总处理耗时: {total_time:.3f}s")
-
+                # 使用自定义模块进行上报
                 await startToChat(conn, enhanced_text)
                 enqueue_asr_report(conn, enhanced_text, asr_audio_task)
-            else:
-                # 正常模式：执行声纹识别和ASR
-                def run_asr():
-                    start_time = time.monotonic()
-                    try:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        try:
-                            result = loop.run_until_complete(
-                                self.speech_to_text(asr_audio_task, conn.session_id, conn.audio_format)
-                            )
-                            end_time = time.monotonic()
-                            logger.bind(tag=TAG).info(f"ASR耗时: {end_time - start_time:.3f}s")
-                            return result
-                        finally:
-                            loop.close()
-                    except Exception as e:
-                        end_time = time.monotonic()
-                        logger.bind(tag=TAG).error(f"ASR失败: {e}")
-                        return ("", None)
-                
-                # 使用线程池执行器并行运行
-                with concurrent.futures.ThreadPoolExecutor(max_workers=2) as thread_executor:
-                    asr_future = thread_executor.submit(run_asr)
-                    
-                    if conn.voiceprint_provider and wav_data:
-                        voiceprint_future = thread_executor.submit(run_voiceprint)
-                        asr_result = asr_future.result(timeout=15)
-                        voiceprint_result = voiceprint_future.result(timeout=15)
-                        results = {"asr": asr_result, "voiceprint": voiceprint_result}
-                    else:
-                        asr_result = asr_future.result(timeout=15)
-                        results = {"asr": asr_result, "voiceprint": None}
-                
-                # 处理结果
-                raw_text, _ = results.get("asr", ("", None))
-                speaker_name = results.get("voiceprint", None)
-                
-                if raw_text:
-                    logger.bind(tag=TAG).info(f"识别文本: {raw_text}")
-                if speaker_name:
-                    logger.bind(tag=TAG).info(f"识别说话人: {speaker_name}")
-                
-                # 性能监控
-                total_time = time.monotonic() - total_start_time
-                logger.bind(tag=TAG).info(f"总处理耗时: {total_time:.3f}s")
-                
-                # 检查文本长度
-                text_len, _ = remove_punctuation_and_length(raw_text)
-                self.stop_ws_connection()
-                
-                if text_len > 0:
-                    enhanced_text = self._build_enhanced_text(raw_text, speaker_name)
-                    await startToChat(conn, enhanced_text)
-                    enqueue_asr_report(conn, enhanced_text, asr_audio_task)
                 
         except Exception as e:
             logger.bind(tag=TAG).error(f"处理语音停止失败: {e}")
