@@ -3,8 +3,9 @@ import asyncio
 from core.utils.util import filter_sensitive_info
 from core.handle.abortHandle import handleAbortMessage
 from core.handle.helloHandle import handleHelloMessage
-from core.handle.receiveAudioHandle import handleAudioMessage
+from core.handle.reportHandle import enqueue_asr_report
 from core.providers.tools.device_mcp import handle_mcp_message
+from core.handle.receiveAudioHandle import startToChat, handleAudioMessage
 from core.handle.sendAudioHandle import send_stt_message, send_tts_message
 from core.providers.tools.device_iot import handleIotDescriptors, handleIotStatus
 
@@ -55,10 +56,16 @@ async def handleTextMessage(conn, message):
                         await send_stt_message(conn, original_text)
                         await send_tts_message(conn, "stop", None)
                         conn.client_is_speaking = False
+                    elif is_wakeup_words and enable_greeting:
+                        conn.just_woken_up = True
+                        # 上报纯文字数据（复用ASR上报功能，但不提供音频数据）
+                        enqueue_asr_report(conn, "嘿，你好呀", [])
+                        await startToChat(conn, "嘿，你好呀")
                     else:
-                        # 检测到唤醒词，开始等待后续进行声纹识别
-                        conn.wakeup_mode = True
-                        conn.logger.bind(tag=TAG).info(f"检测到唤醒词~")
+                        # 上报纯文字数据（复用ASR上报功能，但不提供音频数据）
+                        enqueue_asr_report(conn, original_text, [])
+                        # 否则需要LLM对文字内容进行答复
+                        await startToChat(conn, original_text)
         elif msg_json["type"] == "iot":
             conn.logger.bind(tag=TAG).info(f"收到iot消息：{message}")
             if "descriptors" in msg_json:

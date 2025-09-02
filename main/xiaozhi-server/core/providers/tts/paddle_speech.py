@@ -1,14 +1,15 @@
-import asyncio
-import json
-import base64
-import aiohttp
-import numpy as np
 import io
 import wave
+import json
+import base64
+import asyncio
 import websockets
-from core.providers.tts.base import TTSProviderBase
-from config.logger import setup_logging
+import numpy as np
 from datetime import datetime
+from config.logger import setup_logging
+from core.providers.tts.base import TTSProviderBase
+
+
 
 TAG = __name__
 logger = setup_logging()
@@ -74,42 +75,8 @@ class TTSProvider(TTSProviderBase):
     async def text_to_speak(self, text, output_file):
         if self.protocol == "websocket":
             return await self.text_streaming(text, output_file)
-        elif self.protocol == "http":
-            return await self.text(text, output_file)
         else:
             raise ValueError("Unsupported protocol. Please use 'websocket' or 'http'.")
-
-    async def text(self, text, output_file):
-        request_json = {
-            "text": text,
-            "spk_id": self.spk_id,
-            "speed": self.speed,
-            "volume": self.volume,
-            "sample_rate": self.sample_rate,
-            "save_path": self.save_path
-        }
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(self.url, json=request_json) as resp:
-                    if resp.status == 200:
-                        resp_json = await resp.json()
-                        if resp_json.get("success"):
-                            data = resp_json["result"]
-                            audio_bytes = base64.b64decode(data["audio"])
-                            if output_file:
-                                with open(output_file, "wb") as file_to_save:
-                                    file_to_save.write(audio_bytes)
-                            else:
-                                return audio_bytes
-                        else:
-                            raise Exception(
-                                f"Error: {resp_json.get('message', 'Unknown error')} while processing text: {text}")
-                    else:
-                        raise Exception(
-                            f"HTTP Error: {resp.status} - {await resp.text()} while processing text: {text}")
-        except Exception as e:
-            raise Exception(f"Error during TTS HTTP request: {e} while processing text: {text}")
 
     async def text_streaming(self, text, output_file):
         try:

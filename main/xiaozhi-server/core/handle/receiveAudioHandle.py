@@ -1,5 +1,6 @@
 import time
 import json
+import asyncio
 from core.handle.abortHandle import handleAbortMessage
 from core.handle.intentHandler import handle_user_intent
 from core.utils.output_counter import check_device_output_limit
@@ -10,12 +11,16 @@ TAG = __name__
 
 
 async def handleAudioMessage(conn, audio):
-    # 检查是否在唤醒处理锁定期内
-    if getattr(conn, 'wakeup_processing_lock', 0) > time.monotonic():
-        return
-    
     # 当前片段是否有人说话
     have_voice = conn.vad.is_vad(conn, audio)
+    # 如果设备刚刚被唤醒，短暂忽略VAD检测
+    if have_voice and hasattr(conn, "just_woken_up") and conn.just_woken_up:
+        have_voice = False
+        # 设置一个短暂延迟后恢复VAD检测
+        conn.asr_audio.clear()
+        if not hasattr(conn, "vad_resume_task") or conn.vad_resume_task.done():
+            conn.vad_resume_task = asyncio.create_task(resume_vad_detection(conn))
+        return
     if have_voice:
         if conn.client_is_speaking:
             await handleAbortMessage(conn)
@@ -23,6 +28,11 @@ async def handleAudioMessage(conn, audio):
     await no_voice_close_connect(conn, have_voice)
     # 接收音频
     await conn.asr.receive_audio(conn, audio, have_voice)
+
+async def resume_vad_detection(conn):
+    # 等待2秒后恢复VAD检测
+    await asyncio.sleep(1)
+    conn.just_woken_up = False
 
 async def startToChat(conn, text):
     # 检查输入是否是JSON格式（包含说话人信息）
