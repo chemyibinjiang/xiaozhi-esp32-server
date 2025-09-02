@@ -2,7 +2,7 @@ import json
 import time
 import asyncio
 from core.utils import textUtils
-from core.utils.util import audio_to_data_stream
+from core.utils.util import audio_to_data
 from core.providers.tts.dto.dto import SentenceType
 
 TAG = __name__
@@ -120,12 +120,7 @@ async def send_tts_message(conn, state, text=None):
             stop_tts_notify_voice = conn.config.get(
                 "stop_tts_notify_voice", "config/assets/tts_notify.mp3"
             )
-            # 获取音频数据
-            audios = []
-            def handle_audio_frame(frame_data):
-                audios.append(frame_data)
-
-            audio_to_data_stream(stop_tts_notify_voice, is_opus=True, callback=handle_audio_frame)
+            audios = audio_to_data(stop_tts_notify_voice, is_opus=True)
             await sendAudio(conn, audios)
         # 清除服务端讲话状态
         conn.clearSpeakStatus()

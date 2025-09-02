@@ -3,7 +3,7 @@ import json
 import random
 import asyncio
 from core.utils.dialogue import Message
-from core.utils.util import audio_to_data_stream
+from core.utils.util import audio_to_data
 from core.providers.tts.dto.dto import SentenceType
 from core.utils.wakeup_word import WakeupWordsConfig
 from core.handle.sendAudioHandle import sendAudioMessage, send_stt_message
@@ -91,12 +91,7 @@ async def checkWakeupWords(conn, text):
         }
 
     # 获取音频数据
-    opus_packets = []
-    def handle_audio_frame(frame_data):
-        opus_packets.append(frame_data)
-
-    audio_to_data_stream(response.get("file_path"), is_opus=True, callback=handle_audio_frame)
-
+    opus_packets = audio_to_data(response.get("file_path"))
     # 播放唤醒词回复
     conn.client_abort = False
 
