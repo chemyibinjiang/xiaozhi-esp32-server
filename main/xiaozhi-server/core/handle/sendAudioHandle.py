@@ -74,7 +74,7 @@ async def sendAudio(conn, audios, frame_duration=60):
         flow_control["packet_count"] += 1
         flow_control["last_send_time"] = time.perf_counter()
     else:
-        # 提示音和唤醒音频走普通播放
+        # 文件型音频走普通播放
         start_time = time.perf_counter()
         play_position = 0
 
