@@ -14,7 +14,7 @@
 
 ### 2. 创建应用获取API Key
 
-1. 进入控制台后，点击右侧"项目管理"(https://console.qweather.com/project?lang=zh) → "创建项目"
+1. 进入控制台后，点击右侧["项目管理"](https://console.qweather.com/project?lang=zh) → "创建项目"
 2. 填写项目信息：
    - **项目名称**：如"小智语音助手"
 3. 点击保存
@@ -27,7 +27,7 @@
 
 ### 3. 获取API Host
 
-1. 在控制台中点击"设置"(https://console.qweather.com/setting?lang=zh) → "API Host"
+1. 在控制台中点击["设置"](https://console.qweather.com/setting?lang=zh) → "API Host"
 2. 查看分配给你的专属API Host地址
 3. 将地址复制到配置文件的 `api_host` 字段
 
