@@ -325,25 +325,6 @@ def pcm_to_data_stream(raw_data, is_opus=True, callback: Callable[[Any], Any] = 
             frame_data = chunk if isinstance(chunk, bytes) else bytes(chunk)
             callback(frame_data)
 
-def play_audio_response(conn, response):
-    """音频响应处理"""
-    conn.tts.tts_audio_queue.put((SentenceType.FIRST, [], response.get("text")))
-    play_audio_frames(conn, response.get("file_path"))
-    conn.tts.tts_audio_queue.put((SentenceType.LAST, [], None))
-
-
-def play_audio_frames(conn, file_path):
-    """播放音频文件并处理发送帧数据"""
-    def handle_audio_frame(frame_data):
-        conn.tts.tts_audio_queue.put((SentenceType.MIDDLE, frame_data, None))
-
-    audio_to_data_stream(
-        file_path,
-        is_opus=True,
-        callback=handle_audio_frame
-    )
-
-
 def opus_datas_to_wav_bytes(opus_datas, sample_rate=16000, channels=1):
     """
     将opus帧列表解码为wav字节流

@@ -4,7 +4,7 @@ import asyncio
 from core.handle.abortHandle import handleAbortMessage
 from core.handle.intentHandler import handle_user_intent
 from core.utils.output_counter import check_device_output_limit
-from core.utils.util import play_audio_frames, play_audio_response
+from core.utils.util import audio_to_data
 from core.handle.sendAudioHandle import send_stt_message, SentenceType
 
 TAG = __name__
@@ -114,10 +114,13 @@ async def no_voice_close_connect(conn, have_voice):
 
 
 async def max_out_size(conn):
+    # 播放字数限制回复
+    conn.client_abort = False
     text = "不好意思，我现在有点事情要忙，明天这个时候我们再聊，约好了哦！明天不见不散，拜拜！"
     await send_stt_message(conn, text)
     file_path = "config/assets/max_output_size.wav"
-    play_audio_response(conn, {"text": text, "file_path": file_path})
+    opus_packets = audio_to_data(file_path)
+    conn.tts.tts_audio_queue.put((SentenceType.LAST, opus_packets, text))
     conn.close_after_chat = True
 
 
@@ -135,15 +138,16 @@ async def check_bind_device(conn):
 
         # 播放提示音
         music_path = "config/assets/bind_code.wav"
-        conn.tts.tts_audio_queue.put((SentenceType.FIRST, [], text))
-        play_audio_frames(conn, music_path)
+        opus_packets = audio_to_data(music_path)
+        conn.tts.tts_audio_queue.put((SentenceType.FIRST, opus_packets, text))
 
         # 逐个播放数字
         for i in range(6):  # 确保只播放6位数字
             try:
                 digit = conn.bind_code[i]
                 num_path = f"config/assets/bind_code/{digit}.wav"
-                play_audio_frames(conn, num_path)
+                num_packets = audio_to_data(num_path)
+                conn.tts.tts_audio_queue.put((SentenceType.MIDDLE, num_packets, None))
             except Exception as e:
                 conn.logger.bind(tag=TAG).error(f"播放数字音频失败: {e}")
                 continue
@@ -152,4 +156,5 @@ async def check_bind_device(conn):
         text = f"没有找到该设备的版本信息，请正确配置 OTA地址，然后重新编译固件。"
         await send_stt_message(conn, text)
         music_path = "config/assets/bind_not_found.wav"
-        play_audio_response(conn, {"text": text, "file_path": music_path})
+        opus_packets = audio_to_data(music_path)
+        conn.tts.tts_audio_queue.put((SentenceType.LAST, opus_packets, text))
