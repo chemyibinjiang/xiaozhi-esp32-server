@@ -56,7 +56,16 @@ async def checkWakeupWords(conn, text):
         "enable_wakeup_words_response_cache"
     ]
 
-    if not enable_wakeup_words_response_cache or not conn.tts:
+    # 等待tts初始化，最多等待3秒
+    start_time = time.time()
+    while time.time() - start_time < 3:
+        if conn.tts:
+            break
+        await asyncio.sleep(0.1)
+    else:
+        return False
+
+    if not enable_wakeup_words_response_cache:
         return False
 
     _, filtered_text = remove_punctuation_and_length(text)
