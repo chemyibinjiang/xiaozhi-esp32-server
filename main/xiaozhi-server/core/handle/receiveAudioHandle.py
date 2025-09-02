@@ -1,10 +1,10 @@
 import time
 import json
 import asyncio
+from core.utils.util import audio_to_data
 from core.handle.abortHandle import handleAbortMessage
 from core.handle.intentHandler import handle_user_intent
 from core.utils.output_counter import check_device_output_limit
-from core.utils.util import audio_to_data
 from core.handle.sendAudioHandle import send_stt_message, SentenceType
 
 TAG = __name__
@@ -114,8 +114,6 @@ async def no_voice_close_connect(conn, have_voice):
 
 
 async def max_out_size(conn):
-    # 播放字数限制回复
-    conn.client_abort = False
     text = "不好意思，我现在有点事情要忙，明天这个时候我们再聊，约好了哦！明天不见不散，拜拜！"
     await send_stt_message(conn, text)
     file_path = "config/assets/max_output_size.wav"

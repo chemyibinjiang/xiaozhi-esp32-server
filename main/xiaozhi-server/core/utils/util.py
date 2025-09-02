@@ -12,7 +12,6 @@ from io import BytesIO
 from core.utils import p3
 from pydub import AudioSegment
 from typing import Callable, Any
-from core.providers.tts.dto.dto import SentenceType
 
 TAG = __name__
 emoji_map = {
