@@ -167,14 +167,8 @@ class ServerMCPClient:
 
                 # 建立SSEClient
                 elif "url" in self.config:
-                    if "API_ACCESS_TOKEN" in self.config:
-                        headers = {
-                            "Authorization": f"Bearer {self.config['API_ACCESS_TOKEN']}"
-                        }
-                    else:
-                        headers = {}
                     sse_r, sse_w = await stack.enter_async_context(
-                        sse_client(self.config["url"], headers=headers)
+                        sse_client(self.config["url"], headers=self.config.get("headers", None), timeout=self.config.get("timeout", 5), sse_read_timeout=self.config.get("sse_read_timeout", 60 * 5))
                     )
                     read_stream, write_stream = sse_r, sse_w
 
