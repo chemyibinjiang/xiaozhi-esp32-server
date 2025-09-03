@@ -114,6 +114,8 @@ async def no_voice_close_connect(conn, have_voice):
 
 
 async def max_out_size(conn):
+    # 播放超出最大输出字数的提示
+    conn.client_abort = False
     text = "不好意思，我现在有点事情要忙，明天这个时候我们再聊，约好了哦！明天不见不散，拜拜！"
     await send_stt_message(conn, text)
     file_path = "config/assets/max_output_size.wav"
@@ -151,6 +153,8 @@ async def check_bind_device(conn):
                 continue
         conn.tts.tts_audio_queue.put((SentenceType.LAST, [], None))
     else:
+        # 播放未绑定提示
+        conn.client_abort = False
         text = f"没有找到该设备的版本信息，请正确配置 OTA地址，然后重新编译固件。"
         await send_stt_message(conn, text)
         music_path = "config/assets/bind_not_found.wav"
