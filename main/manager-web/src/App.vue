@@ -60,6 +60,13 @@ export default {
     };
   },
   mounted() {
+    // 检测是否为移动设备，如果是则跳转到H5页面
+    if (this.isMobileDevice()) {
+      const h5Url = process.env.VITE_H5_URL || 'https://2662r3426b.vicp.fun/h5/index.html';
+      window.location.href = h5Url;
+      return;
+    }
+    
     // 只有在启用CDN时才添加相关事件和功能
     if (this.isCDNEnabled) {
       // 添加全局快捷键Alt+C用于显示缓存查看器
@@ -101,6 +108,11 @@ export default {
         this.showCacheViewer = true;
       }
     },
+    isMobileDevice() {
+      // 检测是否为移动设备的函数
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    },
+    
     async checkServiceWorkerStatus() {
       // 检查Service Worker是否已注册
       if ('serviceWorker' in navigator) {
