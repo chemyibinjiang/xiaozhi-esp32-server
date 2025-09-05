@@ -1,8 +1,9 @@
 import json
-import asyncio
 import time
-from core.providers.tts.dto.dto import SentenceType
+import asyncio
 from core.utils import textUtils
+from core.utils.util import audio_to_data
+from core.providers.tts.dto.dto import SentenceType
 
 TAG = __name__
 
@@ -30,31 +31,23 @@ async def sendAudioMessage(conn, sentenceType, audios, text):
 
 
 # 播放音频
-async def sendAudio(conn, audios, pre_buffer=False):
+async def sendAudio(conn, audios, frame_duration=60):
     """
     发送单个opus包，支持流控
     Args:
         conn: 连接对象
         opus_packet: 单个opus数据包
         pre_buffer: 快速发送音频
+        frame_duration: 帧时长（毫秒），匹配 Opus 编码
     """
-    if audios is None:
+    if audios is None or len(audios) == 0:
         return
 
     if isinstance(audios, bytes):
         if conn.client_abort:
             return
 
-        # 短音频直接发送（例如：提示音）
-        if pre_buffer:
-            await conn.websocket.send(audios)
-            return
-
-        # 重置没有声音的状态
         conn.last_activity_time = time.time() * 1000
-
-        # 流控逻辑：确保按60ms的帧时长间隔发送
-        frame_duration = 60  # 毫秒
 
         # 获取或初始化流控状态
         if not hasattr(conn, "audio_flow_control"):
@@ -66,13 +59,10 @@ async def sendAudio(conn, audios, pre_buffer=False):
 
         flow_control = conn.audio_flow_control
         current_time = time.perf_counter()
-
-        # 计算期望的发送时间
+        # 计算预期发送时间
         expected_time = flow_control["start_time"] + (
             flow_control["packet_count"] * frame_duration / 1000
         )
-
-        # 流控延迟
         delay = expected_time - current_time
         if delay > 0:
             await asyncio.sleep(delay)
@@ -83,6 +73,35 @@ async def sendAudio(conn, audios, pre_buffer=False):
         # 更新流控状态
         flow_control["packet_count"] += 1
         flow_control["last_send_time"] = time.perf_counter()
+    else:
+        # 文件型音频走普通播放
+        start_time = time.perf_counter()
+        play_position = 0
+
+        # 执行预缓冲
+        pre_buffer_frames = min(3, len(audios))
+        for i in range(pre_buffer_frames):
+            await conn.websocket.send(audios[i])
+        remaining_audios = audios[pre_buffer_frames:]
+
+        # 播放剩余音频帧
+        for opus_packet in remaining_audios:
+            if conn.client_abort:
+                break
+
+            # 重置没有声音的状态
+            conn.last_activity_time = time.time() * 1000
+
+            # 计算预期发送时间
+            expected_time = start_time + (play_position / 1000)
+            current_time = time.perf_counter()
+            delay = expected_time - current_time
+            if delay > 0:
+                await asyncio.sleep(delay)
+
+            await conn.websocket.send(opus_packet)
+
+            play_position += frame_duration
 
 
 async def send_tts_message(conn, state, text=None):
@@ -101,12 +120,8 @@ async def send_tts_message(conn, state, text=None):
             stop_tts_notify_voice = conn.config.get(
                 "stop_tts_notify_voice", "config/assets/tts_notify.mp3"
             )
-            conn.tts.audio_to_opus_data_stream(
-                stop_tts_notify_voice,
-                callback=lambda audio_data: asyncio.run_coroutine_threadsafe(
-                    sendAudio(conn, audio_data, True), conn.loop
-                ),
-            )
+            audios = audio_to_data(stop_tts_notify_voice, is_opus=True)
+            await sendAudio(conn, audios)
         # 清除服务端讲话状态
         conn.clearSpeakStatus()
 
