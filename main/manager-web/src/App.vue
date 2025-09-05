@@ -60,10 +60,9 @@ export default {
     };
   },
   mounted() {
-    // 检测是否为移动设备，如果是则跳转到H5页面
-    if (this.isMobileDevice()) {
-      const h5Url = process.env.VITE_H5_URL || 'https://2662r3426b.vicp.fun/h5/index.html';
-      window.location.href = h5Url;
+    // 检测是否为移动设备且VUE_APP_H5_URL不为空，如果两个条件都满足则跳转到H5页面
+    if (this.isMobileDevice() && process.env.VUE_APP_H5_URL) {
+      window.location.href = process.env.VUE_APP_H5_URL;
       return;
     }
     
