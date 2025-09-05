@@ -27,6 +27,7 @@ const cacheInfo = reactive({
 
 // 服务端地址设置
 const baseUrlInput = ref('')
+const urlError = ref('')
 
 // 系统信息（保留）
 const systemInfo = computed(() => {
@@ -52,10 +53,58 @@ function getCacheInfo() {
   }
 }
 
+// 验证URL格式
+function validateUrl() {
+  urlError.value = ''
+
+  if (!baseUrlInput.value) {
+    return
+  }
+
+  if (!/^https?:\/\/.+\/xiaozhi$/.test(baseUrlInput.value)) {
+    urlError.value = '请输入有效的服务端地址（以 http 或 https 开头，并以 /xiaozhi 结尾）'
+  }
+}
+
+// 测试服务端地址
+async function testServerBaseUrl() {
+  // 先清除错误信息
+  urlError.value = ''
+
+  if (!baseUrlInput.value || !/^https?:\/\/.+\/xiaozhi$/.test(baseUrlInput.value)) {
+    return false
+  }
+
+  try {
+    const response = await uni.request({
+      url: `${baseUrlInput.value}/api/ping`,
+      method: 'GET',
+      timeout: 3000
+    })
+
+    if (response.statusCode === 200) {
+      return true
+    } else {
+      toast.error('无效地址，请检查服务端是否启动或网络连接是否正常')
+      return false
+    }
+  } catch (error) {
+    console.error('测试服务端地址失败:', error)
+    toast.error('无效地址，请检查服务端是否启动或网络连接是否正常')
+    return false
+  }
+}
+
 // 保存服务端地址
-function saveServerBaseUrl() {
-  if (!baseUrlInput.value || !/^https?:\/\//.test(baseUrlInput.value)) {
-    toast.warning('请输入有效的服务端地址（以 http 或 https 开头）')
+async function saveServerBaseUrl() {
+  if (!baseUrlInput.value || !/^https?:\/\/.+\/xiaozhi$/.test(baseUrlInput.value)) {
+    toast.warning('请输入有效的服务端地址（以 http 或 https 开头，并以 /xiaozhi 结尾）')
+    return
+  }
+
+  // 测试地址有效性
+  const isServerValid = await testServerBaseUrl()
+  if (!isServerValid) {
     return
   }
   setServerBaseUrlOverride(baseUrlInput.value)
@@ -173,7 +222,7 @@ function showAbout() {
     title: `关于${import.meta.env.VITE_APP_TITLE}`,
     content: `${import.meta.env.VITE_APP_TITLE}\n\n基于 Vue.js 3 + uni-app 构建的跨平台移动端管理应用，为小智ESP32智能硬件提供设备管理、智能体配置等功能。\n\n© 2025 xiaozhi-esp32-server`,
     title: `关于小智智控台`,
-    content: `小智智控台\n\n基于 Vue.js 3 + uni-app 构建的跨平台移动端管理应用，为小智智控台ESP32智能硬件提供设备管理、智能体配置等功能。\n\n© 2025 xiaozhi-esp32-server 0.7.5`,
+    content: `小智智控台\n\n基于 Vue.js 3 + uni-app 构建的跨平台移动端管理应用，为小智ESP32智能硬件提供设备管理、智能体配置等功能。\n\n© 2025 xiaozhi-esp32-server 0.7.7`,
     showCancel: false,
     confirmText: '确定',
   })
@@ -201,7 +250,6 @@ onMounted(async () => {
           </text>
         </view>
 
-        <view class="border border-[#eeeeee] rounded-[24rpx] bg-[#fbfbfb] p-[32rpx]"
         <view class="border border-[#eeeeee] rounded-[24rpx] bg-[#fbfbfb] p-[32rpx] overflow-hidden"
           style="box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);">
           <view class="mb-[24rpx]">
@@ -214,20 +262,15 @@ onMounted(async () => {
           </view>
 
           <view class="mb-[24rpx]">
-            <input v-model="baseUrlInput"
-              class="h-[88rpx] w-full border border-[#eeeeee] rounded-[16rpx] bg-[#f5f7fb] px-[24rpx] text-[28rpx] text-[#232338] transition-all focus:border-[#336cff] focus:bg-white placeholder:text-[#9d9ea3] focus:shadow-[0_0_0_4rpx_rgba(51,108,255,0.1)]"
-              type="text" placeholder="输入服务端地址，如 https://example.com/api">
             <view class="w-full rounded-[16rpx] border border-[#eeeeee] bg-[#f5f7fb] overflow-hidden">
-              <wd-input
-                v-model="baseUrlInput"
-                type="text"
-                clearable
-                :maxlength="200"
-                placeholder="输入服务端地址，如 https://example.com/api"
+              <wd-input v-model="baseUrlInput" type="text" clearable :maxlength="200"
+                placeholder="输入服务端地址，如 https://example.com/xiaozhi"
                 custom-class="!border-none !bg-transparent h-[88rpx] px-[24rpx] items-center"
-                input-class="text-[28rpx] text-[#232338]"
-              />
+                input-class="text-[28rpx] text-[#232338]" @input="validateUrl" @blur="validateUrl" />
             </view>
+            <text v-if="urlError" class="mt-[8rpx] block text-[24rpx] text-[#ff4d4f]">
+              {{ urlError }}
+            </text>
           </view>
 
           <view class="flex gap-[16rpx]">
@@ -319,6 +362,7 @@ onMounted(async () => {
         </view>
       </view>
 
+      <!-- 底部安全距离 -->
       <!-- 底部安全距离 -->
       <view style="height: env(safe-area-inset-bottom);" />
     </view>
