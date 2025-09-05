@@ -1,12 +1,14 @@
 import os
 import json
+import time
 import queue
 import asyncio
-import traceback
 import aiohttp
-from core.utils.util import parse_string_to_list
+import requests
+import traceback
 from config.logger import setup_logging
 from core.utils.tts import MarkdownCleaner
+from core.utils.util import parse_string_to_list
 from core.providers.tts.base import TTSProviderBase
 from core.utils import opus_encoder_utils, textUtils
 from core.providers.tts.dto.dto import SentenceType, ContentType
@@ -80,7 +82,6 @@ class TTSProvider(TTSProviderBase):
                     self.processed_chars = 0
                     self.tts_text_buff = []
                     self.before_stop_play_files.clear()
-                    self.reset_flow_controller()
                 elif ContentType.TEXT == message.content_type:
                     self.tts_text_buff.append(message.content_detail)
                     segment_text = self._get_segment_text()
@@ -93,13 +94,7 @@ class TTSProvider(TTSProviderBase):
                     )
                     if message.content_file and os.path.exists(message.content_file):
                         # 先处理文件音频数据
-                        self._process_audio_file_stream(
-                            message.content_file,
-                            callback=lambda audio_data: self.handle_audio_file(
-                                audio_data, message.content_detail
-                            ),
-                        )
-
+                        self._process_audio_file_stream(message.content_file, callback=lambda audio_data: self.handle_audio_file(audio_data, message.content_detail))
                 if message.sentence_type == SentenceType.LAST:
                     # 处理剩余的文本
                     self._process_remaining_text_stream(True)
@@ -259,3 +254,88 @@ class TTSProvider(TTSProviderBase):
         await super().close()
         if hasattr(self, "opus_encoder"):
             self.opus_encoder.close()
+
+    def to_tts(self, text: str) -> list:
+        """非流式TTS处理，用于测试及保存音频文件的场景
+        Args:
+            text: 要转换的文本
+        Returns:
+            list: 返回opus编码后的音频数据列表
+        """
+        start_time = time.time()
+        text = MarkdownCleaner.clean_markdown(text)
+
+        payload = {
+            "model": self.model,
+            "text": text,
+            "stream": True,
+            "voice_setting": self.voice_setting,
+            "pronunciation_dict": self.pronunciation_dict,
+            "audio_setting": self.audio_setting,
+        }
+
+        if type(self.timber_weights) is list and len(self.timber_weights) > 0:
+            payload["timber_weights"] = self.timber_weights
+            payload["voice_setting"]["voice_id"] = ""
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+        }
+
+        try:
+            with requests.post(
+                self.api_url, data=json.dumps(payload), headers=headers, timeout=5
+            ) as response:
+                if response.status_code != 200:
+                    logger.bind(tag=TAG).error(
+                        f"TTS请求失败: {response.status_code}, {response.text}"
+                    )
+                    return []
+
+                logger.info(f"TTS请求成功: {text}, 耗时: {time.time() - start_time}秒")
+
+                # 使用opus编码器处理PCM数据
+                opus_datas = []
+                full_content = response.content.decode('utf-8')
+                pcm_data = bytearray()
+                for data_block in full_content.split('\n\n'):
+                    if not data_block.startswith('data: '):
+                        continue
+
+                    try:
+                        json_str = data_block[6:]  # 去除'data: '前缀
+                        data = json.loads(json_str)
+                        if data.get('data', {}).get('status') == 1:
+                            audio_hex = data['data']['audio']
+                            pcm_data.extend(bytes.fromhex(audio_hex))
+                    except (json.JSONDecodeError, KeyError) as e:
+                        logger.bind(tag=TAG).warning(f"无效数据块: {e}")
+                        continue
+
+                # 计算每帧的字节数
+                frame_bytes = int(
+                    self.opus_encoder.sample_rate
+                    * self.opus_encoder.channels
+                    * self.opus_encoder.frame_size_ms
+                    / 1000
+                    * 2
+                )
+
+                # 分帧处理合并后的PCM数据
+                for i in range(0, len(pcm_data), frame_bytes):
+                    frame = bytes(pcm_data[i:i+frame_bytes])
+                    if len(frame) < frame_bytes:
+                        frame += b"\x00" * (frame_bytes - len(frame))
+ 
+                    self.opus_encoder.encode_pcm_to_opus_stream(
+                        frame,
+                        end_of_stream=(i + frame_bytes >= len(pcm_data)),
+                        callback=lambda opus: opus_datas.append(opus)
+                    )
+
+                return opus_datas
+
+        except Exception as e:
+            logger.bind(tag=TAG).error(f"TTS请求异常: {e}")
+            return []
