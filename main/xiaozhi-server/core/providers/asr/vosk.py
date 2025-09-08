@@ -13,8 +13,8 @@ logger = setup_logging()
 class ASRProvider(ASRProviderBase):
     def __init__(self, config: dict, delete_audio_file: bool = True):
         super().__init__()
-        self.interface_type = InterfaceType.NON_STREAM
-        self.model_path = config.get("model_path", "models/vosk/vosk-model-small-cn-0.22")
+        self.interface_type = InterfaceType.LOCAL
+        self.model_path = config.get("model_path")
         self.output_dir = config.get("output_dir", "tmp/")
         self.delete_audio_file = delete_audio_file
         
