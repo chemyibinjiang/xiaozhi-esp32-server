@@ -144,7 +144,6 @@ plugins:
 
 # 声纹识别配置
 voiceprint:
-  enable: false
   # 声纹接口地址
   url: 
   # 说话人配置：speaker_id,名称,描述
