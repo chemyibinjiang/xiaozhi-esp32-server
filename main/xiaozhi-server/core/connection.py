@@ -430,9 +430,9 @@ class ConnectionHandler:
     def _initialize_voiceprint(self):
         """为当前连接初始化声纹识别"""
         try:
-            voiceprint_enable = self.config.get("voiceprint", {}).get("enable", False)
-            if voiceprint_enable:
-                voiceprint_provider = VoiceprintProvider(self.config.get("voiceprint", {}))
+            voiceprint_config = self.config.get("voiceprint", {})
+            if voiceprint_config:
+                voiceprint_provider = VoiceprintProvider(voiceprint_config)
                 if voiceprint_provider is not None and voiceprint_provider.enabled:
                     self.voiceprint_provider = voiceprint_provider
                     self.logger.bind(tag=TAG).info("声纹识别功能已在连接时动态启用")
