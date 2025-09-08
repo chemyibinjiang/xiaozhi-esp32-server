@@ -55,6 +55,7 @@ async def sendAudio(conn, audios, frame_duration=60):
                 "last_send_time": 0,
                 "packet_count": 0,
                 "start_time": time.perf_counter(),
+                "sequence": 0,  # 添加序列号
             }
 
         flow_control = conn.audio_flow_control
@@ -67,11 +68,22 @@ async def sendAudio(conn, audios, frame_duration=60):
         if delay > 0:
             await asyncio.sleep(delay)
 
-        # 发送数据包
-        await conn.websocket.send(audios)
+        # 为opus数据包添加16字节头部
+        timestamp = int((flow_control["start_time"] + flow_control["packet_count"] * frame_duration / 1000) * 1000) % (2**32)
+        header = bytearray(16)
+        header[0] = 1  # type
+        header[2:4] = len(audios).to_bytes(2, 'big')  # payload length
+        header[4:8] = flow_control["sequence"].to_bytes(4, 'big')  # connection id/sequence
+        header[8:12] = timestamp.to_bytes(4, 'big')  # 时间戳
+        header[12:16] = len(audios).to_bytes(4, 'big')  # opus长度
+        
+        # 发送包含头部的完整数据包
+        complete_packet = bytes(header) + audios
+        await conn.websocket.send(complete_packet)
 
         # 更新流控状态
         flow_control["packet_count"] += 1
+        flow_control["sequence"] += 1
         flow_control["last_send_time"] = time.perf_counter()
     else:
         # 文件型音频走普通播放
@@ -81,11 +93,21 @@ async def sendAudio(conn, audios, frame_duration=60):
         # 执行预缓冲
         pre_buffer_frames = min(3, len(audios))
         for i in range(pre_buffer_frames):
-            await conn.websocket.send(audios[i])
+            # 为预缓冲包添加头部
+            timestamp = int((start_time + i * frame_duration / 1000) * 1000) % (2**32)
+            header = bytearray(16)
+            header[0] = 1  # type
+            header[2:4] = len(audios[i]).to_bytes(2, 'big')  # payload length
+            header[4:8] = i.to_bytes(4, 'big')  # sequence
+            header[8:12] = timestamp.to_bytes(4, 'big')  # 时间戳
+            header[12:16] = len(audios[i]).to_bytes(4, 'big')  # opus长度
+            
+            complete_packet = bytes(header) + audios[i]
+            await conn.websocket.send(complete_packet)
         remaining_audios = audios[pre_buffer_frames:]
-
+        
         # 播放剩余音频帧
-        for opus_packet in remaining_audios:
+        for i, opus_packet in enumerate(remaining_audios):
             if conn.client_abort:
                 break
 
@@ -98,9 +120,21 @@ async def sendAudio(conn, audios, frame_duration=60):
             delay = expected_time - current_time
             if delay > 0:
                 await asyncio.sleep(delay)
-
-            await conn.websocket.send(opus_packet)
-
+            
+            # 为opus数据包添加16字节头部 (timestamp at offset 8, length at offset 12)
+            timestamp = int((start_time + play_position / 1000) * 1000) % (2**32)  # 使用播放位置计算时间戳
+            sequence = pre_buffer_frames + i  # 确保序列号连续
+            header = bytearray(16)
+            header[0] = 1  # type
+            header[2:4] = len(opus_packet).to_bytes(2, 'big')  # payload length
+            header[4:8] = sequence.to_bytes(4, 'big')  # sequence
+            header[8:12] = timestamp.to_bytes(4, 'big')  # 时间戳在第8-11字节
+            header[12:16] = len(opus_packet).to_bytes(4, 'big')  # opus长度在第12-15字节
+            
+            # 发送包含头部的完整数据包
+            complete_packet = bytes(header) + opus_packet
+            await conn.websocket.send(complete_packet)
+            
             play_position += frame_duration
 
 

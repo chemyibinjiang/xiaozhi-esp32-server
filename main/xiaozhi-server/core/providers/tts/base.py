@@ -336,7 +336,8 @@ class TTSProviderBase(ABC):
                         self.conn.audio_flow_control = {
                             'last_send_time': 0,
                             'packet_count': 0,
-                            'start_time': time.perf_counter()
+                            'start_time': time.perf_counter(),
+                            'sequence': 0  # 添加序列号
                         }
                     
                     # 上报TTS数据
