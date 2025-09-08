@@ -1,12 +1,12 @@
 import json
-import asyncio
 import uuid
-from core.handle.sendAudioHandle import send_stt_message
-from core.handle.helloHandle import checkWakeupWords
-from core.utils.util import remove_punctuation_and_length
-from core.providers.tts.dto.dto import ContentType
+import asyncio
 from core.utils.dialogue import Message
+from core.providers.tts.dto.dto import ContentType
+from core.handle.helloHandle import checkWakeupWords
 from plugins_func.register import Action, ActionResponse
+from core.handle.sendAudioHandle import send_stt_message
+from core.utils.util import remove_punctuation_and_length
 from core.providers.tts.dto.dto import TTSMessageDTO, SentenceType
 
 TAG = __name__
@@ -24,9 +24,10 @@ async def handle_user_intent(conn, text):
         pass
 
     # 检查是否有明确的退出命令
-    filtered_text = remove_punctuation_and_length(text)[1]
+    _, filtered_text = remove_punctuation_and_length(text)
     if await check_direct_exit(conn, filtered_text):
         return True
+
     # 检查是否是唤醒词
     if await checkWakeupWords(conn, filtered_text):
         return True
