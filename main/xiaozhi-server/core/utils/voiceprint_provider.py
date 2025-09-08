@@ -173,7 +173,7 @@ class VoiceprintProvider:
                         
                         # 相似度阈值检查
                         if score < self.similarity_threshold:
-                            logger.bind(tag=TAG).warning(f"声纹识别相似度{score:.3f}低于阈值{self.similarity_threshold}，拒绝识别")
+                            logger.bind(tag=TAG).warning(f"声纹识别相似度{score:.3f}低于阈值{self.similarity_threshold}")
                             return "未知说话人"
                         
                         if speaker_id and speaker_id in self.speaker_map:
