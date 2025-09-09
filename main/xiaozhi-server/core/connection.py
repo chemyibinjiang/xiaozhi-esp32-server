@@ -282,8 +282,17 @@ class ConnectionHandler:
             if self.asr is None:
                 return
             
+            # 检查是否需要处理头部（只有当mqtt_gateway有实际值时才处理头部）
+            mqtt_gateway = self.config.get("server", {}).get("mqtt_gateway")
+            # 当mqtt_gateway为None, "null", "", 或实际的null值时，不处理头部
+            need_header_processing = mqtt_gateway and mqtt_gateway not in [None, "null", ""] and str(mqtt_gateway).strip() != ""
+            
+            # 调试日志：首次连接时记录配置
+            if not hasattr(self, '_logged_mqtt_config'):
+                self.logger.bind(tag=TAG).info(f"MQTT Gateway配置: '{mqtt_gateway}', 头部处理: {need_header_processing}")
+                self._logged_mqtt_config = True
 
-            if len(message) >= 16:
+            if need_header_processing and len(message) >= 16:
                 try:
                     timestamp = int.from_bytes(message[8:12], 'big')
                     audio_length = int.from_bytes(message[12:16], 'big')
@@ -304,6 +313,7 @@ class ConnectionHandler:
                 except Exception as e:
                     self.logger.bind(tag=TAG).error(f"解析WebSocket音频包失败: {e}")
             
+            # 不需要头部处理或没有头部时，直接处理原始消息
             self.asr_audio_queue.put(message)
 
     def _process_websocket_audio(self, audio_data, timestamp):

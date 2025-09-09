@@ -181,9 +181,9 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         response.setWebsocket(websocket);
         
         // 添加MQTT UDP配置
-        // 从系统参数获取MQTT Gateway地址，如果未配置不使用默认值
+        // 从系统参数获取MQTT Gateway地址，仅在配置有效时使用
         String mqttUdpConfig = sysParamsService.getValue(Constant.SERVER_MQTT_GATEWAY, false);
-        if(!StringUtils.isBlank(mqttUdpConfig) && deviceById != null) {
+        if(mqttUdpConfig != null && !mqttUdpConfig.equals("null") && !mqttUdpConfig.isEmpty() && deviceById != null) {
             try {
                 DeviceReportRespDTO.MQTT mqtt = buildMqttConfig(macAddress, clientId, deviceById);
                 if (mqtt != null) {

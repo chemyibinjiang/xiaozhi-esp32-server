@@ -25,6 +25,8 @@ server:
   # 所以如果你使用docker部署时，将vision_explain设置成局域网地址
   # 如果你使用公网部署时，将vision_explain设置成公网地址
   vision_explain: http://你的ip或者域名:端口号/mcp/vision/explain
+  # mqtt网关地址，当这个值为null时，mqtt网关桥接功能不开启，使用websocket双向通信，不使用mqtt和udp协议
+  mqtt_gateway: null
   # OTA返回信息时区偏移量
   timezone_offset: +8
   # 认证配置

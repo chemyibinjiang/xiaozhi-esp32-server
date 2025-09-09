@@ -43,6 +43,11 @@ async def sendAudio(conn, audios, frame_duration=60):
     if audios is None or len(audios) == 0:
         return
 
+    # 检查是否需要添加头部（只有当mqtt_gateway有实际值时才添加头部）
+    mqtt_gateway = conn.config.get("server", {}).get("mqtt_gateway")
+    # 当mqtt_gateway为None, "null", "", 或实际的null值时，不添加头部
+    need_header = mqtt_gateway and mqtt_gateway not in [None, "null", ""] and str(mqtt_gateway).strip() != ""
+
     if isinstance(audios, bytes):
         if conn.client_abort:
             return
@@ -68,18 +73,22 @@ async def sendAudio(conn, audios, frame_duration=60):
         if delay > 0:
             await asyncio.sleep(delay)
 
-        # 为opus数据包添加16字节头部
-        timestamp = int((flow_control["start_time"] + flow_control["packet_count"] * frame_duration / 1000) * 1000) % (2**32)
-        header = bytearray(16)
-        header[0] = 1  # type
-        header[2:4] = len(audios).to_bytes(2, 'big')  # payload length
-        header[4:8] = flow_control["sequence"].to_bytes(4, 'big')  # connection id/sequence
-        header[8:12] = timestamp.to_bytes(4, 'big')  # 时间戳
-        header[12:16] = len(audios).to_bytes(4, 'big')  # opus长度
-        
-        # 发送包含头部的完整数据包
-        complete_packet = bytes(header) + audios
-        await conn.websocket.send(complete_packet)
+        if need_header:
+            # 为opus数据包添加16字节头部
+            timestamp = int((flow_control["start_time"] + flow_control["packet_count"] * frame_duration / 1000) * 1000) % (2**32)
+            header = bytearray(16)
+            header[0] = 1  # type
+            header[2:4] = len(audios).to_bytes(2, 'big')  # payload length
+            header[4:8] = flow_control["sequence"].to_bytes(4, 'big')  # connection id/sequence
+            header[8:12] = timestamp.to_bytes(4, 'big')  # 时间戳
+            header[12:16] = len(audios).to_bytes(4, 'big')  # opus长度
+            
+            # 发送包含头部的完整数据包
+            complete_packet = bytes(header) + audios
+            await conn.websocket.send(complete_packet)
+        else:
+            # 直接发送opus数据包，不添加头部
+            await conn.websocket.send(audios)
 
         # 更新流控状态
         flow_control["packet_count"] += 1
@@ -90,20 +99,29 @@ async def sendAudio(conn, audios, frame_duration=60):
         start_time = time.perf_counter()
         play_position = 0
 
+        # 检查是否需要添加头部（只有当mqtt_gateway有实际值时才添加头部）
+        mqtt_gateway = conn.config.get("server", {}).get("mqtt_gateway")
+        # 当mqtt_gateway为None, "null", "", 或实际的null值时，不添加头部
+        need_header = mqtt_gateway and mqtt_gateway not in [None, "null", ""] and str(mqtt_gateway).strip() != ""
+
         # 执行预缓冲
         pre_buffer_frames = min(3, len(audios))
         for i in range(pre_buffer_frames):
-            # 为预缓冲包添加头部
-            timestamp = int((start_time + i * frame_duration / 1000) * 1000) % (2**32)
-            header = bytearray(16)
-            header[0] = 1  # type
-            header[2:4] = len(audios[i]).to_bytes(2, 'big')  # payload length
-            header[4:8] = i.to_bytes(4, 'big')  # sequence
-            header[8:12] = timestamp.to_bytes(4, 'big')  # 时间戳
-            header[12:16] = len(audios[i]).to_bytes(4, 'big')  # opus长度
-            
-            complete_packet = bytes(header) + audios[i]
-            await conn.websocket.send(complete_packet)
+            if need_header:
+                # 为预缓冲包添加头部
+                timestamp = int((start_time + i * frame_duration / 1000) * 1000) % (2**32)
+                header = bytearray(16)
+                header[0] = 1  # type
+                header[2:4] = len(audios[i]).to_bytes(2, 'big')  # payload length
+                header[4:8] = i.to_bytes(4, 'big')  # sequence
+                header[8:12] = timestamp.to_bytes(4, 'big')  # 时间戳
+                header[12:16] = len(audios[i]).to_bytes(4, 'big')  # opus长度
+                
+                complete_packet = bytes(header) + audios[i]
+                await conn.websocket.send(complete_packet)
+            else:
+                # 直接发送预缓冲包，不添加头部
+                await conn.websocket.send(audios[i])
         remaining_audios = audios[pre_buffer_frames:]
         
         # 播放剩余音频帧
@@ -121,19 +139,23 @@ async def sendAudio(conn, audios, frame_duration=60):
             if delay > 0:
                 await asyncio.sleep(delay)
             
-            # 为opus数据包添加16字节头部 (timestamp at offset 8, length at offset 12)
-            timestamp = int((start_time + play_position / 1000) * 1000) % (2**32)  # 使用播放位置计算时间戳
-            sequence = pre_buffer_frames + i  # 确保序列号连续
-            header = bytearray(16)
-            header[0] = 1  # type
-            header[2:4] = len(opus_packet).to_bytes(2, 'big')  # payload length
-            header[4:8] = sequence.to_bytes(4, 'big')  # sequence
-            header[8:12] = timestamp.to_bytes(4, 'big')  # 时间戳在第8-11字节
-            header[12:16] = len(opus_packet).to_bytes(4, 'big')  # opus长度在第12-15字节
-            
-            # 发送包含头部的完整数据包
-            complete_packet = bytes(header) + opus_packet
-            await conn.websocket.send(complete_packet)
+            if need_header:
+                # 为opus数据包添加16字节头部 (timestamp at offset 8, length at offset 12)
+                timestamp = int((start_time + play_position / 1000) * 1000) % (2**32)  # 使用播放位置计算时间戳
+                sequence = pre_buffer_frames + i  # 确保序列号连续
+                header = bytearray(16)
+                header[0] = 1  # type
+                header[2:4] = len(opus_packet).to_bytes(2, 'big')  # payload length
+                header[4:8] = sequence.to_bytes(4, 'big')  # sequence
+                header[8:12] = timestamp.to_bytes(4, 'big')  # 时间戳在第8-11字节
+                header[12:16] = len(opus_packet).to_bytes(4, 'big')  # opus长度在第12-15字节
+                
+                # 发送包含头部的完整数据包
+                complete_packet = bytes(header) + opus_packet
+                await conn.websocket.send(complete_packet)
+            else:
+                # 直接发送opus数据包，不添加头部
+                await conn.websocket.send(opus_packet)
             
             play_position += frame_duration
 
