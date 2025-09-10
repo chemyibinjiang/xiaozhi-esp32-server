@@ -1,0 +1,132 @@
+import uuid
+import hmac
+import hashlib
+import base64
+import requests
+from datetime import datetime
+from core.providers.tts.base import TTSProviderBase
+from config.logger import setup_logging
+import time
+import uuid
+from urllib import parse
+
+from dashscope.audio.tts_v2 import SpeechSynthesizer, AudioFormat
+import dashscope
+import os
+
+TAG = __name__
+logger = setup_logging()
+
+
+class AccessToken:
+    @staticmethod
+    def _encode_text(text):
+        encoded_text = parse.quote_plus(text)
+        return encoded_text.replace("+", "%20").replace("*", "%2A").replace("%7E", "~")
+
+    @staticmethod
+    def _encode_dict(dic):
+        keys = dic.keys()
+        dic_sorted = [(key, dic[key]) for key in sorted(keys)]
+        encoded_text = parse.urlencode(dic_sorted)
+        return encoded_text.replace("+", "%20").replace("*", "%2A").replace("%7E", "~")
+
+    @staticmethod
+    def create_token(access_key_id, access_key_secret):
+        parameters = {
+            "AccessKeyId": access_key_id,
+            "Action": "CreateToken",
+            "Format": "JSON",
+            "RegionId": "cn-shanghai",
+            "SignatureMethod": "HMAC-SHA1",
+            "SignatureNonce": str(uuid.uuid1()),
+            "SignatureVersion": "1.0",
+            "Timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "Version": "2019-02-28",
+        }
+        # 构造规范化的请求字符串
+        query_string = AccessToken._encode_dict(parameters)
+        # print('规范化的请求字符串: %s' % query_string)
+        # 构造待签名字符串
+        string_to_sign = (
+                "GET"
+                + "&"
+                + AccessToken._encode_text("/")
+                + "&"
+                + AccessToken._encode_text(query_string)
+        )
+        # print('待签名的字符串: %s' % string_to_sign)
+        # 计算签名
+        secreted_string = hmac.new(
+            bytes(access_key_secret + "&", encoding="utf-8"),
+            bytes(string_to_sign, encoding="utf-8"),
+            hashlib.sha1,
+        ).digest()
+        signature = base64.b64encode(secreted_string)
+        # print('签名: %s' % signature)
+        # 进行URL编码
+        signature = AccessToken._encode_text(signature)
+        # print('URL编码后的签名: %s' % signature)
+        # 调用服务
+        full_url = "http://nls-meta.cn-shanghai.aliyuncs.com/?Signature=%s&%s" % (
+            signature,
+            query_string,
+        )
+        # print('url: %s' % full_url)
+        # 提交HTTP GET请求
+        response = requests.get(full_url)
+        if response.ok:
+            root_obj = response.json()
+            key = "Token"
+            if key in root_obj:
+                token = root_obj[key]["Id"]
+                expire_time = root_obj[key]["ExpireTime"]
+                return token, expire_time
+        # print(response.text)
+        return None, None
+
+
+class TTSProvider(TTSProviderBase):
+
+    def __init__(self, config, delete_audio_file):
+        super().__init__(config, delete_audio_file)
+
+        self.api_key = config.get("api_key")
+        self.voice = config.get("private_voice")
+        if self.voice.startswith("cosyvoice-v3-"):
+            self.model = "cosyvoice-v3"
+        elif self.voice.startswith("cosyvoice-v2-"):
+            self.model = "cosyvoice-v2"
+        else:
+            self.model = "cosyvoice-v1"
+
+    def generate_filename(self, extension=".wav"):
+        return os.path.join(self.output_file,
+                            f"tts-{__name__}{datetime.now().date()}@{uuid.uuid4().hex}{extension}")
+
+    async def text_to_speak(self, text, output_file):
+        try:
+            # 设置 DashScope 的 API 密钥
+            dashscope.api_key = self.api_key
+
+            # 创建语音合成器实例，指定模型、声音和音频格式
+            synthesizer = SpeechSynthesizer(
+                model=self.model,
+                voice=self.voice,
+                format=AudioFormat.WAV_16000HZ_MONO_16BIT,
+                # callback=callback
+            )
+
+            # 调用语音合成接口，获取音频数据
+            audiodata = synthesizer.call(text)
+
+            # 如果指定了输出文件，则将音频数据写入文件，并返回文件路径
+            if output_file:
+                with open(output_file, 'wb') as f:
+                    f.write(audiodata)
+                return output_file
+            else:
+                # 否则直接返回音频数据
+                return audiodata
+        except Exception as e:
+            raise Exception(f"{__name__} error: {e}")
