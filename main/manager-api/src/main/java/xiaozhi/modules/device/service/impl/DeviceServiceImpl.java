@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.UUID;
+
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -37,6 +38,7 @@ import xiaozhi.common.user.UserDetail;
 import xiaozhi.common.utils.ConvertUtils;
 import xiaozhi.common.utils.DateUtils;
 import xiaozhi.modules.device.dao.DeviceDao;
+import xiaozhi.modules.device.dto.DeviceManualAddDTO;
 import xiaozhi.modules.device.dto.DevicePageUserDTO;
 import xiaozhi.modules.device.dto.DeviceReportReqDTO;
 import xiaozhi.modules.device.dto.DeviceReportRespDTO;
@@ -48,7 +50,6 @@ import xiaozhi.modules.device.vo.UserShowDeviceListVO;
 import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.service.SysParamsService;
 import xiaozhi.modules.sys.service.SysUserUtilService;
-import xiaozhi.modules.device.dto.DeviceManualAddDTO;
 
 @Slf4j
 @Service
@@ -179,11 +180,11 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         }
 
         response.setWebsocket(websocket);
-        
+
         // 添加MQTT UDP配置
         // 从系统参数获取MQTT Gateway地址，仅在配置有效时使用
         String mqttUdpConfig = sysParamsService.getValue(Constant.SERVER_MQTT_GATEWAY, false);
-        if(mqttUdpConfig != null && !mqttUdpConfig.equals("null") && !mqttUdpConfig.isEmpty() && deviceById != null) {
+        if (mqttUdpConfig != null && !mqttUdpConfig.equals("null") && !mqttUdpConfig.isEmpty() && deviceById != null) {
             try {
                 DeviceReportRespDTO.MQTT mqtt = buildMqttConfig(macAddress, clientId, deviceById);
                 if (mqtt != null) {
@@ -194,7 +195,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
                 log.error("生成MQTT配置失败: {}", e.getMessage());
             }
         }
-   
+
         if (deviceById != null) {
             // 如果设备存在，则异步更新上次连接时间和版本信息
             String appVersion = deviceReport.getApplication() != null ? deviceReport.getApplication().getVersion()
@@ -459,7 +460,8 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
 
     /**
      * 生成MQTT密码签名
-     * @param content 签名内容 (clientId + '|' + username)
+     * 
+     * @param content   签名内容 (clientId + '|' + username)
      * @param secretKey 密钥
      * @return Base64编码的HMAC-SHA256签名
      */
@@ -473,19 +475,16 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
 
     /**
      * 构建MQTT配置信息
+     * 
      * @param macAddress MAC地址
-     * @param clientId 客户端ID (UUID)
-     * @param device 设备信息
+     * @param clientId   客户端ID (UUID)
+     * @param device     设备信息
      * @return MQTT配置对象
      */
-    private DeviceReportRespDTO.MQTT buildMqttConfig(String macAddress, String clientId, DeviceEntity device) throws Exception {
+    private DeviceReportRespDTO.MQTT buildMqttConfig(String macAddress, String clientId, DeviceEntity device)
+            throws Exception {
         // 从环境变量或系统参数获取签名密钥
-        String signatureKey = System.getenv("MQTT_SIGNATURE_KEY");
-        if (StringUtils.isBlank(signatureKey)) {
-            // 如果环境变量没有，尝试从系统参数获取
-            signatureKey = sysParamsService.getValue("mqtt.signature_key", false);
-        }
-        
+        String signatureKey = sysParamsService.getValue("server.mqtt_signature_key", false);
         if (StringUtils.isBlank(signatureKey)) {
             log.warn("缺少MQTT_SIGNATURE_KEY，跳过MQTT配置生成");
             return null;
@@ -500,7 +499,8 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         Map<String, String> userData = new HashMap<>();
         // 尝试获取客户端IP
         try {
-            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder
+                    .getRequestAttributes();
             if (attributes != null) {
                 HttpServletRequest request = attributes.getRequest();
                 String clientIp = request.getRemoteAddr();
