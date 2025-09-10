@@ -305,9 +305,17 @@ databaseChangeLog:
             path: classpath:db/changelog/202508131557.sql
 
   - changeSet:
-      id: 202509080922
-      author: fyb
+      id: 202509080921
+      author: fan
       changes:
         - sqlFile:
             encoding: utf8
-            path: classpath:db/changelog/202509080922.sql
+            path: classpath:db/changelog/202509080921.sql
+
+  - changeSet:
+      id: 202509080927
+      author: fan
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202509080927.sql
