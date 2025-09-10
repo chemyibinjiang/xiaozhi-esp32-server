@@ -91,6 +91,30 @@ async def process_intent_result(conn, intent_result, original_text):
             if function_name == "continue_chat":
                 return False
 
+            if function_name == "result_for_context":
+                await send_stt_message(conn, original_text)
+                conn.client_abort = False
+                
+                def process_context_result():
+                    conn.dialogue.put(Message(role="user", content=original_text))
+                    
+                    # 使用现有的 prompt_manager 获取完整上下文
+                    from core.utils.prompt_manager import PromptManager
+                    prompt_manager = PromptManager(conn.config, conn.logger)
+                    
+                    # 构建带上下文的基础提示
+                    context_prompt = prompt_manager.build_enhanced_prompt(
+                        "当前时间：{{current_time}}\n今天日期：{{today_date}} ({{today_weekday}})\n今天农历：{{lunar_date}}\n用户所在城市：{{local_address}}",
+                        conn.device_id,
+                        getattr(conn, 'client_ip', None)
+                    )
+                    
+                    response = conn.intent.replyResult(context_prompt, original_text)
+                    speak_txt(conn, response)
+                
+                conn.executor.submit(process_context_result)
+                return True
+
             function_args = {}
             if "arguments" in intent_data["function_call"]:
                 function_args = intent_data["function_call"]["arguments"]
