@@ -22,7 +22,7 @@ public class DeviceReportRespDTO {
     
     @Schema(description = "WebSocket配置")
     private Websocket websocket;
-    
+
     @Schema(description = "MQTT Gateway配置")
     private MQTT mqtt;
 
