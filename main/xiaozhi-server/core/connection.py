@@ -203,10 +203,9 @@ class ConnectionHandler:
 
             # 检查是否来自MQTT连接
             request_path = ws.request.path
-            self.conn_from_mqtt_gateway = request_path.endswith("?from=mqtt")
-            self.logger.bind(tag=TAG).info(
-                f"WebSocket URL路径: '{request_path}', 来自MQTT连接: {self.conn_from_mqtt_gateway}"
-            )
+            self.conn_from_mqtt_gateway = request_path.endswith("?from=mqtt_gateway")
+            if self.conn_from_mqtt_gateway:
+                self.logger.bind(tag=TAG).info("连接来自:MQTT网关")
 
             # 初始化活动时间戳
             self.last_activity_time = time.time() * 1000

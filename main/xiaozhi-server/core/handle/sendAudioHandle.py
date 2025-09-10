@@ -30,6 +30,31 @@ async def sendAudioMessage(conn, sentenceType, audios, text):
             await conn.close()
 
 
+def calculate_timestamp_and_sequence(conn, start_time, packet_index, frame_duration=60):
+    """
+    计算音频数据包的时间戳和序列号
+    Args:
+        conn: 连接对象
+        start_time: 起始时间（性能计数器值）
+        packet_index: 数据包索引
+        frame_duration: 帧时长（毫秒），匹配 Opus 编码
+    Returns:
+        tuple: (timestamp, sequence)
+    """
+    # 计算时间戳（使用播放位置计算）
+    timestamp = int((start_time + packet_index * frame_duration / 1000) * 1000) % (
+        2**32
+    )
+
+    # 计算序列号
+    if hasattr(conn, "audio_flow_control"):
+        sequence = conn.audio_flow_control["sequence"]
+    else:
+        sequence = packet_index  # 如果没有流控状态，直接使用索引
+
+    return timestamp, sequence
+
+
 async def _send_to_mqtt_gateway(conn, opus_packet, timestamp, sequence):
     """
     发送带16字节头部的opus数据包给mqtt_gateway
@@ -91,18 +116,15 @@ async def sendAudio(conn, audios, frame_duration=60):
             await asyncio.sleep(delay)
 
         if conn.conn_from_mqtt_gateway:
-            # 计算时间戳
-            timestamp = int(
-                (
-                    flow_control["start_time"]
-                    + flow_control["packet_count"] * frame_duration / 1000
-                )
-                * 1000
-            ) % (2**32)
-            # 调用通用函数发送带头部的数据包
-            await _send_to_mqtt_gateway(
-                conn, audios, timestamp, flow_control["sequence"]
+            # 计算时间戳和序列号
+            timestamp, sequence = calculate_timestamp_and_sequence(
+                conn,
+                flow_control["start_time"],
+                flow_control["packet_count"],
+                frame_duration,
             )
+            # 调用通用函数发送带头部的数据包
+            await _send_to_mqtt_gateway(conn, audios, timestamp, sequence)
         else:
             # 直接发送opus数据包，不添加头部
             await conn.websocket.send(audios)
@@ -120,12 +142,12 @@ async def sendAudio(conn, audios, frame_duration=60):
         pre_buffer_frames = min(3, len(audios))
         for i in range(pre_buffer_frames):
             if conn.conn_from_mqtt_gateway:
-                # 计算时间戳
-                timestamp = int((start_time + i * frame_duration / 1000) * 1000) % (
-                    2**32
+                # 计算时间戳和序列号
+                timestamp, sequence = calculate_timestamp_and_sequence(
+                    conn, start_time, i, frame_duration
                 )
                 # 调用通用函数发送带头部的数据包
-                await _send_to_mqtt_gateway(conn, audios[i], timestamp, i)
+                await _send_to_mqtt_gateway(conn, audios[i], timestamp, sequence)
             else:
                 # 直接发送预缓冲包，不添加头部
                 await conn.websocket.send(audios[i])
@@ -147,11 +169,11 @@ async def sendAudio(conn, audios, frame_duration=60):
                 await asyncio.sleep(delay)
 
             if conn.conn_from_mqtt_gateway:
-                # 计算时间戳和序列号
-                timestamp = int((start_time + play_position / 1000) * 1000) % (
-                    2**32
-                )  # 使用播放位置计算时间戳
-                sequence = pre_buffer_frames + i  # 确保序列号连续
+                # 计算时间戳和序列号（使用当前的数据包索引确保连续性）
+                packet_index = pre_buffer_frames + i
+                timestamp, sequence = calculate_timestamp_and_sequence(
+                    conn, start_time, packet_index, frame_duration
+                )
                 # 调用通用函数发送带头部的数据包
                 await _send_to_mqtt_gateway(conn, opus_packet, timestamp, sequence)
             else:
