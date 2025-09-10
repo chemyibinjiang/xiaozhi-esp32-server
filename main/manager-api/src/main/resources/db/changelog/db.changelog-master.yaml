@@ -331,7 +331,6 @@ databaseChangeLog:
         - sqlFile:
             encoding: utf8
             path: classpath:db/changelog/202509091042.sql
-
   - changeSet:
       id: 202509091633
       author: fyb
@@ -339,3 +338,10 @@ databaseChangeLog:
         - sqlFile:
             encoding: utf8
             path: classpath:db/changelog/202509091633.sql
+  - changeSet:
+      id: 202509080922
+      author: fyb
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202509080922.sql

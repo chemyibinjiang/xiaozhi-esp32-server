@@ -29,10 +29,12 @@ async def handleAudioMessage(conn, audio):
     # 接收音频
     await conn.asr.receive_audio(conn, audio, have_voice)
 
+
 async def resume_vad_detection(conn):
     # 等待2秒后恢复VAD检测
     await asyncio.sleep(1)
     conn.just_woken_up = False
+
 
 async def startToChat(conn, text):
     # 检查输入是否是JSON格式（包含说话人信息）
@@ -41,11 +43,11 @@ async def startToChat(conn, text):
 
     try:
         # 尝试解析JSON格式的输入
-        if text.strip().startswith('{') and text.strip().endswith('}'):
+        if text.strip().startswith("{") and text.strip().endswith("}"):
             data = json.loads(text)
-            if 'speaker' in data and 'content' in data:
-                speaker_name = data['speaker']
-                actual_text = data['content']
+            if "speaker" in data and "content" in data:
+                speaker_name = data["speaker"]
+                actual_text = data["content"]
                 conn.logger.bind(tag=TAG).info(f"解析到说话人信息: {speaker_name}")
 
                 # 直接使用JSON格式的文本，不解析
