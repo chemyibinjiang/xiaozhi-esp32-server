@@ -411,7 +411,22 @@ ASR:
     type: vosk
     model_path: 你的模型路径，如：models/vosk/vosk-model-small-cn-0.22
     output_dir: tmp/
-
+  Qwen3ASRFlash:
+    # 通义千问Qwen3-ASR-Flash语音识别服务，需要先在阿里云百炼平台创建API密钥
+    # 申请步骤：
+    # 1.登录阿里云百炼平台。https://bailian.console.aliyun.com/
+    # 2.创建API-KEY  https://bailian.console.aliyun.com/#/api-key
+    # 3.Qwen3-ASR-Flash基于通义千问多模态基座，支持多语言识别、歌唱识别、噪声拒识等功能
+    type: qwen3_asr_flash
+    api_key: 你的阿里云百炼API密钥
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    model_name: qwen3-asr-flash
+    output_dir: tmp/
+    # ASR选项配置
+    enable_lid: true  # 自动语种检测
+    enable_itn: true  # 逆文本归一化
+    #language: "zh"  # 语种，支持zh、en、ja、ko等
+    context: ""  # 上下文信息，用于提高识别准确率，不超过10000 Token
 
   
 VAD:
