@@ -282,14 +282,13 @@ class ConnectionHandler:
             if self.asr is None:
                 return
             
-            # 检查是否需要处理头部（只有当mqtt_gateway有实际值时才处理头部）
-            mqtt_gateway = self.config.get("server", {}).get("mqtt_gateway")
-            # 当mqtt_gateway为None, "null", "", 或实际的null值时，不处理头部
-            need_header_processing = mqtt_gateway and mqtt_gateway not in [None, "null", ""] and str(mqtt_gateway).strip() != ""
+            # 检查是否需要处理头部（只有当websocket URL以"?from=mqtt"为结尾时才处理头部）
+            request_path = self.websocket.request.path
+            need_header_processing = request_path.endswith("?from=mqtt")
             
             # 调试日志：首次连接时记录配置
             if not hasattr(self, '_logged_mqtt_config'):
-                self.logger.bind(tag=TAG).info(f"MQTT Gateway配置: '{mqtt_gateway}', 头部处理: {need_header_processing}")
+                self.logger.bind(tag=TAG).info(f"WebSocket URL路径: '{request_path}', 头部处理: {need_header_processing}")
                 self._logged_mqtt_config = True
 
             if need_header_processing and len(message) >= 16:

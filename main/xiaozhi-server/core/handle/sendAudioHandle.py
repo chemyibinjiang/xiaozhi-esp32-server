@@ -42,11 +42,9 @@ async def sendAudio(conn, audios, frame_duration=60):
     """
     if audios is None or len(audios) == 0:
         return
-
-    # 检查是否需要添加头部（只有当mqtt_gateway有实际值时才添加头部）
-    mqtt_gateway = conn.config.get("server", {}).get("mqtt_gateway")
-    # 当mqtt_gateway为None, "null", "", 或实际的null值时，不添加头部
-    need_header = mqtt_gateway and mqtt_gateway not in [None, "null", ""] and str(mqtt_gateway).strip() != ""
+    # 检查是否需要处理头部（只有当websocket URL以"?from=mqtt"为结尾时才处理头部）
+    request_path = conn.websocket.request.path
+    need_header = request_path.endswith("?from=mqtt")
 
     if isinstance(audios, bytes):
         if conn.client_abort:
@@ -99,10 +97,9 @@ async def sendAudio(conn, audios, frame_duration=60):
         start_time = time.perf_counter()
         play_position = 0
 
-        # 检查是否需要添加头部（只有当mqtt_gateway有实际值时才添加头部）
-        mqtt_gateway = conn.config.get("server", {}).get("mqtt_gateway")
-        # 当mqtt_gateway为None, "null", "", 或实际的null值时，不添加头部
-        need_header = mqtt_gateway and mqtt_gateway not in [None, "null", ""] and str(mqtt_gateway).strip() != ""
+        # 检查是否需要添加头部（只有当websocket URL以"?from=mqtt"为结尾时才添加头部）
+        request_path = conn.websocket.request.path
+        need_header = request_path.endswith("?from=mqtt")
 
         # 执行预缓冲
         pre_buffer_frames = min(3, len(audios))
