@@ -184,9 +184,11 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         // 添加MQTT UDP配置
         // 从系统参数获取MQTT Gateway地址，仅在配置有效时使用
         String mqttUdpConfig = sysParamsService.getValue(Constant.SERVER_MQTT_GATEWAY, false);
-        if (mqttUdpConfig != null && !mqttUdpConfig.equals("null") && !mqttUdpConfig.isEmpty() && deviceById != null) {
+        if (mqttUdpConfig != null && !mqttUdpConfig.equals("null") && !mqttUdpConfig.isEmpty()) {
             try {
-                DeviceReportRespDTO.MQTT mqtt = buildMqttConfig(macAddress, clientId, deviceById);
+                String groupId = deviceById != null && deviceById.getBoard() != null ? deviceById.getBoard()
+                        : "GID_default";
+                DeviceReportRespDTO.MQTT mqtt = buildMqttConfig(macAddress, clientId, groupId);
                 if (mqtt != null) {
                     mqtt.setEndpoint(mqttUdpConfig);
                     response.setMqtt(mqtt);
@@ -478,10 +480,10 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
      * 
      * @param macAddress MAC地址
      * @param clientId   客户端ID (UUID)
-     * @param device     设备信息
+     * @param groupId    分组ID
      * @return MQTT配置对象
      */
-    private DeviceReportRespDTO.MQTT buildMqttConfig(String macAddress, String clientId, DeviceEntity device)
+    private DeviceReportRespDTO.MQTT buildMqttConfig(String macAddress, String clientId, String groupId)
             throws Exception {
         // 从环境变量或系统参数获取签名密钥
         String signatureKey = sysParamsService.getValue("server.mqtt_signature_key", false);
@@ -490,10 +492,11 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
             return null;
         }
 
-        // 构建客户端ID格式：groupId@@@macAddress_without_colon@@@uuid
-        String groupId = device.getBoard() != null ? device.getBoard() : "GID_default";
-        String deviceIdNoColon = macAddress.replace(":", "_");
-        String mqttClientId = String.format("%s@@@%s@@@%s", groupId, deviceIdNoColon, clientId);
+        // 构建客户端ID格式：groupId@@@macAddress@@@uuid
+        String groupIdSafeStr = groupId.replace(":", "_");
+        String deviceIdSafeStr = macAddress.replace(":", "_");
+        String clientIdSafeStr = clientId.replace(":", "_");
+        String mqttClientId = String.format("%s@@@%s@@@%s", groupIdSafeStr, deviceIdSafeStr, clientIdSafeStr);
 
         // 构建用户数据（包含IP等信息）
         Map<String, String> userData = new HashMap<>();
@@ -523,7 +526,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         mqtt.setUsername(username);
         mqtt.setPassword(password);
         mqtt.setPublish_topic("device-server");
-        mqtt.setSubscribe_topic("devices/p2p/" + deviceIdNoColon);
+        mqtt.setSubscribe_topic("devices/p2p/" + deviceIdSafeStr);
 
         return mqtt;
     }
