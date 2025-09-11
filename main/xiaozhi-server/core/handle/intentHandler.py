@@ -98,16 +98,16 @@ async def process_intent_result(conn, intent_result, original_text):
                 def process_context_result():
                     conn.dialogue.put(Message(role="user", content=original_text))
                     
-                    # 使用现有的 prompt_manager 获取完整上下文
-                    from core.utils.prompt_manager import PromptManager
-                    prompt_manager = PromptManager(conn.config, conn.logger)
+                    from core.utils.current_time import get_current_time_info
+
+                    current_time, today_date, today_weekday, lunar_date = get_current_time_info()
                     
                     # 构建带上下文的基础提示
-                    context_prompt = prompt_manager.build_enhanced_prompt(
-                        "当前时间：{{current_time}}\n今天日期：{{today_date}} ({{today_weekday}})\n今天农历：{{lunar_date}}\n用户所在城市：{{local_address}}",
-                        conn.device_id,
-                        getattr(conn, 'client_ip', None)
-                    )
+                    context_prompt = f"""当前时间：{current_time}
+                                        今天日期：{today_date} ({today_weekday})
+                                        今天农历：{lunar_date}
+
+                                        请根据以上信息回答用户的问题：{original_text}"""
                     
                     response = conn.intent.replyResult(context_prompt, original_text)
                     speak_txt(conn, response)

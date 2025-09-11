@@ -117,20 +117,13 @@ class PromptManager:
 
     def _get_current_time_info(self) -> tuple:
         """获取当前时间信息"""
-        from datetime import datetime
+        from .current_time import get_current_date, get_current_weekday, get_current_lunar_date
+        
+        today_date = get_current_date()
+        today_weekday = get_current_weekday()
+        lunar_date = get_current_lunar_date() + "\n"
 
-        now = datetime.now()
-        current_time = now.strftime("%Y年%m月%d日 %H:%M:%S")
-        today_date = now.strftime("%Y-%m-%d")
-        today_weekday = WEEKDAY_MAP[now.strftime("%A")]
-        today_lunar = cnlunar.Lunar(now, godType="8char")
-        lunar_date = "%s年%s%s\n" % (
-            today_lunar.lunarYearCn,
-            today_lunar.lunarMonthCn[:-1],
-            today_lunar.lunarDayCn,
-        )
-
-        return current_time, today_date, today_weekday, lunar_date
+        return today_date, today_weekday, lunar_date
 
     def _get_location_info(self, client_ip: str) -> str:
         """获取位置信息"""
@@ -199,7 +192,7 @@ class PromptManager:
 
         try:
             # 获取最新的时间信息（不缓存）
-            current_time, today_date, today_weekday, lunar_date = (
+            today_date, today_weekday, lunar_date = (
                 self._get_current_time_info()
             )
 
@@ -224,7 +217,7 @@ class PromptManager:
             template = Template(self.base_prompt_template)
             enhanced_prompt = template.render(
                 base_prompt=user_prompt,
-                current_time=current_time,
+                current_time="{{current_time}}",
                 today_date=today_date,
                 today_weekday=today_weekday,
                 lunar_date=lunar_date,
