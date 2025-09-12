@@ -1,45 +1,59 @@
 <template>
   <div class="welcome">
-    <el-container style="height: 100%;">
+    <el-container style="height: 100%">
       <el-header>
-        <div style="display: flex;align-items: center;margin-top: 15px;margin-left: 10px;gap: 10px;">
-          <img loading="lazy" alt="" src="@/assets/xiaozhi-logo.png" style="width: 45px;height: 45px;" />
-          <img loading="lazy" alt="" src="@/assets/xiaozhi-ai.png" style="height: 18px;" />
+        <div style="
+            display: flex;
+            align-items: center;
+            margin-top: 15px;
+            margin-left: 10px;
+            gap: 10px;
+          ">
+          <img loading="lazy" alt="" src="@/assets/xiaozhi-logo.png" style="width: 45px; height: 45px" />
+          <img loading="lazy" alt="" src="@/assets/xiaozhi-ai.png" style="height: 18px" />
         </div>
       </el-header>
       <div class="login-person">
-        <img loading="lazy" alt="" src="@/assets/login/login-person.png" style="width: 100%;" />
+        <img loading="lazy" alt="" src="@/assets/login/login-person.png" style="width: 100%" />
       </div>
-      <el-main style="position: relative;">
+      <el-main style="position: relative">
         <div class="login-box" @keyup.enter="login">
-          <div style="display: flex;align-items: center;gap: 20px;margin-bottom: 39px;padding: 0 30px;">
-            <img loading="lazy" alt="" src="@/assets/login/hi.png" style="width: 34px;height: 34px;" />
-            <div class="login-text">{{ $t('login.title') }}</div>
-            
+          <div style="
+              display: flex;
+              align-items: center;
+              gap: 20px;
+              margin-bottom: 39px;
+              padding: 0 30px;
+            ">
+            <img loading="lazy" alt="" src="@/assets/login/hi.png" style="width: 34px; height: 34px" />
+            <div class="login-text">{{ $t("login.title") }}</div>
+
             <div class="login-welcome">
-              {{ $t('login.welcome') }}
+              {{ $t("login.welcome") }}
             </div>
-            
+
             <!-- 语言切换下拉菜单 -->
-            <el-dropdown trigger="click" class="title-language-dropdown" @visible-change="handleLanguageDropdownVisibleChange">
+            <el-dropdown trigger="click" class="title-language-dropdown"
+              @visible-change="handleLanguageDropdownVisibleChange">
               <span class="el-dropdown-link">
                 <i class="el-icon-document"></i>
+                <span class="current-language-text">{{ currentLanguageText }}</span>
                 <i class="el-icon-arrow-down el-icon--right" :class="{ 'rotate-down': languageDropdownVisible }"></i>
               </span>
               <el-dropdown-menu slot="dropdown">
                 <el-dropdown-item @click.native="changeLanguage('zh_CN')">
-                  {{ $t('language.zhCN') }}
+                  {{ $t("language.zhCN") }}
                 </el-dropdown-item>
                 <el-dropdown-item @click.native="changeLanguage('zh_TW')">
-                  {{ $t('language.zhTW') }}
+                  {{ $t("language.zhTW") }}
                 </el-dropdown-item>
                 <el-dropdown-item @click.native="changeLanguage('en')">
-                  {{ $t('language.en') }}
+                  {{ $t("language.en") }}
                 </el-dropdown-item>
               </el-dropdown-menu>
             </el-dropdown>
           </div>
-          <div style="padding: 0 30px;">
+          <div style="padding: 0 30px">
             <!-- 用户名登录 -->
             <template v-if="!isMobileLogin">
               <div class="input-box">
@@ -51,9 +65,9 @@
             <!-- 手机号登录 -->
             <template v-else>
               <div class="input-box">
-                <div style="display: flex; align-items: center; width: 100%;">
-                  <el-select v-model="form.areaCode" style="width: 220px; margin-right: 10px;">
-                    <el-option v-for="item in mobileAreaList" :key="item.key" :label="`${item.name} (${item.key})`" 
+                <div style="display: flex; align-items: center; width: 100%">
+                  <el-select v-model="form.areaCode" style="width: 220px; margin-right: 10px">
+                    <el-option v-for="item in mobileAreaList" :key="item.key" :label="`${item.name} (${item.key})`"
                       :value="item.key" />
                   </el-select>
                   <el-input v-model="form.mobile" :placeholder="$t('login.mobilePlaceholder')" />
@@ -63,42 +77,64 @@
 
             <div class="input-box">
               <img loading="lazy" alt="" class="input-icon" src="@/assets/login/password.png" />
-              <el-input v-model="form.password" :placeholder="$t('login.passwordPlaceholder')" type="password" show-password />
+              <el-input v-model="form.password" :placeholder="$t('login.passwordPlaceholder')" type="password"
+                show-password />
             </div>
-            <div style="display: flex; align-items: center; margin-top: 20px; width: 100%; gap: 10px;">
-              <div class="input-box" style="width: calc(100% - 130px); margin-top: 0;">
+            <div style="
+                display: flex;
+                align-items: center;
+                margin-top: 20px;
+                width: 100%;
+                gap: 10px;
+              ">
+              <div class="input-box" style="width: calc(100% - 130px); margin-top: 0">
                 <img loading="lazy" alt="" class="input-icon" src="@/assets/login/shield.png" />
-                <el-input v-model="form.captcha" :placeholder="$t('login.captchaPlaceholder')" style="flex: 1;" />
+                <el-input v-model="form.captcha" :placeholder="$t('login.captchaPlaceholder')" style="flex: 1" />
               </div>
-              <img loading="lazy" v-if="captchaUrl" :src="captchaUrl" alt="验证码" 
-                style="width: 150px; height: 40px; cursor: pointer;" @click="fetchCaptcha" />
+              <img loading="lazy" v-if="captchaUrl" :src="captchaUrl" alt="验证码"
+                style="width: 150px; height: 40px; cursor: pointer" @click="fetchCaptcha" />
             </div>
-            <div
-              style="font-weight: 400;font-size: 14px;text-align: left;color: #5778ff;display: flex;justify-content: space-between;margin-top: 20px;">
-              <div v-if="allowUserRegister" style="cursor: pointer;" @click="goToRegister">{{ $t('login.register') }}</div>
-              <div style="cursor: pointer;" @click="goToForgetPassword" v-if="enableMobileRegister">{{ $t('login.forgetPassword') }}</div>
+            <div style="
+                font-weight: 400;
+                font-size: 14px;
+                text-align: left;
+                color: #5778ff;
+                display: flex;
+                justify-content: space-between;
+                margin-top: 20px;
+              ">
+              <div v-if="allowUserRegister" style="cursor: pointer" @click="goToRegister">
+                {{ $t("login.register") }}
+              </div>
+              <div style="cursor: pointer" @click="goToForgetPassword" v-if="enableMobileRegister">
+                {{ $t("login.forgetPassword") }}
+              </div>
             </div>
           </div>
-          <div class="login-btn" @click="login">{{ $t('login.login') }}</div>
+          <div class="login-btn" @click="login">{{ $t("login.login") }}</div>
 
           <!-- 登录方式切换按钮 -->
           <div class="login-type-container" v-if="enableMobileRegister">
-            <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 10px">
               <el-tooltip :content="$t('login.mobileLogin')" placement="bottom">
-                <el-button :type="isMobileLogin ? 'primary' : 'default'" icon="el-icon-mobile" circle 
+                <el-button :type="isMobileLogin ? 'primary' : 'default'" icon="el-icon-mobile" circle
                   @click="switchLoginType('mobile')"></el-button>
               </el-tooltip>
               <el-tooltip :content="$t('login.usernameLogin')" placement="bottom">
-                <el-button :type="!isMobileLogin ? 'primary' : 'default'" icon="el-icon-user" circle 
+                <el-button :type="!isMobileLogin ? 'primary' : 'default'" icon="el-icon-user" circle
                   @click="switchLoginType('username')"></el-button>
               </el-tooltip>
             </div>
           </div>
-          <div style="font-size: 14px;color: #979db1;">
-            {{ $t('login.agreeTo') }}
-            <div style="display: inline-block;color: #5778FF;cursor: pointer;">{{ $t('login.userAgreement') }}</div>
-            {{ $t('login.and') }}
-            <div style="display: inline-block;color: #5778FF;cursor: pointer;">{{ $t('login.privacyPolicy') }}</div>
+          <div style="font-size: 14px; color: #979db1">
+            {{ $t("login.agreeTo") }}
+            <div style="display: inline-block; color: #5778ff; cursor: pointer">
+              {{ $t("login.userAgreement") }}
+            </div>
+            {{ $t("login.and") }}
+            <div style="display: inline-block; color: #5778ff; cursor: pointer">
+              {{ $t("login.privacyPolicy") }}
+            </div>
           </div>
         </div>
       </el-main>
@@ -110,44 +146,62 @@
 </template>
 
 <script>
-import Api from '@/apis/api';
-import VersionFooter from '@/components/VersionFooter.vue';
-import { getUUID, goToPage, showDanger, showSuccess, validateMobile } from '@/utils';
-import { mapState } from 'vuex';
-import { changeLanguage } from '@/i18n';
+import Api from "@/apis/api";
+import VersionFooter from "@/components/VersionFooter.vue";
+import i18n, { changeLanguage } from "@/i18n";
+import { getUUID, goToPage, showDanger, showSuccess, validateMobile } from "@/utils";
+import { mapState } from "vuex";
 
 export default {
-  name: 'login',
+  name: "login",
   components: {
-    VersionFooter
+    VersionFooter,
   },
   computed: {
     ...mapState({
-      allowUserRegister: state => state.pubConfig.allowUserRegister,
-      enableMobileRegister: state => state.pubConfig.enableMobileRegister,
-      mobileAreaList: state => state.pubConfig.mobileAreaList
-    })
+      allowUserRegister: (state) => state.pubConfig.allowUserRegister,
+      enableMobileRegister: (state) => state.pubConfig.enableMobileRegister,
+      mobileAreaList: (state) => state.pubConfig.mobileAreaList,
+    }),
+    // 获取当前语言
+    currentLanguage() {
+      return i18n.locale || "zh_CN";
+    },
+    // 获取当前语言显示文本
+    currentLanguageText() {
+      const currentLang = this.currentLanguage;
+      switch (currentLang) {
+        case "zh_CN":
+          return this.$t("language.zhCN");
+        case "zh_TW":
+          return this.$t("language.zhTW");
+        case "en":
+          return this.$t("language.en");
+        default:
+          return this.$t("language.zhCN");
+      }
+    },
   },
   data() {
     return {
       activeName: "username",
       form: {
-        username: '',
-        password: '',
-        captcha: '',
-        captchaId: '',
-        areaCode: '+86',
-        mobile: ''
+        username: "",
+        password: "",
+        captcha: "",
+        captchaId: "",
+        areaCode: "+86",
+        mobile: "",
       },
-      captchaUuid: '',
-      captchaUrl: '',
+      captchaUuid: "",
+      captchaUrl: "",
       isMobileLogin: false,
-      languageDropdownVisible: false
-    }
+      languageDropdownVisible: false,
+    };
   },
   mounted() {
     this.fetchCaptcha();
-    this.$store.dispatch('fetchPubConfig').then(() => {
+    this.$store.dispatch("fetchPubConfig").then(() => {
       // 根据配置决定默认登录方式
       this.isMobileLogin = this.enableMobileRegister;
     });
@@ -155,8 +209,8 @@ export default {
   methods: {
     fetchCaptcha() {
       if (this.$store.getters.getToken) {
-        if (this.$route.path !== '/home') {
-          this.$router.push('/home')
+        if (this.$route.path !== "/home") {
+          this.$router.push("/home");
         }
       } else {
         this.captchaUuid = getUUID();
@@ -166,7 +220,7 @@ export default {
             const blob = new Blob([res.data], { type: res.data.type });
             this.captchaUrl = URL.createObjectURL(blob);
           } else {
-            showDanger('验证码加载失败，点击刷新');
+            showDanger("验证码加载失败，点击刷新");
           }
         });
       }
@@ -176,25 +230,25 @@ export default {
     handleLanguageDropdownVisibleChange(visible) {
       this.languageDropdownVisible = visible;
     },
-    
+
     // 切换语言
     changeLanguage(lang) {
       changeLanguage(lang);
       this.languageDropdownVisible = false;
       this.$message.success({
-        message: this.$t('message.success'),
-        showClose: true
+        message: this.$t("message.success"),
+        showClose: true,
       });
     },
 
     // 切换登录方式
     switchLoginType(type) {
-      this.isMobileLogin = type === 'mobile';
+      this.isMobileLogin = type === "mobile";
       // 清空表单
-      this.form.username = '';
-      this.form.mobile = '';
-      this.form.password = '';
-      this.form.captcha = '';
+      this.form.username = "";
+      this.form.mobile = "";
+      this.form.password = "";
+      this.form.captcha = "";
       this.fetchCaptcha();
     },
 
@@ -211,38 +265,46 @@ export default {
       if (this.isMobileLogin) {
         // 手机号登录验证
         if (!validateMobile(this.form.mobile, this.form.areaCode)) {
-          showDanger('请输入正确的手机号码');
+          showDanger("请输入正确的手机号码");
           return;
         }
         // 拼接手机号作为用户名
         this.form.username = this.form.areaCode + this.form.mobile;
       } else {
         // 用户名登录验证
-        if (!this.validateInput(this.form.username, '用户名不能为空')) {
+        if (!this.validateInput(this.form.username, "用户名不能为空")) {
           return;
         }
       }
 
       // 验证密码
-      if (!this.validateInput(this.form.password, '密码不能为空')) {
+      if (!this.validateInput(this.form.password, "密码不能为空")) {
         return;
       }
       // 验证验证码
-      if (!this.validateInput(this.form.captcha, '验证码不能为空')) {
+      if (!this.validateInput(this.form.captcha, "验证码不能为空")) {
         return;
       }
 
-      this.form.captchaId = this.captchaUuid
-      Api.user.login(this.form, ({ data }) => {
-        showSuccess('登录成功！');
-        this.$store.commit('setToken', JSON.stringify(data.data));
-        goToPage('/home');
-      }, (err) => {
-        showDanger(err.data.msg || '登录失败')
-        if (err.data != null && err.data.msg != null && err.data.msg.indexOf('图形验证码') > -1) {
-          this.fetchCaptcha()
+      this.form.captchaId = this.captchaUuid;
+      Api.user.login(
+        this.form,
+        ({ data }) => {
+          showSuccess("登录成功！");
+          this.$store.commit("setToken", JSON.stringify(data.data));
+          goToPage("/home");
+        },
+        (err) => {
+          showDanger(err.data.msg || "登录失败");
+          if (
+            err.data != null &&
+            err.data.msg != null &&
+            err.data.msg.indexOf("图形验证码") > -1
+          ) {
+            this.fetchCaptcha();
+          }
         }
-      })
+      );
 
       // 重新获取验证码
       setTimeout(() => {
@@ -251,16 +313,16 @@ export default {
     },
 
     goToRegister() {
-      goToPage('/register')
+      goToPage("/register");
     },
     goToForgetPassword() {
-      goToPage('/retrieve-password')
+      goToPage("/retrieve-password");
     },
-  }
-}
+  },
+};
 </script>
 <style lang="scss" scoped>
-@import './auth.scss';
+@import "./auth.scss";
 
 .login-type-container {
   margin: 10px 20px;
@@ -271,6 +333,13 @@ export default {
 
 .title-language-dropdown {
   margin-left: 20px;
+}
+
+.current-language-text {
+  margin-left: 4px;
+  margin-right: 4px;
+  font-size: 12px;
+  color: #3d4566;
 }
 
 .language-dropdown {

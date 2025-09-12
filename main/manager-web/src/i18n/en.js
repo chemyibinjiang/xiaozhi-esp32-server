@@ -1,13 +1,13 @@
 export default {
   // HeaderBar组件文本
-  'header.smartManagement': 'Smart Agent Management',
-  'header.modelConfig': 'Model Configuration',
-  'header.userManagement': 'User Management',
-  'header.otaManagement': 'OTA Management',
-  'header.paramDictionary': 'Parameter Dictionary',
-  'header.paramManagement': 'Parameter Management',
-  'header.dictManagement': 'Dictionary Management',
-  
+  'header.smartManagement': 'Agents',
+  'header.modelConfig': 'Models',
+  'header.userManagement': 'Users',
+  'header.otaManagement': 'OTA',
+  'header.paramDictionary': 'More',
+  'header.paramManagement': 'Params Management',
+  'header.dictManagement': 'Dict Management',
+
   // Dictionary data dialog related
   'dictDataDialog.addDictData': 'Add Dictionary Data',
   'dictDataDialog.dictLabel': 'Dictionary Label',
@@ -17,7 +17,7 @@ export default {
   'dictDataDialog.sort': 'Sort',
   'dictDataDialog.requiredDictLabel': 'Please enter dictionary label',
   'dictDataDialog.requiredDictValue': 'Please enter dictionary value',
-  
+
   // Dictionary type dialog related
   'dictTypeDialog.addDictType': 'Add Dictionary Type',
   'dictTypeDialog.dictName': 'Dictionary Type Name',
@@ -86,7 +86,7 @@ export default {
   'voicePrint.cancelDelete': 'Deletion operation canceled',
   'voicePrint.closeOperation': 'Operation closed',
   'voicePrint.loading': 'Loading...',
-  
+
   // Manual add device dialog related
   'manualAddDeviceDialog.title': 'Manual Add Device',
   'manualAddDeviceDialog.deviceType': 'Device Type',
@@ -98,7 +98,7 @@ export default {
   'manualAddDeviceDialog.confirm': 'Confirm',
   'manualAddDeviceDialog.cancel': 'Cancel',
   'manualAddDeviceDialog.requiredMacAddress': 'Please enter Mac address',
-  
+
   // Parameter dialog related
   'paramDialog.paramCode': 'Parameter Code',
   'paramDialog.paramCodePlaceholder': 'Please enter parameter code',
@@ -142,13 +142,13 @@ export default {
   'firmwareDialog.uploadSuccess': 'Firmware file uploaded successfully',
   'firmwareDialog.uploadFailed': 'File upload failed',
   'header.providerManagement': 'Provider Management',
-  'header.serverSideManagement': 'Server-side Management',
+  'header.serverSideManagement': 'Server Management',
   'header.changePassword': 'Change Password',
   'header.logout': 'Logout',
   'header.searchPlaceholder': 'Search by name..',
-  
+
   // Login page text
-  'login.title': 'XiaoZhi Service Login',
+  'login.title': 'Login',
   'login.welcome': 'WELCOME TO LOGIN',
   'login.username': 'Username',
   'login.usernamePlaceholder': 'Please enter username',
@@ -163,12 +163,12 @@ export default {
   'login.forgetPassword': 'Forgot Password?',
   'login.mobileLogin': 'Mobile Login',
   'login.usernameLogin': 'Username Login',
-  'login.agreeTo': 'Logging in means you agree to the',
+  'login.agreeTo': 'Login implies acceptance of',
   'login.userAgreement': 'User Agreement',
   'login.and': 'and',
   'login.privacyPolicy': 'Privacy Policy',
   'login.registerAccount': 'Register Account',
-  
+
   // Register page text
   'register.title': 'Register Account',
   'register.welcome': 'WELCOME TO REGISTER',
@@ -213,7 +213,7 @@ export default {
   'register.registerSuccess': 'Registration successful!',
   'register.registerFailed': 'Registration failed',
   'register.passwordsNotMatch': 'The two passwords do not match',
-  
+
   // Retrieve password page text
   'retrievePassword.title': 'Reset Password',
   'retrievePassword.welcome': 'PASSWORD RETRIEVE',
@@ -240,7 +240,7 @@ export default {
   'retrievePassword.newPasswordRequired': 'New password cannot be empty',
   'retrievePassword.confirmNewPasswordRequired': 'Confirm new password cannot be empty',
   'retrievePassword.passwordUpdateSuccess': 'Password updated successfully',
-  
+
   // Change password page text
   'changePassword.title': 'Change Password',
   'changePassword.oldPasswordLabel': 'Old Password:',
@@ -256,7 +256,7 @@ export default {
   'changePassword.newPasswordSameAsOld': 'New password cannot be the same as old password',
   'changePassword.passwordChangedSuccessfully': 'Password changed successfully, please login again',
   'changePassword.changeFailed': 'Password change failed',
-  
+
   // Device management page text
   'device.management': 'Device Management',
   'device.add': 'Add Device',
@@ -303,16 +303,16 @@ export default {
   'device.autoUpdateDisabled': 'Auto update disabled',
   'device.batchUnbindSuccess': 'Successfully unbound {count} devices',
   'device.getFirmwareTypeFailed': 'Failed to fetch firmware type',
-  
+
   // Message tips
   'message.success': 'Operation Successful',
   'message.error': 'Operation Failed',
   'message.warning': 'Warning',
   'message.info': 'Information',
-  
+
   // Cache related
   'cache.viewer': 'Cache Viewer',
-  
+
   // Chat history dialog related
   'chatHistory.with': 'With',
   'chatHistory.dialogTitle': "'s Chat History",
@@ -357,21 +357,21 @@ export default {
   'cache.clearedSuccess': 'Cache cleared successfully',
   'cache.clearFailed': 'Failed to clear cache',
   'cache.clearCanceled': 'Clear operation canceled',
-  
+
   // Common buttons
   'button.ok': 'OK',
   'button.cancel': 'Cancel',
   'button.save': 'Save',
   'button.close': 'Close',
-  
+
   // System information
   'system.name': 'XiaoZhi Service',
-  
+
   // Voiceprint related
   'voiceprint.management': 'Voiceprint Management',
   'voiceprint.add': 'Add Voiceprint',
   'voiceprint.delete': 'Delete Voiceprint',
-  
+
   // Dictionary management page text
   'dictManagement.pageTitle': 'Dictionary Management',
   'dictManagement.searchPlaceholder': 'Please enter dict value label to search',
@@ -407,7 +407,7 @@ export default {
   'dictManagement.selectDictDataToDelete': 'Please select dict data to delete',
   'dictManagement.confirmBatchDeleteDictData': 'Are you sure you want to delete {count} selected dict data items?',
   'dictManagement.getDictDataFailed': 'Failed to get dict data',
-  
+
   // User information
   'user.info': 'User Information',
   'user.username': 'Username',
@@ -481,23 +481,23 @@ export default {
   'user.invalidUserId': 'There are invalid user IDs',
   'user.searchPhone': 'Please enter mobile phone number to search',
   'user.search': 'Search',
-  
+
   // Language switch
-  'language.zhCN': 'Simplified Chinese',
-  'language.zhTW': 'Traditional Chinese',
+  'language.zhCN': '中文简体',
+  'language.zhTW': '中文繁體',
   'language.en': 'English',
-  
+
   // Home page text
   'home.addAgent': 'Add Agent',
-  'home.languageModel': 'Language Model',
-  'home.voiceModel': 'Voice Model',
-  'home.configureRole': 'Configure Role',
-  'home.voiceprintRecognition': 'Voiceprint Recognition',
-  'home.deviceManagement': 'Device Management',
+  'home.languageModel': 'LLM',
+  'home.voiceModel': 'TTS',
+  'home.configureRole': 'Config Role',
+  'home.voiceprintRecognition': 'Voiceprint',
+  'home.deviceManagement': 'Devices',
   'home.chatHistory': 'Chat History',
   'home.lastConversation': 'Last Conversation',
   'home.noConversation': 'No conversation yet',
-  
+
   // Parameter management page text
   'paramManagement.pageTitle': 'Parameter Management',
   'paramManagement.searchPlaceholder': 'Please enter parameter code or remark to search',
@@ -539,8 +539,8 @@ export default {
   'home.confirmDeleteAgent': 'Are you sure you want to delete this agent?',
   'home.deleteSuccess': 'Delete successful',
   'home.deleteFailed': 'Delete failed',
-  'home.enableMemory': 'Please enable memory in the "Configure Role" page first',
-  
+  'home.enableMemory': 'Please enable memory in the "Config Role" page first',
+
   // Server side management page text
   'serverSideManager.pageTitle': 'Server Management',
   'serverSideManager.wsAddress': 'WS Address',
@@ -556,7 +556,7 @@ export default {
   'serverSideManager.operationFailed': 'Operation failed',
   'serverSideManager.restartSuccess': 'Restart successful',
   'serverSideManager.updateConfigSuccess': 'Config update successful',
-  
+
   // Add agent dialog text
   'addAgentDialog.title': 'Add Agent',
   'addAgentDialog.agentName': 'Agent Name',
@@ -565,24 +565,24 @@ export default {
   'addAgentDialog.cancel': 'Cancel',
   'addAgentDialog.nameRequired': 'Please enter agent name',
   'addAgentDialog.addSuccess': 'Add successful',
-  
+
   // Role configuration page text
   'roleConfig.title': 'Role Configuration',
   'roleConfig.restartNotice': 'After saving the configuration, you need to restart the device for the new configuration to take effect.',
   'roleConfig.saveConfig': 'Save Configuration',
   'roleConfig.reset': 'Reset',
-  'roleConfig.agentName': 'Agent Nickname',
-  'roleConfig.roleTemplate': 'Role Template',
-  'roleConfig.roleIntroduction': 'Role Introduction',
+  'roleConfig.agentName': 'Nickname',
+  'roleConfig.roleTemplate': 'Template',
+  'roleConfig.roleIntroduction': 'Introduction',
   'roleConfig.languageCode': 'Language Code',
   'roleConfig.interactionLanguage': 'Interaction Language',
-  'roleConfig.vad': 'VAD',
-  'roleConfig.asr': 'ASR',
-  'roleConfig.llm': 'LLM',
-  'roleConfig.vllm': 'VLLM',
-  'roleConfig.tts': 'TTS',
+  'roleConfig.vad': 'Voice Detect',
+  'roleConfig.asr': 'Speech Recognition',
+  'roleConfig.llm': 'Language Model',
+  'roleConfig.vllm': 'Vision Model',
+  'roleConfig.tts': 'Text-to-Speech',
   'roleConfig.memory': 'Memory',
-  'roleConfig.intent': 'Intent',
+  'roleConfig.intent': 'Intent Recognition',
   'roleConfig.voiceType': 'Voice Type',
   'roleConfig.pleaseEnterContent': 'Please enter content',
   'roleConfig.pleaseEnterLangCode': 'Please enter language code, e.g.: en_US',
@@ -601,7 +601,7 @@ export default {
   'roleConfig.fetchConfigFailed': 'Failed to fetch configuration',
   'roleConfig.fetchModelsFailed': 'Failed to fetch model list',
   'roleConfig.fetchPluginsFailed': 'Failed to fetch plugin list',
-  
+
   // Function management dialog text
   'functionDialog.title': 'Function Management',
   'functionDialog.unselectedFunctions': 'Unselected Functions',
@@ -629,7 +629,7 @@ export default {
   'functionDialog.copyFailed': 'Copy failed, please copy manually',
   'functionDialog.jsonFormatError': ' field format error: invalid JSON format',
   'functionDialog.defaultValue': 'Default Value',
-  
+
   // Model Configuration Page Text
   'modelConfig.searchPlaceholder': 'Please enter model name to search',
   'modelConfig.search': 'Search',
@@ -679,7 +679,7 @@ export default {
   'modelConfig.nextPage': 'Next Page',
   'modelConfig.totalRecords': 'Total {total} records',
   'modelConfig.loading': 'Loading...',
-  
+
   // Model Configuration Dialog Text
   'modelConfigDialog.addModel': 'Add Model',
   'modelConfigDialog.editModel': 'Edit Model',
@@ -701,7 +701,7 @@ export default {
   'modelConfigDialog.callInfo': 'Call Information',
   'modelConfigDialog.enterJsonExample': 'Please enter JSON format variables (example:{"key":"value"})',
   'modelConfigDialog.save': 'Save',
-  
+
   // TTS Model Configuration Text
   'ttsModel.select': 'Select',
   'ttsModel.voiceCode': 'Voice Code',
@@ -725,7 +725,7 @@ export default {
   'ttsModel.fetchVoicesFailed': 'Failed to fetch voice list',
   'ttsModel.loadVoicesFailed': 'Failed to load voice data',
   'ttsModel.unnamedVoice': 'Unnamed Voice',
-  
+
   // OTA Management Page Text
   'otaManagement.firmwareManagement': 'Firmware Management',
   'otaManagement.searchPlaceholder': 'Please enter firmware name to search',
@@ -765,7 +765,7 @@ export default {
   'otaManagement.addSuccess': 'Addition successful',
   'otaManagement.addFailed': 'Addition failed',
   'otaManagement.fetchFirmwareListFailed': 'Failed to fetch firmware list',
-  
+
   // Provider Management page model type translations
   'providerManagement.all': 'All',
   'providerManagement.modelType.ASR': 'Speech Recognition',
@@ -776,7 +776,7 @@ export default {
   'providerManagement.modelType.Memory': 'Memory Module',
   'providerManagement.modelType.VAD': 'Voice Activity Detection',
   'providerManagement.modelType.Plugin': 'Plugin Tool',
-  
+
   // Provider Dialog translations
   'providerDialog.category': 'Category',
   'providerDialog.selectCategory': 'Please select category',
@@ -814,4 +814,4 @@ export default {
   'providerDialog.selectFieldsToDelete': 'Please select fields to delete first',
   'providerDialog.confirmBatchDeleteFields': 'Are you sure to delete {count} selected fields?',
   'providerDialog.batchDeleteFieldsSuccess': 'Successfully deleted {count} fields',
- };
+};

@@ -33,14 +33,16 @@
                   <el-tag v-else type="danger">{{ $t('user.disabled') }}</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column :label="$t('modelConfig.action')" align="center">
+              <el-table-column :label="$t('modelConfig.action')" align="center" width="300px">
                 <template slot-scope="scope">
-                  <el-button size="mini" type="text" @click="resetPassword(scope.row)">{{ $t('user.resetPassword') }}</el-button>
+                  <el-button size="mini" type="text" @click="resetPassword(scope.row)">{{ $t('user.resetPassword')
+                  }}</el-button>
                   <el-button size="mini" type="text" v-if="scope.row.status === 1"
-                      @click="handleChangeStatus(scope.row, 0)">{{ $t('user.disableAccount') }}</el-button>
+                    @click="handleChangeStatus(scope.row, 0)">{{ $t('user.disableAccount') }}</el-button>
                   <el-button size="mini" type="text" v-if="scope.row.status === 0"
-                      @click="handleChangeStatus(scope.row, 1)">{{ $t('user.enableAccount') }}</el-button>
-                  <el-button size="mini" type="text" @click="deleteUser(scope.row)">{{ $t('user.deleteUser') }}</el-button>
+                    @click="handleChangeStatus(scope.row, 1)">{{ $t('user.enableAccount') }}</el-button>
+                  <el-button size="mini" type="text" @click="deleteUser(scope.row)">{{ $t('user.deleteUser')
+                  }}</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -50,14 +52,20 @@
                 <el-button size="mini" type="primary" class="select-all-btn" @click="handleSelectAll">
                   {{ isAllSelected ? $t('user.deselectAll') : $t('user.selectAll') }}
                 </el-button>
-                <el-button size="mini" type="success" icon="el-icon-circle-check" @click="batchEnable">{{ $t('user.enable') }}</el-button>
+                <el-button size="mini" type="success" icon="el-icon-circle-check" @click="batchEnable">{{
+                  $t('user.enable')
+                }}</el-button>
                 <el-button size="mini" type="warning" @click="batchDisable"><i
-                      class="el-icon-remove-outline rotated-icon"></i>{{ $t('user.disable') }}</el-button>
-                <el-button size="mini" type="danger" icon="el-icon-delete" @click="batchDelete">{{ $t('user.delete') }}</el-button>
+                    class="el-icon-remove-outline rotated-icon"></i>{{
+                      $t('user.disable') }}</el-button>
+                <el-button size="mini" type="danger" icon="el-icon-delete" @click="batchDelete">{{ $t('user.delete')
+                }}</el-button>
               </div>
               <div class="custom-pagination">
-                <el-select v-model="pageSize" @change="handlePageSizeChange" :class="['page-size-select', { 'page-size-select-en': isEnglish }]">
-                  <el-option v-for="item in pageSizeOptions" :key="item" :label="$t('modelConfig.itemsPerPage', { count: item })" :value="item">
+                <el-select v-model="pageSize" @change="handlePageSizeChange"
+                  :class="['page-size-select', { 'page-size-select-en': isEnglish }]">
+                  <el-option v-for="item in pageSizeOptions" :key="item"
+                    :label="$t('modelConfig.itemsPerPage', { count: item })" :value="item">
                   </el-option>
                 </el-select>
 
@@ -713,10 +721,10 @@ export default {
     color: #606266;
     font-size: 14px;
   }
-  
+
   &.page-size-select-en {
     width: 130px;
-    
+
     :deep(.el-input__inner) {
       height: 36px;
       line-height: 36px;

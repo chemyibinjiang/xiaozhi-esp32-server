@@ -9,36 +9,36 @@
 
       <!-- 中间导航菜单 -->
       <div class="header-center">
-        <div class="equipment-management" 
+        <div class="equipment-management"
           :class="{ 'active-tab': $route.path === '/home' || $route.path === '/role-config' || $route.path === '/device-management' }"
           @click="goHome">
-          <img loading="lazy" alt="" src="@/assets/header/robot.png" 
-            :style="{ filter: $route.path === '/home' || $route.path === '/role-config' || $route.path === '/device-management' ? 'brightness(0) invert(1)' : 'None' }" />          
+          <img loading="lazy" alt="" src="@/assets/header/robot.png"
+            :style="{ filter: $route.path === '/home' || $route.path === '/role-config' || $route.path === '/device-management' ? 'brightness(0) invert(1)' : 'None' }" />
           <span class="nav-text">{{ $t('header.smartManagement') }}</span>
         </div>
         <div v-if="isSuperAdmin" class="equipment-management" :class="{ 'active-tab': $route.path === '/model-config' }"
           @click="goModelConfig">
-          <img loading="lazy" alt="" src="@/assets/header/model_config.png" 
+          <img loading="lazy" alt="" src="@/assets/header/model_config.png"
             :style="{ filter: $route.path === '/model-config' ? 'brightness(0) invert(1)' : 'None' }" />
           <span class="nav-text">{{ $t('header.modelConfig') }}</span>
         </div>
-        <div v-if="isSuperAdmin" class="equipment-management" 
+        <div v-if="isSuperAdmin" class="equipment-management"
           :class="{ 'active-tab': $route.path === '/user-management' }" @click="goUserManagement">
-          <img loading="lazy" alt="" src="@/assets/header/user_management.png" 
+          <img loading="lazy" alt="" src="@/assets/header/user_management.png"
             :style="{ filter: $route.path === '/user-management' ? 'brightness(0) invert(1)' : 'None' }" />
           <span class="nav-text">{{ $t('header.userManagement') }}</span>
         </div>
-        <div v-if="isSuperAdmin" class="equipment-management" 
+        <div v-if="isSuperAdmin" class="equipment-management"
           :class="{ 'active-tab': $route.path === '/ota-management' }" @click="goOtaManagement">
-          <img loading="lazy" alt="" src="@/assets/header/firmware_update.png" 
+          <img loading="lazy" alt="" src="@/assets/header/firmware_update.png"
             :style="{ filter: $route.path === '/ota-management' ? 'brightness(0) invert(1)' : 'None' }" />
           <span class="nav-text">{{ $t('header.otaManagement') }}</span>
         </div>
-        <el-dropdown v-if="isSuperAdmin" trigger="click" class="equipment-management more-dropdown" 
+        <el-dropdown v-if="isSuperAdmin" trigger="click" class="equipment-management more-dropdown"
           :class="{ 'active-tab': $route.path === '/dict-management' || $route.path === '/params-management' || $route.path === '/provider-management' || $route.path === '/server-side-management' }"
           @visible-change="handleParamDropdownVisibleChange">
           <span class="el-dropdown-link">
-            <img loading="lazy" alt="" src="@/assets/header/param_management.png" 
+            <img loading="lazy" alt="" src="@/assets/header/param_management.png"
               :style="{ filter: $route.path === '/dict-management' || $route.path === '/params-management' || $route.path === '/provider-management' || $route.path === '/server-side-management' ? 'brightness(0) invert(1)' : 'None' }" />
             <span class="nav-text">{{ $t('header.paramDictionary') }}</span>
             <i class="el-icon-arrow-down el-icon--right" :class="{ 'rotate-down': paramDropdownVisible }"></i>
@@ -63,16 +63,16 @@
       <!-- 右侧元素 -->
       <div class="header-right">
         <div class="search-container" v-if="$route.path === '/home' && !(isSuperAdmin && isSmallScreen)">
-          <el-input v-model="search" :placeholder="$t('header.searchPlaceholder')" class="custom-search-input" 
+          <el-input v-model="search" :placeholder="$t('header.searchPlaceholder')" class="custom-search-input"
             @keyup.enter.native="handleSearch">
             <i slot="suffix" class="el-icon-search search-icon" @click="handleSearch"></i>
           </el-input>
         </div>
-        
+
         <!-- 语言切换下拉菜单 -->
         <el-dropdown trigger="click" class="language-dropdown" @visible-change="handleLanguageDropdownVisibleChange">
           <span class="el-dropdown-link">
-            <i class="el-icon-document"></i>
+            <span class="current-language-text">{{ currentLanguageText }}</span>
             <i class="el-icon-arrow-down el-icon--right" :class="{ 'rotate-down': languageDropdownVisible }"></i>
           </span>
           <el-dropdown-menu slot="dropdown">
@@ -87,7 +87,7 @@
             </el-dropdown-item>
           </el-dropdown-menu>
         </el-dropdown>
-        
+
         <img loading="lazy" alt="" src="@/assets/home/avatar.png" class="avatar-img" />
         <el-dropdown trigger="click" class="user-dropdown" @visible-change="handleUserDropdownVisibleChange">
           <span class="el-dropdown-link">
@@ -95,7 +95,8 @@
             <i class="el-icon-arrow-down el-icon--right" :class="{ 'rotate-down': userDropdownVisible }"></i>
           </span>
           <el-dropdown-menu slot="dropdown">
-            <el-dropdown-item @click.native="showChangePasswordDialog">{{ $t('header.changePassword') }}</el-dropdown-item>
+            <el-dropdown-item @click.native="showChangePasswordDialog">{{ $t('header.changePassword')
+              }}</el-dropdown-item>
             <el-dropdown-item @click.native="handleLogout">{{ $t('header.logout') }}</el-dropdown-item>
           </el-dropdown-menu>
         </el-dropdown>
@@ -109,10 +110,9 @@
 
 <script>
 import userApi from '@/apis/module/user';
+import i18n, { changeLanguage } from '@/i18n';
 import { mapActions, mapGetters } from 'vuex';
 import ChangePasswordDialog from './ChangePasswordDialog.vue'; // 引入修改密码弹窗组件
-import { changeLanguage } from '@/i18n';
-import i18n from '@/i18n';
 
 export default {
   name: 'HeaderBar',
@@ -142,6 +142,20 @@ export default {
     // 获取当前语言
     currentLanguage() {
       return i18n.locale || 'zh_CN';
+    },
+    // 获取当前语言显示文本
+    currentLanguageText() {
+      const currentLang = this.currentLanguage;
+      switch (currentLang) {
+        case 'zh_CN':
+          return this.$t('language.zhCN');
+        case 'zh_TW':
+          return this.$t('language.zhTW');
+        case 'en':
+          return this.$t('language.en');
+        default:
+          return this.$t('language.zhCN');
+      }
     }
   },
   mounted() {
@@ -388,6 +402,13 @@ export default {
 .language-dropdown {
   flex-shrink: 0;
   margin-right: 5px;
+}
+
+.current-language-text {
+  margin-left: 4px;
+  margin-right: 4px;
+  font-size: 12px;
+  color: #3d4566;
 }
 
 .more-dropdown {
