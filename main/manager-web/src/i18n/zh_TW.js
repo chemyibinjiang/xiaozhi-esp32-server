@@ -585,7 +585,7 @@ export default {
   'roleConfig.tts': '語音合成(TTS)',
   'roleConfig.memory': '記憶(Memory)',
   'roleConfig.intent': '意圖識別(Intent)',
-  'roleConfig.voiceType': '角色音色(Voice Type)',
+  'roleConfig.voiceType': '聲音音色(Voice)',
   'roleConfig.pleaseEnterContent': '請輸入內容',
   'roleConfig.pleaseEnterLangCode': '請輸入語言編碼，如：zh_TW',
   'roleConfig.pleaseEnterLangName': '請輸入交互語種，如：繁體中文',
