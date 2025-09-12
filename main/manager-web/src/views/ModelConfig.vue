@@ -264,7 +264,7 @@ export default {
         return
       }
 
-      this.$confirm(this.$t('modelConfig.confirmBatchDelete'), this.$t('common.prompt'), {
+      this.$confirm(this.$t('modelConfig.confirmBatchDelete'), this.$t('message.info'), {
         confirmButtonText: this.$t('common.confirm'),
         cancelButtonText: this.$t('common.cancel'),
         type: 'warning'
@@ -310,7 +310,7 @@ export default {
     },
     // 删除单个模型
     deleteModel(model) {
-      this.$confirm(this.$t('modelConfig.confirmDelete'), this.$t('common.prompt'), {
+      this.$confirm(this.$t('modelConfig.confirmDelete'), this.$t('message.info'), {
         confirmButtonText: this.$t('common.confirm'),
         cancelButtonText: this.$t('common.cancel'),
         type: 'warning'
