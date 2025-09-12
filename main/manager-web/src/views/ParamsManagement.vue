@@ -116,8 +116,9 @@ export default {
             paramForm: {
                 id: null,
                 paramCode: "",
-                paramValue: "",
-                remark: ""
+            paramValue: "",
+            valueType: "string", 
+            remark: ""
             },
         };
     },
@@ -165,6 +166,7 @@ export default {
                     if (data.code === 0) {
                         this.paramsList = data.data.list.map(item => ({
                             ...item,
+                            valueType: item.valueType || "string", 
                             selected: false,
                             showValue: false
                         }));
@@ -191,21 +193,23 @@ export default {
         showAddDialog() {
             this.dialogTitle = this.$t('paramManagement.addParam');
             this.paramForm = {
-                id: null,
-                paramCode: "",
-                paramValue: "",
-                remark: ""
-            };
+            id: null,
+            paramCode: "",
+            paramValue: "",
+            valueType: "string", // 默认值
+            remark: ""
+        };
             this.dialogVisible = true;
         },
         editParam(row) {
             this.dialogTitle = this.$t('paramManagement.editParam');
             this.paramForm = {
-                id: row.id,
-                paramCode: row.paramCode,
-                paramValue: row.paramValue,
-                remark: row.remark
-            };
+            id: row.id,
+            paramCode: row.paramCode,
+            paramValue: row.paramValue,
+            valueType: row.valueType || "string", // 确保有值
+            remark: row.remark
+        };
             this.dialogVisible = true;
         },
         handleSubmit(form) {

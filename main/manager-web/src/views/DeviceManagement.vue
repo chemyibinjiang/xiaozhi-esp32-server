@@ -74,7 +74,7 @@
             <div class="table_bottom">
               <div class="ctrl_btn">
                   <el-button size="mini" type="primary" class="select-all-btn" @click="handleSelectAll">
-                    {{ isCurrentPageAllSelected ? $t('device.deselectAll') : $t('device.selectAll') }}
+                    {{ isCurrentPageAllSelected ? $t('common.deselectAll') : $t('common.selectAll') }}
                   </el-button>
                   <el-button type="success" size="mini" class="add-device-btn" @click="handleAddDevice">
                     {{ $t('device.bindWithCode') }}

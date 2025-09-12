@@ -107,16 +107,9 @@ export default {
       this.$refs.form.validate((valid) => {
         if (valid) {
           this.saving = true; // 开始加载
-          this.$emit('submit', {
-            form: this.form,
-            done: () => {
-              this.saving = false; // 加载完成
-            }
-          });
+          this.$emit('submit', this.form);
 
-          setTimeout(() => {
-            this.saving = false;
-          }, 3000);
+          // 在父组件处理完成后，通过watch visible的变化来重置saving状态
         }
       });
     },

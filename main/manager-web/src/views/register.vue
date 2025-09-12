@@ -162,7 +162,7 @@ export default {
   mounted() {
     this.$store.dispatch('fetchPubConfig').then(() => {
       if (!this.allowUserRegister) {
-        showDanger('当前不允许普通用户注册');
+        showDanger(this.$t('register.notAllowRegister'));
         setTimeout(() => {
           goToPage('/login');
         }, 1500);
@@ -181,7 +181,7 @@ export default {
 
         } else {
           console.error('验证码加载异常:', error);
-          showDanger('验证码加载失败，点击刷新');
+          showDanger(this.$t('register.captchaLoadFailed'));
         }
       });
     },
@@ -198,12 +198,12 @@ export default {
     // 发送手机验证码
     sendMobileCaptcha() {
       if (!validateMobile(this.form.mobile, this.form.areaCode)) {
-        showDanger('请输入正确的手机号码');
+        showDanger(this.$t('register.inputCorrectMobile'));
         return;
       }
 
       // 验证图形验证码
-      if (!this.validateInput(this.form.captcha, '请输入图形验证码')) {
+      if (!this.validateInput(this.form.captcha, this.$t('register.inputCaptcha'))) {
         this.fetchCaptcha();
         return;
       }
@@ -231,9 +231,9 @@ export default {
         captcha: this.form.captcha,
         captchaId: this.form.captchaId
       }, (res) => {
-        showSuccess('验证码发送成功');
+        showSuccess(this.$t('register.captchaSendSuccess'));
       }, (err) => {
-        showDanger(err.data.msg || '验证码发送失败');
+        showDanger(err.data.msg || this.$t('register.captchaSendFailed'));
         this.countdown = 0;
         this.fetchCaptcha();
       });
@@ -244,7 +244,7 @@ export default {
       if (this.enableMobileRegister) {
         // 手机号注册验证
         if (!validateMobile(this.form.mobile, this.form.areaCode)) {
-          showDanger('请输入正确的手机号码');
+          showDanger(this.$t('register.inputCorrectMobile'));
           return;
         }
         if (!this.form.mobileCaptcha) {
@@ -263,7 +263,7 @@ export default {
         return;
       }
       if (this.form.password !== this.form.confirmPassword) {
-        showDanger('两次输入的密码不一致')
+        showDanger(this.$t('register.passwordsNotMatch'))
         return
       }
       // 验证验证码
@@ -276,10 +276,10 @@ export default {
       }
 
       Api.user.register(this.form, ({ data }) => {
-        showSuccess('注册成功！')
+        showSuccess(this.$t('register.registerSuccess'))
         goToPage('/login')
       }, (err) => {
-        showDanger(err.data.msg || '注册失败')
+        showDanger(err.data.msg || this.$t('register.registerFailed'))
         if (err.data != null && err.data.msg != null && err.data.msg.indexOf('图形验证码') > -1) {
           this.fetchCaptcha()
         }
