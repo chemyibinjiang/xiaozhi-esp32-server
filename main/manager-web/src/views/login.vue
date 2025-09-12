@@ -36,7 +36,6 @@
             <el-dropdown trigger="click" class="title-language-dropdown"
               @visible-change="handleLanguageDropdownVisibleChange">
               <span class="el-dropdown-link">
-                <i class="el-icon-document"></i>
                 <span class="current-language-text">{{ currentLanguageText }}</span>
                 <i class="el-icon-arrow-down el-icon--right" :class="{ 'rotate-down': languageDropdownVisible }"></i>
               </span>
@@ -332,7 +331,7 @@ export default {
 }
 
 .title-language-dropdown {
-  margin-left: 20px;
+  margin-left: auto;
 }
 
 .current-language-text {

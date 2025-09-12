@@ -8,10 +8,10 @@
         <div class="add-device">
           <div class="add-device-bg">
             <div class="hellow-text" style="margin-top: 30px;">
-              你好小智
+              {{ $t('home.greeting') }}
             </div>
             <div class="hellow-text">
-              让我们度过美好的一天！
+              {{ $t('home.wish') }}
             </div>
             <div class="hi-hint">
               let's have a wonderful day!
