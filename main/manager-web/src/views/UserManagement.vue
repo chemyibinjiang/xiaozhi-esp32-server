@@ -16,8 +16,8 @@
         <div class="content-area">
           <el-card class="user-card" shadow="never">
             <el-table ref="userTable" :data="userList" class="transparent-table" v-loading="loading"
-              element-loading-text="拼命加载中" element-loading-spinner="el-icon-loading"
-              element-loading-background="rgba(255, 255, 255, 0.7)">
+                :element-loading-text="$t('modelConfig.loading')" element-loading-spinner="el-icon-loading"
+                element-loading-background="rgba(255, 255, 255, 0.7)">
               <el-table-column :label="$t('modelConfig.select')" align="center" width="120">
                 <template slot-scope="scope">
                   <el-checkbox v-model="scope.row.selected"></el-checkbox>
@@ -180,7 +180,7 @@ export default {
         return;
       }
 
-      this.$confirm(this.$t('user.confirmDeleteSelected', { count: selectedUsers.length }), "警告", {
+      this.$confirm(this.$t('user.confirmDeleteSelected', { count: selectedUsers.length }), this.$t('common.warning'), {
         confirmButtonText: this.$t('common.confirm'),
         cancelButtonText: this.$t('common.cancel'),
         type: "warning",
@@ -213,29 +213,29 @@ export default {
 
             if (failCount === 0) {
               this.$message.success({
-                message: `成功删除${successCount}个用户`,
+                message: this.$t('user.deleteSuccess', { count: successCount }),
                 showClose: true
               });
             } else if (successCount === 0) {
               this.$message.error({
-                message: '删除失败，请重试',
+                message: this.$t('user.deleteFailed'),
                 showClose: true
               });
             } else {
               this.$message.warning(
-                `成功删除${successCount}个用户，${failCount}个删除失败`
+                this.$t('user.partialDelete', { successCount: successCount, failCount: failCount })
               );
             }
 
             this.fetchUsers();
           } catch (error) {
-            this.$message.error("删除过程中发生错误");
+            this.$message.error(this.$t('user.deleteError'));
           } finally {
             loading.close();
           }
         })
         .catch(() => {
-          this.$message.info("已取消删除");
+          this.$message.info(this.$t('user.deleteCancelled'));
         });
     },
     batchEnable() {
@@ -247,45 +247,36 @@ export default {
       this.handleChangeStatus(selectedUsers, 0);
     },
     resetPassword(row) {
-      this.$confirm("重置后将会生成新密码，是否继续？", "提示", {
-        confirmButtonText: "确定",
-        cancelButtonText: "取消",
+      this.$confirm(this.$t('user.confirmResetPassword'), this.$t('common.warning'), {
+        confirmButtonText: this.$t('common.confirm'),
+        cancelButtonText: this.$t('common.cancel'),
+        type: 'warning'
       }).then(() => {
-        Api.admin.resetUserPassword(row.userid, ({ data }) => {
-          if (data.code === 0) {
-            this.currentPassword = data.data;
-            this.showViewPassword = true;
-            this.$message.success({
-              message: "密码已重置，请通知用户使用新密码登录",
-              showClose: true
-            });
-          }
+        resetPassword(row.userId).then(() => {
+          this.$message.success(this.$t('user.resetPasswordSuccess'));
+          this.getList();
+        }).catch(() => {
+          this.$message.error(this.$t('user.operationFailed'));
         });
+      }).catch(() => {
+        this.$message.info(this.$t('common.deleteCancelled'));
       });
     },
     deleteUser(row) {
-      this.$confirm("确定要删除该用户吗？", "警告", {
-        confirmButtonText: "确定",
-        cancelButtonText: "取消",
-        type: "warning",
-      })
-        .then(() => {
-          Api.admin.deleteUser(row.userid, ({ data }) => {
-            if (data.code === 0) {
-              this.$message.success({
-                message: "删除成功",
-                showClose: true
-              });
-              this.fetchUsers();
-            } else {
-              this.$message.error({
-                message: data.msg || "删除失败",
-                showClose: true
-              });
-            }
-          });
-        })
-        .catch(() => { });
+      this.$confirm(this.$t('user.confirmDeleteUser'), this.$t('common.warning'), {
+        confirmButtonText: this.$t('common.confirm'),
+        cancelButtonText: this.$t('common.cancel'),
+        type: 'warning'
+      }).then(() => {
+        deleteUser(row.userId).then(() => {
+          this.$message.success(this.$t('user.deleteUserSuccess'));
+          this.getList();
+        }).catch(() => {
+          this.$message.error(this.$t('user.operationFailed'));
+        });
+      }).catch(() => {
+        this.$message.info(this.$t('common.deleteCancelled'));
+      });
     },
     goFirst() {
       this.currentPage = 1;
@@ -310,36 +301,98 @@ export default {
     handleChangeStatus(row, status) {
       // 处理单个用户或用户数组
       const users = Array.isArray(row) ? row : [row];
-      const confirmText = status === 0 ? '禁用' : '启用';
+      const actionText = status === 0 ? this.$t('user.disable') : this.$t('user.enable');
       const userCount = users.length;
 
-      this.$confirm(`确定要${confirmText}选中的${userCount}个用户吗？`, '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+      this.$confirm(this.$t('user.confirmStatusChange', { action: actionText, count: userCount }), this.$t('common.warning'), {
+        confirmButtonText: this.$t('common.confirm'),
+        cancelButtonText: this.$t('common.cancel'),
         type: 'warning'
       }).then(() => {
         const userIds = users.map(user => user.userid);
         if (userIds.some(id => isNaN(id))) {
-          this.$message.error('存在无效的用户ID');
+          this.$message.error(this.$t('user.invalidUserId'));
           return;
         }
 
         Api.user.changeUserStatus(status, userIds, ({ data }) => {
           if (data.code === 0) {
             this.$message.success({
-              message: `成功${confirmText}${userCount}个用户`,
+              message: this.$t('user.statusChangeSuccess', { action: actionText, count: userCount }),
               showClose: true
             });
             this.fetchUsers(); // 刷新用户列表
           } else {
             this.$message.error({
-              message: '操作失败，请重试',
+              message: this.$t('user.operationFailed'),
               showClose: true
             });
           }
         });
       }).catch(() => {
         // 用户取消操作
+      });
+    },
+    handleBatchDelete() {
+      if (!this.selection || this.selection.length === 0) {
+        this.$message.warning(this.$t('user.selectUsersFirst'));
+        return;
+      }
+      
+      const userIds = this.selection.map(item => item.userId);
+      this.$confirm(this.$t('user.confirmDeleteSelected', { count: this.selection.length }), this.$t('common.warning'), {
+        confirmButtonText: this.$t('common.confirm'),
+        cancelButtonText: this.$t('common.cancel'),
+        type: 'warning'
+      }).then(() => {
+        this.loading = true;
+        batchDeleteUsers(userIds).then(res => {
+          this.loading = false;
+          this.getList();
+          this.selection = [];
+          if (res.successCount === userIds.length) {
+            this.$message.success(this.$t('user.deleteSuccess', { count: res.successCount }));
+          } else if (res.successCount === 0) {
+            this.$message.error(this.$t('user.deleteFailed'));
+          } else {
+            this.$message.warning(this.$t('user.partialDelete', { successCount: res.successCount, failCount: res.failCount }));
+          }
+        }).catch(() => {
+          this.loading = false;
+          this.$message.error(this.$t('user.deleteError'));
+        });
+      }).catch(() => {
+        this.loading = false;
+        this.$message.info(this.$t('user.deleteCancelled'));
+      });
+    },
+    handleBatchStatusChange(status) {
+      if (!this.selection || this.selection.length === 0) {
+        this.$message.warning(this.$t('user.selectUsersFirst'));
+        return;
+      }
+      
+      const actionText = status === 1 ? this.$t('user.enable') : this.$t('user.disable');
+      const userIds = this.selection.map(item => item.userId);
+      
+      this.$confirm(this.$t('user.confirmStatusChange', { action: actionText, count: this.selection.length }), this.$t('common.warning'), {
+        confirmButtonText: this.$t('common.confirm'),
+        cancelButtonText: this.$t('common.cancel'),
+        type: 'warning'
+      }).then(() => {
+        this.loading = true;
+        updateUserStatus(userIds, status).then(() => {
+          this.loading = false;
+          this.getList();
+          this.selection = [];
+          this.$message.success(this.$t('user.statusChangeSuccess', { action: actionText, count: userIds.length }));
+        }).catch(() => {
+          this.loading = false;
+          this.$message.error(this.$t('user.operationFailed'));
+        });
+      }).catch(() => {
+        this.loading = false;
+        this.$message.info(this.$t('common.deleteCancelled'));
       });
     },
   },
