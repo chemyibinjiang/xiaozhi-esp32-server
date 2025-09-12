@@ -280,12 +280,12 @@ export default {
                 });
                 return;
             }
-            this.$confirm(this.$t('paramManagement.confirmBatchDelete', { paramCount }), 'Warning', {
-                confirmButtonText: 'OK',
-                cancelButtonText: 'Cancel',
+            this.$confirm(this.$t('paramManagement.confirmBatchDelete', { paramCount }), this.$t('message.warning'), {
+                confirmButtonText: this.$t('button.ok'),
+                cancelButtonText: this.$t('button.cancel'),
                 type: 'warning'
             }).then(() => {
-                Api.admin.deleteParams(paramIds, ({ data }) => {
+                Api.admin.deleteParam(paramIds, ({ data }) => {
                     if (data.code === 0) {
                         this.fetchParams();
                         this.$message.success({

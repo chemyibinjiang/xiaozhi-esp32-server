@@ -31,7 +31,7 @@
     </el-form>
     <div slot="footer" class="dialog-footer">
       <el-button @click="handleCancel">{{ $t('button.cancel') }}</el-button>
-      <el-button type="primary" @click="handleSubmit">{{ $t('button.confirm') }}</el-button>
+      <el-button type="primary" @click="handleSubmit">{{ $t('button.save') }}</el-button>
     </div>
   </el-dialog>
 </template>
