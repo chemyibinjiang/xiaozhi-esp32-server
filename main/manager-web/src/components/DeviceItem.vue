@@ -20,16 +20,17 @@
       {{ $t('home.voiceModel') }}：{{ device.ttsModelName }} ({{ device.ttsVoiceName }})
     </div>
     <div style="display: flex;gap: 10px;align-items: center;">
-      <div :class="['settings-btn', {'settings-btn-en': isEnglish}]" @click="handleConfigure">
+      <div class="settings-btn" @click="handleConfigure">
         {{ $t('home.configureRole') }}
       </div>
-       <div :class="['settings-btn', {'settings-btn-en': isEnglish}]" @click="handleVoicePrint">
+      <div class="settings-btn" @click="handleVoicePrint">
         {{ $t('home.voiceprintRecognition') }}
       </div>
-      <div :class="['settings-btn', {'settings-btn-en': isEnglish}]" @click="handleDeviceManage">
+      <div class="settings-btn" @click="handleDeviceManage">
         {{ $t('home.deviceManagement') }}({{ device.deviceCount }})
       </div>
-      <div :class="['settings-btn', {'settings-btn-en': isEnglish, 'disabled-btn': device.memModelId === 'Memory_nomem'}]" @click="handleChatHistory">
+      <div :class="['settings-btn', { 'disabled-btn': device.memModelId === 'Memory_nomem' }]"
+        @click="handleChatHistory">
         <el-tooltip v-if="device.memModelId === 'Memory_nomem'" :content="$t('home.enableMemory')" placement="top">
           <span>{{ $t('home.chatHistory') }}</span>
         </el-tooltip>
@@ -128,13 +129,6 @@ export default {
   line-height: 21px;
   cursor: pointer;
   border-radius: 14px;
-}
-
-.settings-btn.settings-btn-en {
-  font-size: 11px;
-  height: 39px;
-  min-width: 65px;
-  padding: 0 16px;
 }
 
 .version-info {
