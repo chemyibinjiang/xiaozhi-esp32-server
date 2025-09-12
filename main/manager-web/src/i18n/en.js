@@ -199,7 +199,7 @@ export default {
   'register.passwordRequired': 'Password cannot be empty',
   'register.confirmPasswordRequired': 'Confirm password cannot be empty',
   'register.goToLogin': 'Already have an account, go to login',
-  'register.agreeTo': 'Registering means you agree to the',
+  'register.agreeTo': 'register implies acceptance of',
   'register.userAgreement': 'User Agreement',
   'register.and': 'and',
   'register.privacyPolicy': 'Privacy Policy',
@@ -489,6 +489,8 @@ export default {
 
   // Home page text
   'home.addAgent': 'Add Agent',
+  'home.greeting': 'Hi Jarvis',
+  'home.wish': "Let's have a wonderful day!",
   'home.languageModel': 'LLM',
   'home.voiceModel': 'TTS',
   'home.configureRole': 'Config Role',
