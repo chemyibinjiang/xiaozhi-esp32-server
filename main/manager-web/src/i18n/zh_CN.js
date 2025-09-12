@@ -7,7 +7,7 @@ export default {
   'header.paramDictionary': '参数字典',
   'header.paramManagement': '参数管理',
   'header.dictManagement': '字典管理',
-  
+
   // 字典数据对话框相关
   'dictDataDialog.addDictData': '新增字典数据',
   'dictDataDialog.dictLabel': '字典标签',
@@ -17,7 +17,7 @@ export default {
   'dictDataDialog.sort': '排序',
   'dictDataDialog.requiredDictLabel': '请输入字典标签',
   'dictDataDialog.requiredDictValue': '请输入字典值',
-  
+
   // 字典类型对话框相关
   'dictTypeDialog.addDictType': '新增字典类型',
   'dictTypeDialog.dictName': '字典类型名称',
@@ -86,7 +86,7 @@ export default {
   'voicePrint.cancelDelete': '已取消删除操作',
   'voicePrint.closeOperation': '操作已关闭',
   'voicePrint.loading': '拼命加载中',
-  
+
   // 手動添加設備對話框相關
   'manualAddDeviceDialog.title': '手动添加设备',
   'manualAddDeviceDialog.deviceType': '设备型号',
@@ -98,7 +98,7 @@ export default {
   'manualAddDeviceDialog.confirm': '确定',
   'manualAddDeviceDialog.cancel': '取消',
   'manualAddDeviceDialog.requiredMacAddress': '请输入Mac地址',
-  
+
   // 参数对话框相关
   'paramDialog.paramCode': '参数编码',
   'paramDialog.paramCodePlaceholder': '请输入参数编码',
@@ -146,10 +146,10 @@ export default {
   'header.changePassword': '修改密码',
   'header.logout': '退出登录',
   'header.searchPlaceholder': '输入名称搜索..',
-  
+
   // 登录页面文本
-  'login.title': '小智服务登录',
-  'login.welcome': '欢迎登录',
+  'login.title': '登录',
+  'login.welcome': 'WELCOME TO LOGIN',
   'login.username': '用户名',
   'login.usernamePlaceholder': '请输入用户名',
   'login.mobilePlaceholder': '请输入手机号码',
@@ -168,7 +168,7 @@ export default {
   'login.and': '和',
   'login.privacyPolicy': '《隐私政策》',
   'login.registerAccount': '注册账号',
-  
+
   // 注册页面文本
   'register.title': '注册账号',
   'register.welcome': '欢迎注册',
@@ -213,7 +213,7 @@ export default {
   'register.registerSuccess': '注册成功！',
   'register.registerFailed': '注册失败',
   'register.passwordsNotMatch': '两次输入的密码不一致',
-  
+
   // 忘记密码页面文本
   'retrievePassword.title': '重置密码',
   'retrievePassword.welcome': '密码找回',
@@ -240,7 +240,7 @@ export default {
   'retrievePassword.newPasswordRequired': '新密码不能为空',
   'retrievePassword.confirmNewPasswordRequired': '确认新密码不能为空',
   'retrievePassword.passwordUpdateSuccess': '密码修改成功',
-  
+
   // 修改密码页面文本
   'changePassword.title': '修改密码',
   'changePassword.oldPasswordLabel': '旧密码：',
@@ -256,7 +256,7 @@ export default {
   'changePassword.newPasswordSameAsOld': '新密码不能与旧密码相同',
   'changePassword.passwordChangedSuccessfully': '密码修改成功，请重新登录',
   'changePassword.changeFailed': '密码修改失败',
-  
+
   // 设备管理页面文本
   'device.management': '设备管理',
   'device.add': '添加设备',
@@ -303,16 +303,16 @@ export default {
   'device.autoUpdateDisabled': '已关闭自动升级',
   'device.batchUnbindSuccess': '成功解绑 {count} 台设备',
   'device.getFirmwareTypeFailed': '获取固件类型失败',
-  
+
   // 消息提示
   'message.success': '操作成功',
   'message.error': '操作失败',
   'message.warning': '警告',
   'message.info': '提示',
-  
+
   // 缓存相关
   'cache.viewer': '缓存查看器',
-  
+
   // 聊天历史对话框相关
   'chatHistory.with': '与',
   'chatHistory.dialogTitle': '的聊天记录',
@@ -357,16 +357,16 @@ export default {
   'cache.clearedSuccess': '缓存已清除',
   'cache.clearFailed': '清除缓存失败',
   'cache.clearCanceled': '已取消清除',
-  
+
   // 通用按钮
   'button.ok': '确定',
   'button.cancel': '取消',
   'button.save': '保存',
   'button.close': '关闭',
-  
+
   // 系统信息
   'system.name': '小智服务',
-  
+
   // 声纹相关
   'voiceprint.management': '声纹管理',
   'voiceprint.add': '添加声纹',
@@ -407,7 +407,7 @@ export default {
   'dictManagement.selectDictDataToDelete': '请选择要删除的字典数据',
   'dictManagement.confirmBatchDeleteDictData': '确定要删除选中的{count}个字典数据吗?',
   'dictManagement.getDictDataFailed': '获取字典数据失败',
-  
+
   // 用户信息
   'user.info': '用户信息',
   'user.username': '用户名',
@@ -481,12 +481,12 @@ export default {
   'user.invalidUserId': '存在无效的用户ID',
   'user.searchPhone': '请输入手机号码查询',
   'user.search': '搜索',
-  
+
   // 语言切换
   'language.zhCN': '中文简体',
-  'language.zhTW': '中文繁体',
+  'language.zhTW': '中文繁體',
   'language.en': 'English',
-  
+
   // 首页文本
   'home.addAgent': '添加智能体',
   'home.languageModel': '语言模型',
@@ -497,7 +497,7 @@ export default {
   'home.chatHistory': '聊天记录',
   'home.lastConversation': '最近对话',
   'home.noConversation': '暂未对话',
-  
+
   // 参数管理页面文本
   'paramManagement.pageTitle': '参数管理',
   'paramManagement.searchPlaceholder': '请输入参数编码或备注查询',
@@ -539,7 +539,7 @@ export default {
   'home.deleteSuccess': '删除成功',
   'home.deleteFailed': '删除失败',
   'home.enableMemory': '请先在“配置角色”界面开启记忆',
-  
+
   // 服务端管理页面文本
   'serverSideManager.pageTitle': '服务端管理',
   'serverSideManager.wsAddress': 'ws地址',
@@ -555,7 +555,7 @@ export default {
   'serverSideManager.operationFailed': '操作失败',
   'serverSideManager.restartSuccess': '重启成功',
   'serverSideManager.updateConfigSuccess': '更新配置成功',
-  
+
   // 添加智能体对话框文本
   'addAgentDialog.title': '添加智能体',
   'addAgentDialog.agentName': '智能体名称',
@@ -564,7 +564,7 @@ export default {
   'addAgentDialog.cancel': '取消',
   'addAgentDialog.nameRequired': '请输入智能体名称',
   'addAgentDialog.addSuccess': '添加成功',
-  
+
   // 角色配置页面文本
   'roleConfig.title': '角色配置',
   'roleConfig.restartNotice': '保存配置后，需要重启设备，新的配置才会生效。',
@@ -579,8 +579,8 @@ export default {
   'roleConfig.asr': '语音识别(ASR)',
   'roleConfig.llm': '大语言模型(LLM)',
   'roleConfig.vllm': '视觉大模型(VLLM)',
-  'roleConfig.intent': '意图识别(Intent)', 
-  'roleConfig.memory': '记忆(Memory)', 
+  'roleConfig.intent': '意图识别(Intent)',
+  'roleConfig.memory': '记忆(Memory)',
   'roleConfig.tts': '语音合成(TTS)',
   'roleConfig.voiceType': '角色音色(Voice Type)',
   'roleConfig.pleaseEnterContent': '请输入内容',
@@ -600,7 +600,7 @@ export default {
   'roleConfig.fetchConfigFailed': '获取配置失败',
   'roleConfig.fetchModelsFailed': '获取模型列表失败',
   'roleConfig.fetchPluginsFailed': '获取插件列表失败',
-  
+
   // 功能管理对话框文本
   'functionDialog.title': '功能管理',
   'functionDialog.unselectedFunctions': '未选功能',
@@ -628,7 +628,7 @@ export default {
   'functionDialog.copyFailed': '复制失败，请手动复制',
   'functionDialog.jsonFormatError': '的字段格式错误：JSON格式有误',
   'functionDialog.defaultValue': '默认值',
-  
+
   // 模型配置页面文本
   'modelConfig.searchPlaceholder': '请输入模型名称查询',
   'modelConfig.search': '搜索',
@@ -678,7 +678,7 @@ export default {
   'modelConfig.nextPage': '下一页',
   'modelConfig.totalRecords': '共{total}条记录',
   'modelConfig.loading': '拼命加载中',
-  
+
   // 模型配置对话框文本
   'modelConfigDialog.addModel': '添加模型',
   'modelConfigDialog.editModel': '修改模型',
@@ -700,7 +700,7 @@ export default {
   'modelConfigDialog.callInfo': '调用信息',
   'modelConfigDialog.enterJsonExample': '请输入JSON格式变量(示例:{"key":"value"})',
   'modelConfigDialog.save': '保存',
-  
+
   // TTS模型配置文本
   'ttsModel.select': '选择',
   'ttsModel.voiceCode': '音色编码',
@@ -724,7 +724,7 @@ export default {
   'ttsModel.fetchVoicesFailed': '获取音色列表失败',
   'ttsModel.loadVoicesFailed': '加载音色数据失败',
   'ttsModel.unnamedVoice': '未命名音色',
-  
+
   // OTA管理页面文本
   'otaManagement.firmwareManagement': '固件管理',
   'otaManagement.searchPlaceholder': '请输入固件名称查询',
@@ -764,7 +764,7 @@ export default {
   'otaManagement.addSuccess': '新增成功',
   'otaManagement.addFailed': '新增失败',
   'otaManagement.fetchFirmwareListFailed': '获取固件列表失败',
-  
+
   // 字段管理页面模型类型翻译
   'providerManagement.all': '全部',
   'providerManagement.modelType.ASR': '语音识别',
@@ -775,7 +775,7 @@ export default {
   'providerManagement.modelType.Memory': '记忆模块',
   'providerManagement.modelType.VAD': '语音活动检测',
   'providerManagement.modelType.Plugin': '插件工具',
-  
+
   // Provider Dialog 翻译
   'providerDialog.category': '类别',
   'providerDialog.selectCategory': '请选择类别',

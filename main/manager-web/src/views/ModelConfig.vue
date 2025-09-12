@@ -47,12 +47,13 @@
         <!-- 右侧内容 -->
         <div class="content-area">
           <el-card class="model-card" shadow="never">
-            <el-table ref="modelTable" style="width: 100%" v-loading="loading" :element-loading-text="$t('modelConfig.loading')"
-              element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.7)"
-              :header-cell-style="{ background: 'transparent' }" :data="modelList" class="data-table"
-              header-row-class-name="table-header" :header-cell-class-name="headerCellClassName"
-              @selection-change="handleSelectionChange">
-              <el-table-column type="selection" width="55" align="center" :cell-class-name="selectionCellClassName"></el-table-column>
+            <el-table ref="modelTable" style="width: 100%" v-loading="loading"
+              :element-loading-text="$t('modelConfig.loading')" element-loading-spinner="el-icon-loading"
+              element-loading-background="rgba(255, 255, 255, 0.7)" :header-cell-style="{ background: 'transparent' }"
+              :data="modelList" class="data-table" header-row-class-name="table-header"
+              :header-cell-class-name="headerCellClassName" @selection-change="handleSelectionChange">
+              <el-table-column type="selection" width="55" align="center"
+                :cell-class-name="selectionCellClassName"></el-table-column>
               <el-table-column :label="$t('modelConfig.modelId')" prop="id" align="center"></el-table-column>
               <el-table-column :label="$t('modelConfig.modelName')" prop="modelName" align="center"></el-table-column>
               <el-table-column :label="$t('modelConfig.provider')" align="center">
@@ -79,7 +80,7 @@
                   </el-button>
                 </template>
               </el-table-column>
-              <el-table-column :label="$t('modelConfig.action')" align="center" width="180px">
+              <el-table-column :label="$t('modelConfig.action')" align="center" width="210px">
                 <template slot-scope="scope">
                   <el-button type="text" size="mini" @click="editModel(scope.row)" class="edit-btn">
                     {{ $t('modelConfig.edit') }}
@@ -109,19 +110,26 @@
               <div class="custom-pagination">
 
                 <el-select v-model="pageSize" @change="handlePageSizeChange" class="page-size-select">
-                  <el-option v-for="item in pageSizeOptions" :key="item" :label="$t('modelConfig.itemsPerPage', { items: item })" :value="item">
+                  <el-option v-for="item in pageSizeOptions" :key="item"
+                    :label="$t('modelConfig.itemsPerPage', { items: item })" :value="item">
                   </el-option>
                 </el-select>
 
-                <button class="pagination-btn" :disabled="currentPage === 1" @click="goFirst">{{ $t('modelConfig.firstPage') }}</button>
-                <button class="pagination-btn" :disabled="currentPage === 1" @click="goPrev">{{ $t('modelConfig.prevPage') }}</button>
+                <button class="pagination-btn" :disabled="currentPage === 1" @click="goFirst">{{
+                  $t('modelConfig.firstPage')
+                  }}</button>
+                <button class="pagination-btn" :disabled="currentPage === 1" @click="goPrev">{{
+                  $t('modelConfig.prevPage')
+                  }}</button>
 
                 <button v-for="page in visiblePages" :key="page" class="pagination-btn"
                   :class="{ active: page === currentPage }" @click="goToPage(page)">
                   {{ page }}
                 </button>
 
-                <button class="pagination-btn" :disabled="currentPage === pageCount" @click="goNext">{{ $t('modelConfig.nextPage') }}</button>
+                <button class="pagination-btn" :disabled="currentPage === pageCount" @click="goNext">{{
+                  $t('modelConfig.nextPage')
+                  }}</button>
                 <span class="total-text">{{ $t('modelConfig.totalRecords', { total }) }}</span>
               </div>
             </div>
@@ -173,14 +181,14 @@ export default {
   created() {
     this.loadData();
   },
-  
+
   mounted() {
     // 在组件挂载后确保表头翻译文本正确显示
     setTimeout(() => {
       this.updateSelectionHeaderText();
     }, 100);
   },
-  
+
   updated() {
     // 在组件更新后重新设置表头翻译文本
     this.updateSelectionHeaderText();
@@ -345,17 +353,17 @@ export default {
       const id = formData.id;
 
       if (this.editModelData.duplicateMode) {
-        Api.model.addModel({modelType, provideCode, formData},
-        ({ data }) => {
-          if (data.code === 0) {
-            this.$message.success(this.$t('modelConfig.duplicateSuccess'));
-            this.loadData();
-            this.editDialogVisible = false;
-          } else {
-            this.$message.error(data.msg || this.$t('modelConfig.duplicateFailed'));
-          }
-          done && done(); // 调用done回调关闭加载状态
-        })
+        Api.model.addModel({ modelType, provideCode, formData },
+          ({ data }) => {
+            if (data.code === 0) {
+              this.$message.success(this.$t('modelConfig.duplicateSuccess'));
+              this.loadData();
+              this.editDialogVisible = false;
+            } else {
+              this.$message.error(data.msg || this.$t('modelConfig.duplicateFailed'));
+            }
+            done && done(); // 调用done回调关闭加载状态
+          })
       }
       else {
         Api.model.updateModel(
@@ -790,9 +798,11 @@ export default {
   content: attr(data-content);
   display: block;
   text-align: center;
-  line-height: 32px; /* 设置合适的行高，确保文本完整显示 */
+  line-height: 32px;
+  /* 设置合适的行高，确保文本完整显示 */
   color: black;
-  margin-top: 0; /* 移除可能导致偏移的上边距 */
+  margin-top: 0;
+  /* 移除可能导致偏移的上边距 */
   height: 32px;
   position: absolute;
   top: 50%;
@@ -804,6 +814,7 @@ export default {
 .custom-selection-header .cell {
   position: relative;
 }
+
 /* 已移除可能影响文本显示的空伪元素 */
 
 ::v-deep .el-table__body .el-checkbox__inner {
