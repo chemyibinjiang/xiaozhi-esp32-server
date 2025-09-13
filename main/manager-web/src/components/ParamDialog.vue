@@ -122,6 +122,9 @@ export default {
     visible(newVal) {
       if (newVal) {
         this.dialogKey = Date.now();
+      } else {
+        // 当对话框关闭时，重置saving状态
+        this.saving = false;
       }
     }
   }
