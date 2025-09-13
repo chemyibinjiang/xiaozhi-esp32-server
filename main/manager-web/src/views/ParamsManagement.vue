@@ -93,8 +93,8 @@
         </div>
 
         <!-- 新增/编辑参数对话框 -->
-        <param-dialog :title="dialogTitle" :visible.sync="dialogVisible" :form="paramForm" @submit="handleSubmit"
-            @cancel="dialogVisible = false" />
+        <param-dialog ref="paramDialog" :title="dialogTitle" :visible.sync="dialogVisible" :form="paramForm"
+            @submit="handleSubmit" @cancel="dialogVisible = false" />
         <el-footer>
             <version-footer />
         </el-footer>
@@ -224,18 +224,20 @@ export default {
             if (form.id) {
                 // 更新参数
                 Api.admin.updateParam(form, ({ data }) => {
-                    if (data.code === 0) {
-                        this.dialogVisible = false;
-                        this.fetchParams();
-                        this.$message.success({
-                            message: this.$t('paramManagement.updateSuccess'),
-                            showClose: true
-                        });
-                    } else {
-                        this.$message.error({
-                            message: data.msg || this.$t('paramManagement.updateFailed'),
-                            showClose: true
-                        });
+                    this.dialogVisible = false;
+                    this.fetchParams();
+                    this.$message.success({
+                        message: this.$t('paramManagement.updateSuccess'),
+                        showClose: true
+                    });
+                }, ({ data }) => {
+                    this.$message.error({
+                        message: data.msg || this.$t('paramManagement.updateFailed'),
+                        showClose: true
+                    });
+                    // 调用ParamDialog的resetSaving方法重置保存状态
+                    if (this.$refs.paramDialog && typeof this.$refs.paramDialog.resetSaving === 'function') {
+                        this.$refs.paramDialog.resetSaving();
                     }
                 });
             } else {
@@ -253,6 +255,10 @@ export default {
                             message: data.msg || this.$t('paramManagement.addFailed'),
                             showClose: true
                         });
+                        // 调用ParamDialog的resetSaving方法重置保存状态
+                        if (this.$refs.paramDialog && typeof this.$refs.paramDialog.resetSaving === 'function') {
+                            this.$refs.paramDialog.resetSaving();
+                        }
                     }
                 });
             }
