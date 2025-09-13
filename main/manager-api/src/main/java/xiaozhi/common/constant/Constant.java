@@ -127,6 +127,11 @@ public interface Constant {
     String SERVER_VOICE_PRINT = "server.voice_print";
 
     /**
+     * mqtt密钥
+     */
+    String SERVER_MQTT_SECRET = "server.mqtt_signature_key";
+
+    /**
      * 无记忆
      */
     String MEMORY_NO_MEM = "Memory_nomem";
