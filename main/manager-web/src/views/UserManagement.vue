@@ -65,7 +65,8 @@
                 <el-select v-model="pageSize" @change="handlePageSizeChange"
                   :class="['page-size-select', { 'page-size-select-en': isEnglish }]">
                   <el-option v-for="item in pageSizeOptions" :key="item"
-                    :label="$t('modelConfig.itemsPerPage', { count: item })" :value="item">
+                    :label="$t('modelConfig.itemsPerPage', { items: item })"
+                    :value="item">
                   </el-option>
                 </el-select>
 

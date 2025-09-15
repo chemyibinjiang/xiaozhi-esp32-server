@@ -285,7 +285,8 @@ export default {
   'device.operation': '操作',
   'device.search': '搜索',
   'device.selectAll': '全选/取消全选',
-  'device.bindWithCode': '验证码绑定',
+  'deviceManagement.loading': '拼命加载中',
+  'device.bindWithCode': '扫码绑定',
   'device.manualAdd': '手动添加',
   'device.unbind': '解绑',
   'device.selectAtLeastOne': '请至少选择一条记录',
@@ -685,6 +686,8 @@ export default {
   // 模型配置对话框文本
   'modelConfigDialog.addModel': '添加模型',
   'modelConfigDialog.editModel': '修改模型',
+  'modelConfigDialog.duplicateModel': '创建副本',
+  'modelConfigDialog.copySuffix': '_副本',
   'modelConfigDialog.modelInfo': '模型信息',
   'modelConfigDialog.enable': '是否启用',
   'modelConfigDialog.setDefault': '设为默认',
@@ -718,6 +721,9 @@ export default {
   'ttsModel.referenceText': '克隆音频文本',
   'ttsModel.enterReferenceText': '这里是克隆音频对应文本',
   'ttsModel.action': '操作',
+  'ttsModel.operation': '操作',
+  'ttsModel.operationFailed': '操作失败',
+  'ttsModel.operationClosed': '操作已关闭',
   'ttsModel.edit': '编辑',
   'ttsModel.delete': '删除',
   'ttsModel.save': '保存',
@@ -727,6 +733,8 @@ export default {
   'ttsModel.fetchVoicesFailed': '获取音色列表失败',
   'ttsModel.loadVoicesFailed': '加载音色数据失败',
   'ttsModel.unnamedVoice': '未命名音色',
+  'ttsModel.finishEditingFirst': '请先完成当前编辑',
+  'ttsModel.selectVoiceToDelete': '请选择要删除的音色',
 
   // OTA管理页面文本
   'otaManagement.firmwareManagement': '固件管理',
