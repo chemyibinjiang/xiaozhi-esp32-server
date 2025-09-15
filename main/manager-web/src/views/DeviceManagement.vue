@@ -17,7 +17,7 @@
           <el-card class="device-card" shadow="never">
             <el-table ref="deviceTable" :data="paginatedDeviceList" class="transparent-table"
                       :header-cell-class-name="headerCellClassName" v-loading="loading"
-                      :element-loading-text="$t('message.loading')"
+                      :element-loading-text="$t('deviceManagement.loading')"
                       element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.7)">
               <el-table-column :label="$t('modelConfig.select')" align="center" width="120">
                 <template slot-scope="scope">

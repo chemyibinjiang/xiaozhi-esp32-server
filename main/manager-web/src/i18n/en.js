@@ -273,7 +273,6 @@ export default {
   'device.input6DigitCode': 'Please enter a 6-digit verification code',
   'device.bindSuccess': 'Device binding successful',
   'device.bindFailed': 'Binding failed',
-  // DeviceManagement page extended translations
   'device.searchPlaceholder': 'Please enter device model or Mac address to search',
   'device.model': 'Device Model',
   'device.macAddress': 'Mac Address',
@@ -285,6 +284,7 @@ export default {
   'device.operation': 'Operation',
   'device.search': 'Search',
   'device.selectAll': 'Select All/Deselect All',
+  'deviceManagement.loading': 'Loading...',
   'device.bindWithCode': 'Bind with Verification Code',
   'device.manualAdd': 'Manual Add',
   'device.unbind': 'Unbind',
@@ -686,6 +686,8 @@ export default {
   // Model Configuration Dialog Text
   'modelConfigDialog.addModel': 'Add Model',
   'modelConfigDialog.editModel': 'Edit Model',
+  'modelConfigDialog.duplicateModel': 'Duplicate Model',
+  'modelConfigDialog.copySuffix': '_copy',
   'modelConfigDialog.modelInfo': 'Model Information',
   'modelConfigDialog.enable': 'Enable',
   'modelConfigDialog.setDefault': 'Set as Default',
@@ -719,6 +721,9 @@ export default {
   'ttsModel.referenceText': 'Reference Audio Text',
   'ttsModel.enterReferenceText': 'This is the text for reference audio',
   'ttsModel.action': 'Action',
+  'ttsModel.operation': 'Operation',
+  'ttsModel.operationFailed': 'Operation failed',
+  'ttsModel.operationClosed': 'Operation closed',
   'ttsModel.edit': 'Edit',
   'ttsModel.delete': 'Delete',
   'ttsModel.save': 'Save',
@@ -728,6 +733,8 @@ export default {
   'ttsModel.fetchVoicesFailed': 'Failed to fetch voice list',
   'ttsModel.loadVoicesFailed': 'Failed to load voice data',
   'ttsModel.unnamedVoice': 'Unnamed Voice',
+  'ttsModel.finishEditingFirst': 'Please finish current editing first',
+  'ttsModel.selectVoiceToDelete': 'Please select voices to delete',
 
   // OTA Management Page Text
   'otaManagement.firmwareManagement': 'Firmware Management',

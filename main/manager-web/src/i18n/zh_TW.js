@@ -273,7 +273,6 @@ export default {
   'device.input6DigitCode': '請輸入6位數字驗證碼',
   'device.bindSuccess': '設備綁定成功',
   'device.bindFailed': '綁定失敗',
-  // DeviceManagement頁面擴展翻譯
   'device.searchPlaceholder': '請輸入設備型號或Mac地址查詢',
   'device.model': '設備型號',
   'device.macAddress': 'Mac地址',
@@ -285,6 +284,7 @@ export default {
   'device.operation': '操作',
   'device.search': '搜索',
   'device.selectAll': '全選/取消全選',
+  'deviceManagement.loading': '拼命加載中',
   'device.bindWithCode': '驗證碼綁定',
   'device.manualAdd': '手動添加',
   'device.unbind': '解綁',
@@ -686,6 +686,8 @@ export default {
   // 模型配置對話框文本
   'modelConfigDialog.addModel': '添加模型',
   'modelConfigDialog.editModel': '修改模型',
+  'modelConfigDialog.duplicateModel': '建立副本',
+  'modelConfigDialog.copySuffix': '_副本',
   'modelConfigDialog.modelInfo': '模型信息',
   'modelConfigDialog.enable': '是否啟用',
   'modelConfigDialog.setDefault': '設為默認',
@@ -719,6 +721,7 @@ export default {
   'ttsModel.referenceText': '克隆音頻文本',
   'ttsModel.enterReferenceText': '這裡是克隆音頻對應文本',
   'ttsModel.action': '操作',
+  'ttsModel.operation': '操作',
   'ttsModel.edit': '編輯',
   'ttsModel.delete': '刪除',
   'ttsModel.save': '保存',
@@ -728,6 +731,10 @@ export default {
   'ttsModel.fetchVoicesFailed': '獲取音色列表失敗',
   'ttsModel.loadVoicesFailed': '加載音色數據失敗',
   'ttsModel.unnamedVoice': '未命名音色',
+  'ttsModel.finishEditingFirst': '請先完成目前編輯',
+  'ttsModel.selectVoiceToDelete': '請選擇要刪除的音色',
+  'ttsModel.operationFailed': '操作失敗',
+  'ttsModel.operationClosed': '操作已關閉',
 
   // OTA管理頁面文本
   'otaManagement.firmwareManagement': '固件管理',

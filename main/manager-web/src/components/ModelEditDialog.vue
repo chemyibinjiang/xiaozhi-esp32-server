@@ -192,8 +192,8 @@ export default {
             const model = data.data;
 
             if (this.modelData.duplicateMode) {
-              model.modelName = this.modelData.modelName + '_副本';
-              model.modelCode = this.modelData.modelCode + '_副本';
+              model.modelName = this.modelData.modelName + this.$t('modelConfigDialog.copySuffix');
+              model.modelCode = this.modelData.modelCode + this.$t('modelConfigDialog.copySuffix');
             }
             this.pendingProviderType = model.configJson.type;
             this.pendingModelData = model;
