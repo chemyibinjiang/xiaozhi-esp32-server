@@ -284,5 +284,12 @@ public class SysParamsController {
         if (!secret.matches(".*[a-z].*") || !secret.matches(".*[A-Z].*")) {
             throw new RenException("您的mqtt密钥长度不安全，mqtt密钥必须同时包含大小写字母");
         }
+        // 不允许包含弱密码
+        String[] weakPasswords = { "test", "1234", "admin", "password", "qwerty", "xiaozhi" };
+        for (String weakPassword : weakPasswords) {
+            if (secret.toLowerCase().contains(weakPassword)) {
+                throw new RenException("您的mqtt密钥包含弱密码：" + weakPassword);
+            }
+        }
     }
 }
