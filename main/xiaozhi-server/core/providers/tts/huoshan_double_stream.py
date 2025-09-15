@@ -616,12 +616,13 @@ class TTSProvider(TTSProviderBase):
                             "speech_rate": self.speech_rate,
                             "loudness_rate": self.loudness_rate
                         },
+                        "additions": json.dumps({
+                            "post_process": {
+                                "pitch": self.pitch
+                            }
+                        })
                     },
-                    "additions": {
-                        "post_process": {
-                            "pitch": self.pitch
-                        }
-                    }
+
                 }
             )
         )
