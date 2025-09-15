@@ -1,12 +1,12 @@
 <template>
   <div class="welcome">
-    <HeaderBar/>
+    <HeaderBar />
 
     <div class="operation-bar">
       <h2 class="page-title">{{ $t('device.management') }}</h2>
       <div class="right-operations">
         <el-input :placeholder="$t('device.searchPlaceholder')" v-model="searchKeyword" class="search-input"
-                  @keyup.enter.native="handleSearch" clearable/>
+          @keyup.enter.native="handleSearch" clearable />
         <el-button class="btn-search" @click="handleSearch">{{ $t('device.search') }}</el-button>
       </div>
     </div>
@@ -16,9 +16,9 @@
         <div class="content-area">
           <el-card class="device-card" shadow="never">
             <el-table ref="deviceTable" :data="paginatedDeviceList" class="transparent-table"
-                      :header-cell-class-name="headerCellClassName" v-loading="loading"
-                      :element-loading-text="$t('deviceManagement.loading')"
-                      element-loading-spinner="el-icon-loading" element-loading-background="rgba(255, 255, 255, 0.7)">
+              :header-cell-class-name="headerCellClassName" v-loading="loading"
+              :element-loading-text="$t('deviceManagement.loading')" element-loading-spinner="el-icon-loading"
+              element-loading-background="rgba(255, 255, 255, 0.7)">
               <el-table-column :label="$t('modelConfig.select')" align="center" width="120">
                 <template slot-scope="scope">
                   <el-checkbox v-model="scope.row.selected"></el-checkbox>
@@ -29,74 +29,77 @@
                   {{ getFirmwareTypeName(scope.row.model) }}
                 </template>
               </el-table-column>
-              <el-table-column :label="$t('device.firmwareVersion')" prop="firmwareVersion" align="center"></el-table-column>
+              <el-table-column :label="$t('device.firmwareVersion')" prop="firmwareVersion"
+                align="center"></el-table-column>
               <el-table-column :label="$t('device.macAddress')" prop="macAddress" align="center"></el-table-column>
               <el-table-column :label="$t('device.bindTime')" prop="bindTime" align="center"></el-table-column>
-              <el-table-column :label="$t('device.lastConversation')" prop="lastConversation" align="center"></el-table-column>
+              <el-table-column :label="$t('device.lastConversation')" prop="lastConversation"
+                align="center"></el-table-column>
               <el-table-column :label="$t('device.remark')" align="center">
                 <template #default="{ row }">
-                  <el-input
-                      v-show="row.isEdit"
-                      v-model="row.remark"
-                      size="mini"
-                      maxlength="64"
-                      show-word-limit
-                      @blur="onRemarkBlur(row)"
-                      @keyup.enter.native="onRemarkEnter(row)"
-                  />
+                  <el-input v-show="row.isEdit" v-model="row.remark" size="mini" maxlength="64" show-word-limit
+                    @blur="onRemarkBlur(row)" @keyup.enter.native="onRemarkEnter(row)" />
                   <span v-show="!row.isEdit" class="remark-view">
-                  <i
-                      class="el-icon-edit"
-                      @click="row.isEdit = true"
-                      style="cursor: pointer;"
-                  ></i>
-                  <span @click="row.isEdit = true">
-                    {{ row.remark || '-' }}
+                    <i class="el-icon-edit" @click="row.isEdit = true" style="cursor: pointer;"></i>
+                    <span @click="row.isEdit = true">
+                      {{ row.remark || '-' }}
+                    </span>
                   </span>
-                </span>
                 </template>
               </el-table-column>
               <el-table-column :label="$t('device.autoUpdate')" align="center">
                 <template slot-scope="scope">
                   <el-switch v-model="scope.row.otaSwitch" size="mini" active-color="#13ce66" inactive-color="#ff4949"
-                             @change="handleOtaSwitchChange(scope.row)"></el-switch>
+                    @change="handleOtaSwitchChange(scope.row)"></el-switch>
                 </template>
               </el-table-column>
               <el-table-column :label="$t('device.operation')" align="center">
                 <template slot-scope="scope">
                   <el-button size="mini" type="text" @click="handleUnbind(scope.row.device_id)">
-                  {{ $t('device.unbind') }}
-                </el-button>
+                    {{ $t('device.unbind') }}
+                  </el-button>
+                  <el-button size="mini" type="text" @click="handleMcpToolCall(scope.row.device_id)">
+                    {{ $t('device.toolCall') }}
+                  </el-button>
                 </template>
               </el-table-column>
             </el-table>
 
             <div class="table_bottom">
               <div class="ctrl_btn">
-                  <el-button size="mini" type="primary" class="select-all-btn" @click="handleSelectAll">
-                    {{ isCurrentPageAllSelected ? $t('common.deselectAll') : $t('common.selectAll') }}
-                  </el-button>
-                  <el-button type="success" size="mini" class="add-device-btn" @click="handleAddDevice">
-                    {{ $t('device.bindWithCode') }}
-                  </el-button>
-                  <el-button type="success" size="mini" class="add-device-btn" @click="handleManualAddDevice">
-                    {{ $t('device.manualAdd') }}
-                  </el-button>
-                  <el-button size="mini" type="danger" icon="el-icon-delete" @click="deleteSelected">{{ $t('device.unbind') }}</el-button>
-                </div>
+                <el-button size="mini" type="primary" class="select-all-btn" @click="handleSelectAll">
+                  {{ isCurrentPageAllSelected ? $t('common.deselectAll') : $t('common.selectAll') }}
+                </el-button>
+                <el-button type="success" size="mini" class="add-device-btn" @click="handleAddDevice">
+                  {{ $t('device.bindWithCode') }}
+                </el-button>
+                <el-button type="success" size="mini" class="add-device-btn" @click="handleManualAddDevice">
+                  {{ $t('device.manualAdd') }}
+                </el-button>
+                <el-button size="mini" type="danger" icon="el-icon-delete" @click="deleteSelected">{{
+                  $t('device.unbind')
+                }}</el-button>
+              </div>
               <div class="custom-pagination">
                 <el-select v-model="pageSize" @change="handlePageSizeChange" class="page-size-select">
-                    <el-option v-for="item in pageSizeOptions" :key="item" :label="$t('dictManagement.itemsPerPage').replace('{items}', item)" :value="item">
-                    </el-option>
-                  </el-select>
-                <button class="pagination-btn" :disabled="currentPage === 1" @click="goFirst">{{ $t('dictManagement.firstPage') }}</button>
-                  <button class="pagination-btn" :disabled="currentPage === 1" @click="goPrev">{{ $t('dictManagement.prevPage') }}</button>
+                  <el-option v-for="item in pageSizeOptions" :key="item"
+                    :label="$t('dictManagement.itemsPerPage').replace('{items}', item)" :value="item">
+                  </el-option>
+                </el-select>
+                <button class="pagination-btn" :disabled="currentPage === 1" @click="goFirst">{{
+                  $t('dictManagement.firstPage')
+                }}</button>
+                <button class="pagination-btn" :disabled="currentPage === 1" @click="goPrev">{{
+                  $t('dictManagement.prevPage')
+                }}</button>
                 <button v-for="page in visiblePages" :key="page" class="pagination-btn"
-                        :class="{ active: page === currentPage }" @click="goToPage(page)">
+                  :class="{ active: page === currentPage }" @click="goToPage(page)">
                   {{ page }}
                 </button>
-                <button class="pagination-btn" :disabled="currentPage === pageCount" @click="goNext">{{ $t('dictManagement.nextPage') }}</button>
-                <span class="total-text">{{ $t('dictManagement.totalRecords').replace('{total}', deviceList.length) }}</span>
+                <button class="pagination-btn" :disabled="currentPage === pageCount" @click="goNext">{{
+                  $t('dictManagement.nextPage') }}</button>
+                <span class="total-text">{{ $t('dictManagement.totalRecords').replace('{total}', deviceList.length)
+                }}</span>
               </div>
             </div>
           </el-card>
@@ -105,9 +108,10 @@
     </div>
 
     <AddDeviceDialog :visible.sync="addDeviceDialogVisible" :agent-id="currentAgentId"
-                     @refresh="fetchBindDevices(currentAgentId)"/>
+      @refresh="fetchBindDevices(currentAgentId)" />
     <ManualAddDeviceDialog :visible.sync="manualAddDeviceDialogVisible" :agent-id="currentAgentId"
-                     @refresh="fetchBindDevices(currentAgentId)"/>
+      @refresh="fetchBindDevices(currentAgentId)" />
+    <McpToolCallDialog :visible.sync="mcpToolCallDialogVisible" :device-id="selectedDeviceId" />
 
   </div>
 </template>
@@ -115,19 +119,23 @@
 <script>
 import Api from '@/apis/api';
 import AddDeviceDialog from "@/components/AddDeviceDialog.vue";
-import ManualAddDeviceDialog from "@/components/ManualAddDeviceDialog.vue";
 import HeaderBar from "@/components/HeaderBar.vue";
+import ManualAddDeviceDialog from "@/components/ManualAddDeviceDialog.vue";
+import McpToolCallDialog from "@/components/McpToolCallDialog.vue";
 
 export default {
   components: {
-    HeaderBar, 
+    HeaderBar,
     AddDeviceDialog,
-    ManualAddDeviceDialog
+    ManualAddDeviceDialog,
+    McpToolCallDialog
   },
   data() {
     return {
       addDeviceDialogVisible: false,
       manualAddDeviceDialogVisible: false,
+      mcpToolCallDialogVisible: false,
+      selectedDeviceId: '',
       searchKeyword: "",
       activeSearchKeyword: "",
       currentAgentId: this.$route.query.agentId || '',
@@ -145,8 +153,8 @@ export default {
       const keyword = this.activeSearchKeyword.toLowerCase();
       if (!keyword) return this.deviceList;
       return this.deviceList.filter(device =>
-          (device.model && device.model.toLowerCase().includes(keyword)) ||
-          (device.macAddress && device.macAddress.toLowerCase().includes(keyword))
+        (device.model && device.model.toLowerCase().includes(keyword)) ||
+        (device.macAddress && device.macAddress.toLowerCase().includes(keyword))
       );
     },
 
@@ -160,8 +168,8 @@ export default {
     },
     // 计算当前页是否全选
     isCurrentPageAllSelected() {
-      return this.paginatedDeviceList.length > 0 && 
-             this.paginatedDeviceList.every(device => device.selected);
+      return this.paginatedDeviceList.length > 0 &&
+        this.paginatedDeviceList.every(device => device.selected);
     },
     visiblePages() {
       const pages = [];
@@ -236,7 +244,7 @@ export default {
     batchUnbindDevices(deviceIds) {
       const promises = deviceIds.map(id => {
         return new Promise((resolve, reject) => {
-          Api.device.unbindDevice(id, ({data}) => {
+          Api.device.unbindDevice(id, ({ data }) => {
             if (data.code === 0) {
               resolve();
             } else {
@@ -246,25 +254,30 @@ export default {
         });
       });
       Promise.all(promises)
-          .then(() => {
-            this.$message.success({
-              message: this.$t('device.batchUnbindSuccess').replace('{count}', deviceIds.length),
-              showClose: true
-            });
-            this.fetchBindDevices(this.currentAgentId);
-          })
-          .catch(error => {
-            this.$message.error({
-              message: error || this.$t('device.batchUnbindError'),
-              showClose: true
-            });
+        .then(() => {
+          this.$message.success({
+            message: this.$t('device.batchUnbindSuccess').replace('{count}', deviceIds.length),
+            showClose: true
           });
+          this.fetchBindDevices(this.currentAgentId);
+        })
+        .catch(error => {
+          this.$message.error({
+            message: error || this.$t('device.batchUnbindError'),
+            showClose: true
+          });
+        });
     },
     handleAddDevice() {
       this.addDeviceDialogVisible = true;
     },
     handleManualAddDevice() {
       this.manualAddDeviceDialogVisible = true;
+    },
+
+    handleMcpToolCall(deviceId) {
+      this.selectedDeviceId = deviceId;
+      this.mcpToolCallDialogVisible = true;
     },
     submitRemark(row) {
       if (row._submitting) return;
@@ -308,18 +321,18 @@ export default {
         cancelButtonText: this.$t('button.cancel'),
         type: 'warning'
       }).then(() => {
-        Api.device.unbindDevice(device_id, ({data}) => {
+        Api.device.unbindDevice(device_id, ({ data }) => {
           if (data.code === 0) {
-              this.$message.success({
-                message: this.$t('device.unbindSuccess'),
-                showClose: true
-              });
+            this.$message.success({
+              message: this.$t('device.unbindSuccess'),
+              showClose: true
+            });
             this.fetchBindDevices(this.$route.query.agentId);
           } else {
-              this.$message.error({
-                message: data.msg || this.$t('device.unbindFailed'),
-                showClose: true
-              });
+            this.$message.error({
+              message: data.msg || this.$t('device.unbindFailed'),
+              showClose: true
+            });
           }
         });
       });
@@ -339,7 +352,7 @@ export default {
 
     fetchBindDevices(agentId) {
       this.loading = true;
-      Api.device.getAgentBindDevices(agentId, ({data}) => {
+      Api.device.getAgentBindDevices(agentId, ({ data }) => {
         this.loading = false;
         if (data.code === 0) {
           this.deviceList = data.data.map(device => {
@@ -359,7 +372,7 @@ export default {
               selected: false
             };
           })
-              .sort((a, b) => a.rawBindTime - b.rawBindTime);
+            .sort((a, b) => a.rawBindTime - b.rawBindTime);
           this.activeSearchKeyword = "";
           this.searchKeyword = "";
         } else {
@@ -367,7 +380,7 @@ export default {
         }
       });
     },
-    headerCellClassName({columnIndex}) {
+    headerCellClassName({ columnIndex }) {
       if (columnIndex === 0) {
         return "custom-selection-header";
       }
@@ -378,12 +391,12 @@ export default {
       return firmwareType ? firmwareType.name : type
     },
     updateDeviceInfo(device_id, payload, callback) {
-      return Api.device.updateDeviceInfo(device_id, payload, ({data}) => {
+      return Api.device.updateDeviceInfo(device_id, payload, ({ data }) => {
         callback(data.code === 0, data);
       })
     },
     handleOtaSwitchChange(row) {
-      this.updateDeviceInfo(row.device_id, {autoUpdate: row.otaSwitch ? 1 : 0}, (result, {msg}) => {
+      this.updateDeviceInfo(row.device_id, { autoUpdate: row.otaSwitch ? 1 : 0 }, (result, { msg }) => {
         if (result) {
           this.$message.success(row.otaSwitch ? this.$t('device.autoUpdateEnabled') : this.$t('device.autoUpdateDisabled'));
           return;
