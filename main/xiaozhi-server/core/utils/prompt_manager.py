@@ -224,6 +224,7 @@ class PromptManager:
                 local_address=local_address,
                 weather_info=weather_info,
                 emojiList=EMOJI_List,
+                device_id=device_id,
             )
             device_cache_key = f"device_prompt:{device_id}"
             self.cache_manager.set(
