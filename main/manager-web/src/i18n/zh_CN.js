@@ -327,6 +327,9 @@ export default {
   'device.autoUpdateDisabled': '已关闭自动升级',
   'device.batchUnbindSuccess': '成功解绑 {count} 台设备',
   'device.getFirmwareTypeFailed': '获取固件类型失败',
+  'device.deviceStatus': '状态',
+  'device.online': '在线',
+  'device.offline': '离线',
 
   // 消息提示
   'message.success': '操作成功',

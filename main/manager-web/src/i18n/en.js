@@ -326,6 +326,9 @@ export default {
   'device.autoUpdateDisabled': 'Auto update disabled',
   'device.batchUnbindSuccess': 'Successfully unbound {count} devices',
   'device.getFirmwareTypeFailed': 'Failed to fetch firmware type',
+  'device.deviceStatus': 'Status',
+  'device.online': 'Online',
+  'device.offline': 'Offline',
 
   // Message tips
   'message.success': 'Operation Successful',

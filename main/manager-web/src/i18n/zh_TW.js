@@ -326,6 +326,9 @@ export default {
   'device.autoUpdateDisabled': '已關閉自動升級',
   'device.batchUnbindSuccess': '成功解綁 {count} 台設備',
   'device.getFirmwareTypeFailed': '獲取固件類型失敗',
+  'device.deviceStatus': '狀態',
+  'device.online': '在線',
+  'device.offline': '離線',
 
   // 消息提示
   'message.success': '操作成功',
