@@ -324,7 +324,7 @@ export default {
   'device.search': '搜索',
   'device.selectAll': '全選/取消全選',
   'deviceManagement.loading': '拼命加載中',
-  'device.bindWithCode': '驗證碼綁定',
+  'device.bindWithCode': '6位驗證碼綁定',
   'device.manualAdd': '手動添加',
   'device.unbind': '解綁',
   'device.selectAtLeastOne': '請至少選擇一條記錄',

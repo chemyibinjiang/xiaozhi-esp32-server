@@ -324,7 +324,7 @@ export default {
   'device.search': 'Search',
   'device.selectAll': 'Select All/Deselect All',
   'deviceManagement.loading': 'Loading...',
-  'device.bindWithCode': 'Bind with Verification Code',
+  'device.bindWithCode': '6-digit Verification Code Binding',
   'device.manualAdd': 'Manual Add',
   'device.unbind': 'Unbind',
   'device.selectAtLeastOne': 'Please select at least one record',
