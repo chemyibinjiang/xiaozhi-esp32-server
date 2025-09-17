@@ -7,6 +7,7 @@ export default {
   'header.paramDictionary': '参数字典',
   'header.paramManagement': '参数管理',
   'header.dictManagement': '字典管理',
+  'header.agentTemplate': '默认角色模板',
 
   // 字典数据对话框相关
   'dictDataDialog.addDictData': '新增字典数据',
