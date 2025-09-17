@@ -252,9 +252,9 @@ export default {
     },
 
     // 封装输入验证逻辑
-    validateInput(input, message) {
+    validateInput(input, messageKey) {
       if (!input.trim()) {
-        showDanger(message);
+        showDanger(this.$t(messageKey));
         return false;
       }
       return true;
@@ -264,24 +264,24 @@ export default {
       if (this.isMobileLogin) {
         // 手机号登录验证
         if (!validateMobile(this.form.mobile, this.form.areaCode)) {
-          showDanger("请输入正确的手机号码");
+          showDanger(this.$t('login.requiredMobile'));
           return;
         }
         // 拼接手机号作为用户名
         this.form.username = this.form.areaCode + this.form.mobile;
       } else {
         // 用户名登录验证
-        if (!this.validateInput(this.form.username, "用户名不能为空")) {
+        if (!this.validateInput(this.form.username, 'login.requiredUsername')) {
           return;
         }
       }
 
       // 验证密码
-      if (!this.validateInput(this.form.password, "密码不能为空")) {
+      if (!this.validateInput(this.form.password, 'login.requiredPassword')) {
         return;
       }
       // 验证验证码
-      if (!this.validateInput(this.form.captcha, "验证码不能为空")) {
+      if (!this.validateInput(this.form.captcha, 'login.requiredCaptcha')) {
         return;
       }
 
@@ -289,16 +289,19 @@ export default {
       Api.user.login(
         this.form,
         ({ data }) => {
-          showSuccess("登录成功！");
+          showSuccess(this.$t('login.loginSuccess'));
           this.$store.commit("setToken", JSON.stringify(data.data));
           goToPage("/home");
         },
         (err) => {
-          showDanger(err.data.msg || "登录失败");
+          // 直接使用后端返回的国际化消息
+          let errorMessage = err.data.msg || "登录失败";
+          
+          showDanger(errorMessage);
           if (
             err.data != null &&
             err.data.msg != null &&
-            err.data.msg.indexOf("图形验证码") > -1
+            err.data.msg.indexOf("图形验证码") > -1 || err.data.msg.indexOf("Captcha") > -1
           ) {
             this.fetchCaptcha();
           }

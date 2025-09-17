@@ -1,4 +1,11 @@
 export default {
+  // Login page related prompt text
+  'login.requiredUsername': 'Username cannot be empty',
+  'login.requiredPassword': 'Password cannot be empty',
+  'login.requiredCaptcha': 'Captcha cannot be empty',
+  'login.requiredMobile': 'Please enter a valid mobile phone number',
+  'login.loginSuccess': 'Login successful!',
+  
   // HeaderBar组件文本
   'header.smartManagement': 'Agents',
   'header.modelConfig': 'Models',
@@ -89,6 +96,38 @@ export default {
 
   // Manual add device dialog related
   'manualAddDeviceDialog.title': 'Manual Add Device',
+
+  // AddModelDialog component related
+  'addModelDialog.requiredSupplier': 'Please select a supplier',
+  
+  // Register page related
+  'register.title': 'Create Account',
+  'register.welcome': 'Welcome to XiaoZhi AI',
+  'register.usernamePlaceholder': 'Please enter username',
+  'register.mobilePlaceholder': 'Please enter mobile phone number',
+  'register.captchaPlaceholder': 'Please enter captcha',
+  'register.mobileCaptchaPlaceholder': 'Please enter SMS verification code',
+  'register.passwordPlaceholder': 'Please set password',
+  'register.confirmPasswordPlaceholder': 'Please confirm password',
+  'register.goToLogin': 'Already have an account? Login',
+  'register.registerButton': 'Register',
+  'register.agreeTo': 'By registering, you agree to our',
+  'register.userAgreement': 'User Agreement',
+  'register.privacyPolicy': 'Privacy Policy',
+  'register.notAllowRegister': 'User registration is not allowed',
+  'register.captchaLoadFailed': 'Failed to load captcha',
+  'register.inputCaptcha': 'Please enter captcha',
+  'register.inputCorrectMobile': 'Please enter correct mobile phone number',
+  'register.captchaSendSuccess': 'Verification code sent successfully',
+  'register.captchaSendFailed': 'Failed to send verification code',
+  'register.passwordsNotMatch': 'Passwords do not match',
+  'register.registerSuccess': 'Registration successful!',
+  'register.registerFailed': 'Registration failed',
+  'register.requiredUsername': 'Username cannot be empty',
+  'register.requiredPassword': 'Password cannot be empty',
+  'register.requiredCaptcha': 'Captcha cannot be empty',
+  'register.requiredMobileCaptcha': 'Please enter SMS verification code',
+
   'manualAddDeviceDialog.deviceType': 'Device Type',
   'manualAddDeviceDialog.deviceTypePlaceholder': 'Please select device type',
   'manualAddDeviceDialog.firmwareVersion': 'Firmware Version',
@@ -285,7 +324,7 @@ export default {
   'device.search': 'Search',
   'device.selectAll': 'Select All/Deselect All',
   'deviceManagement.loading': 'Loading...',
-  'device.bindWithCode': 'Bind with Verification Code',
+  'device.bindWithCode': '6-digit Verification Code Binding',
   'device.manualAdd': 'Manual Add',
   'device.unbind': 'Unbind',
   'device.selectAtLeastOne': 'Please select at least one record',
