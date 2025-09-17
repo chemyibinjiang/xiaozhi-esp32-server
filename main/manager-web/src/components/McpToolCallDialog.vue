@@ -332,7 +332,10 @@ export default {
       const labelMap = {
         'volume': '音量',
         'brightness': '亮度',
-        'theme': '主题'
+        'theme': '主题',
+        'question': '问题',
+        'url': '网址',
+        'quality': '质量'
       };
       return labelMap[key] || key;
     },
@@ -344,7 +347,14 @@ export default {
         'self.audio_speaker.set_volume': '设置音量',
         'self.screen.set_brightness': '设置亮度',
         'self.screen.set_theme': '设置主题',
-        'self.camera.take_photo': '拍照'
+        'self.camera.take_photo': '拍照识别',
+        'self.get_system_info': '系统信息',
+        'self.reboot': '重启设备',
+        'self.upgrade_firmware': '升级固件',
+        'self.screen.get_info': '屏幕信息',
+        'self.screen.snapshot': '屏幕截图',
+        'self.screen.preview_image': '预览图片',
+        'self.assets.set_download_url': '设置下载地址'
       };
       return nameMap[toolName] || toolName;
     },
@@ -354,6 +364,8 @@ export default {
       if (toolName.includes('audio_speaker')) return '音频';
       if (toolName.includes('screen')) return '显示';
       if (toolName.includes('camera')) return '拍摄';
+      if (toolName.includes('system') || toolName.includes('reboot') || toolName.includes('upgrade')) return '系统';
+      if (toolName.includes('assets')) return '资源';
       return '设备信息';
     },
 
@@ -370,7 +382,14 @@ export default {
         'self.audio_speaker.set_volume': '调整设备的音量大小，请输入0-100之间的数值。',
         'self.screen.set_brightness': '调整设备屏幕的亮度，请输入0-100之间的数值。',
         'self.screen.set_theme': '切换设备屏幕的显示主题，可以选择浅色或深色模式。',
-        'self.camera.take_photo': '使用设备摄像头拍摄照片，可能需要设置拍照参数。'
+        'self.camera.take_photo': '使用设备摄像头拍摄照片并进行识别分析，请输入要询问的问题。',
+        'self.get_system_info': '获取设备的系统信息，包括硬件规格、软件版本等。',
+        'self.reboot': '重启设备，执行后设备将重新启动。',
+        'self.upgrade_firmware': '从指定URL下载并升级设备固件，升级后设备会自动重启。',
+        'self.screen.get_info': '获取屏幕的详细信息，如分辨率、尺寸等参数。',
+        'self.screen.snapshot': '对当前屏幕进行截图并上传到指定URL。',
+        'self.screen.preview_image': '在设备屏幕上预览指定URL的图片。',
+        'self.assets.set_download_url': '设置设备资源文件的下载地址。'
       };
       return helpMap[toolName] || '';
     },
@@ -404,8 +423,42 @@ export default {
         }
       };
 
-      // 存储执行结果
-      this.executionResult = mcpExecuteString;
+      // 显示执行中状态
+      this.executionResult = {
+        status: 'executing',
+        message: '正在执行工具...',
+        request: mcpExecuteString
+      };
+
+      // 调用设备执行工具
+      Api.device.sendDeviceCommand(this.deviceId, mcpExecuteString, ({ data }) => {
+        if (data.code === 0) {
+          try {
+            // 解析设备返回的结果
+            const deviceResult = JSON.parse(data.data);
+            this.executionResult = {
+              status: 'success',
+              response: deviceResult,
+              timestamp: new Date().toLocaleString()
+            };
+          } catch (error) {
+            this.executionResult = {
+              status: 'error',
+              request: mcpExecuteString,
+              error: '解析设备响应失败: ' + error.message,
+              rawResponse: data.data,
+              timestamp: new Date().toLocaleString()
+            };
+          }
+        } else {
+          this.executionResult = {
+            status: 'error',
+            request: mcpExecuteString,
+            error: data.msg || '执行失败',
+            timestamp: new Date().toLocaleString()
+          };
+        }
+      });
     },
 
     cancel() {
