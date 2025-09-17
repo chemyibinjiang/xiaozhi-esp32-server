@@ -47,7 +47,7 @@
                     <img loading="lazy" alt="" class="input-icon" src="@/assets/login/shield.png" />
                     <el-input v-model="form.captcha" :placeholder="$t('register.captchaPlaceholder')" style="flex: 1;" />
                   </div>
-                  <img loading="lazy" v-if="captchaUrl" :src="captchaUrl" alt="验证码"
+                  <img loading="lazy" v-if="captchaUrl" :src="captchaUrl" alt="验证码" 
                     style="width: 150px; height: 40px; cursor: pointer;" @click="fetchCaptcha" />
                 </div>
 
@@ -61,7 +61,7 @@
                   <el-button type="primary" class="send-captcha-btn" :disabled="!canSendMobileCaptcha"
                     @click="sendMobileCaptcha">
                     <span>
-                      {{ countdown > 0 ? `${countdown}秒后重试` : $t('register.sendCaptcha') }}
+                      {{ countdown > 0 ? `${countdown}${$t('register.secondsLater')}` : $t('register.sendCaptcha') }}
                     </span>
                   </el-button>
                 </div>
@@ -248,18 +248,18 @@ export default {
           return;
         }
         if (!this.form.mobileCaptcha) {
-          showDanger('请输入手机验证码');
+          showDanger(this.$t('register.requiredMobileCaptcha'));
           return;
         }
       } else {
         // 用户名注册验证
-        if (!this.validateInput(this.form.username, '用户名不能为空')) {
+        if (!this.validateInput(this.form.username, this.$t('register.requiredUsername'))) {
           return;
         }
       }
 
       // 验证密码
-      if (!this.validateInput(this.form.password, '密码不能为空')) {
+      if (!this.validateInput(this.form.password, this.$t('register.requiredPassword'))) {
         return;
       }
       if (this.form.password !== this.form.confirmPassword) {
@@ -267,7 +267,7 @@ export default {
         return
       }
       // 验证验证码
-      if (!this.validateInput(this.form.captcha, '验证码不能为空')) {
+      if (!this.validateInput(this.form.captcha, this.$t('register.requiredCaptcha'))) {
         return;
       }
 

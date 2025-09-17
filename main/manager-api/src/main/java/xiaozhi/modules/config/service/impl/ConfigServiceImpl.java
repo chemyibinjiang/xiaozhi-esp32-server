@@ -70,7 +70,7 @@ public class ConfigServiceImpl implements ConfigService {
         // 查询默认智能体
         AgentTemplateEntity agent = agentTemplateService.getDefaultTemplate();
         if (agent == null) {
-            throw new RenException("默认智能体未找到");
+            throw new RenException(ErrorCode.DEFAULT_AGENT_NOT_FOUND);
         }
 
         // 构建模块配置
@@ -113,7 +113,7 @@ public class ConfigServiceImpl implements ConfigService {
         // 获取智能体信息
         AgentEntity agent = agentService.getAgentById(device.getAgentId());
         if (agent == null) {
-            throw new RenException("智能体未找到");
+            throw new RenException(ErrorCode.AGENT_NOT_FOUND);
         }
         // 获取音色信息
         String voice = null;
