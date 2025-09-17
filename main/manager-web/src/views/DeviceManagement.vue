@@ -64,7 +64,7 @@
                   <el-button size="mini" type="text" @click="handleUnbind(scope.row.device_id)">
                     {{ $t('device.unbind') }}
                   </el-button>
-                  <el-button size="mini" type="text" @click="handleMcpToolCall(scope.row.device_id)">
+                  <el-button v-if="scope.row.deviceStatus === 'online'" size="mini" type="text" @click="handleMcpToolCall(scope.row.device_id)">
                     {{ $t('device.toolCall') }}
                   </el-button>
                 </template>

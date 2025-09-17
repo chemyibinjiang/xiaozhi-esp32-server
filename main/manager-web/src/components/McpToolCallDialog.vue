@@ -19,7 +19,11 @@
                 <el-input v-model="toolSearchKeyword" :placeholder="$t('mcpToolCall.searchFunction')" clearable />
               </div>
             </div>
-            <div class="tool-list">
+            <div v-if="toolsLoading" class="tool-list-loading">
+              <i class="el-icon-loading"></i>
+              <div class="loading-text">正在获取工具列表...</div>
+            </div>
+            <div v-else class="tool-list">
               <el-radio-group v-model="selectedToolName" class="tool-radio-group">
                 <el-radio v-for="tool in filteredToolList" :key="tool.name" :label="tool.name" class="tool-radio">
                   <div class="tool-item">
@@ -35,7 +39,7 @@
               </el-radio-group>
             </div>
 
-            <div v-if="filteredToolList.length === 0" class="no-results">
+            <div v-if="!toolsLoading && filteredToolList.length === 0" class="no-results">
               <i class="el-icon-search no-results-icon"></i>
               <div class="no-results-text">{{ $t('mcpToolCall.noResults') }}</div>
             </div>
@@ -128,6 +132,8 @@
 </template>
 
 <script>
+import Api from '@/apis/api';
+
 export default {
   name: 'McpToolCallDialog',
   props: {
@@ -142,7 +148,8 @@ export default {
       toolParamsRules: {},
       toolSearchKeyword: '',
       executionResult: null,
-      themeOptions: [] // 先初始化为空数组
+      themeOptions: [], // 先初始化为空数组
+      toolsLoading: false // 工具列表加载状态
     }
   },
   created() {
@@ -192,60 +199,67 @@ export default {
         this.$forceUpdate();
       });
     },
-    initTools() {
-      // 从固定的mcp工具列表中获取数据
-      const toolsData = {
-        "session_id": "", "type": "mcp", "payload": {
-          "jsonrpc": "2.0", "id": 2, "result": {
-            "tools": [{
-              "name": "self.get_device_status",
-              "description": "获取设备的实时信息，包括当前音频扬声器、屏幕、电池、网络等状态。\n用途：\n1. 回答关于当前设备状态的问题（例如：当前音频扬声器的音量是多少？）\n2. 作为控制设备的第一步（例如：调高/调低音频扬声器的音量等）",
-              "inputSchema": { "type": "object", "properties": {} }
-            }, {
-              "name": "self.audio_speaker.set_volume",
-              "description": "设置音频扬声器的音量。如果当前音量未知，必须先调用`self.get_device_status`工具，然后再调用此工具。",
-              "inputSchema": {
-                "type": "object",
-                "properties": {
-                  "volume": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 100
-                  }
-                },
-                "required": ["volume"]
-              }
-            }, {
-              "name": "self.screen.set_brightness",
-              "description": "设置屏幕的亮度。",
-              "inputSchema": {
-                "type": "object",
-                "properties": {
-                  "brightness": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 100
-                  }
-                },
-                "required": ["brightness"]
-              }
-            }, {
-              "name": "self.screen.set_theme",
-              "description": "设置屏幕的主题。主题可以是'light'（浅色）或'dark'（深色）。",
-              "inputSchema": {
-                "type": "object",
-                "properties": { "theme": { "type": "string" } },
-                "required": ["theme"]
-              }
-            }]
-          }
-        }
-      };
+    async initTools() {
+      if (!this.deviceId) {
+        return;
+      }
 
-      this.toolList = toolsData.payload.result.tools;
-      // 默认选择第一个工具
-      if (this.toolList.length > 0) {
-        this.selectedToolName = this.toolList[0].name;
+      this.toolsLoading = true;
+      
+      try {
+        // 调用设备指令API获取工具列表
+        const mcpRequest = {
+          "type": "mcp",
+          "payload": {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/list",
+            "params": {
+              "withUserTools": true
+            }
+          }
+        };
+
+        Api.device.sendDeviceCommand(this.deviceId, mcpRequest, ({ data }) => {
+          this.toolsLoading = false;
+          if (data.code === 0) {
+            try {
+              // 解析返回的工具列表数据
+              const responseData = JSON.parse(data.data);
+              
+              // 检查两种可能的数据格式
+              let tools = null;
+              if (responseData && responseData.payload && responseData.payload.result && responseData.payload.result.tools) {
+                // 标准MCP格式
+                tools = responseData.payload.result.tools;
+              } else if (responseData && responseData.success && responseData.data && responseData.data.tools) {
+                // 设备返回的格式
+                tools = responseData.data.tools;
+              }
+              
+              if (tools && Array.isArray(tools) && tools.length > 0) {
+                this.toolList = tools;
+                // 默认选择第一个工具
+                if (this.toolList.length > 0) {
+                  this.selectedToolName = this.toolList[0].name;
+                }
+              } else {
+                // 无法获取工具列表，显示空状态
+                this.toolList = [];
+              }
+            } catch (error) {
+              // 解析失败，显示空状态
+              this.toolList = [];
+            }
+          } else {
+            // API调用失败，显示空状态
+            this.toolList = [];
+          }
+        });
+      } catch (error) {
+        this.toolsLoading = false;
+        // 请求失败，显示空状态
+        this.toolList = [];
       }
     },
 
@@ -323,13 +337,14 @@ export default {
       return labelMap[key] || key;
     },
 
-    // 获取工具的显示名称（简化版）
+    // 获取工具的显示名称
     getToolDisplayName(toolName) {
       const nameMap = {
         'self.get_device_status': '查看设备状态',
         'self.audio_speaker.set_volume': '设置音量',
         'self.screen.set_brightness': '设置亮度',
-        'self.screen.set_theme': '设置主题'
+        'self.screen.set_theme': '设置主题',
+        'self.camera.take_photo': '拍照'
       };
       return nameMap[toolName] || toolName;
     },
@@ -338,6 +353,7 @@ export default {
     getToolCategory(toolName) {
       if (toolName.includes('audio_speaker')) return '音频';
       if (toolName.includes('screen')) return '显示';
+      if (toolName.includes('camera')) return '拍摄';
       return '设备信息';
     },
 
@@ -353,7 +369,8 @@ export default {
         'self.get_device_status': '查看设备的当前运行状态，包括音量、屏幕、电池等信息。',
         'self.audio_speaker.set_volume': '调整设备的音量大小，请输入0-100之间的数值。',
         'self.screen.set_brightness': '调整设备屏幕的亮度，请输入0-100之间的数值。',
-        'self.screen.set_theme': '切换设备屏幕的显示主题，可以选择浅色或深色模式。'
+        'self.screen.set_theme': '切换设备屏幕的显示主题，可以选择浅色或深色模式。',
+        'self.camera.take_photo': '使用设备摄像头拍摄照片，可能需要设置拍照参数。'
       };
       return helpMap[toolName] || '';
     },
@@ -406,6 +423,7 @@ export default {
       this.toolParamsRules = {};
       this.toolSearchKeyword = '';
       this.executionResult = null;
+      this.toolsLoading = false;
     }
   }
 }
@@ -862,6 +880,38 @@ export default {
   padding: 20px 24px 0;
   max-height: 80vh;
   overflow-y: auto;
+}
+
+/* 工具列表加载状态 */
+.tool-list-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #909399;
+  text-align: center;
+}
+
+.tool-list-loading .el-icon-loading {
+  font-size: 32px;
+  color: #5778ff;
+  margin-bottom: 12px;
+  animation: rotating 1s linear infinite;
+}
+
+.loading-text {
+  font-size: 14px;
+  color: #606266;
+}
+
+@keyframes rotating {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* 响应式调整 */
