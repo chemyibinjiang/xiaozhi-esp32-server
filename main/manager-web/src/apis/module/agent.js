@@ -1,5 +1,5 @@
-import { getServiceUrl } from '../api';
 import RequestService from '../httpRequest';
+import { getServiceUrl } from '../api';
 
 
 export default {
@@ -337,9 +337,9 @@ export default {
     // 批量删除智能体模板
     batchDeleteAgentTemplate(ids, callback) {
         RequestService.sendRequest()
-            .url(`${getServiceUrl()}/agent/template/batch-delete`)
-            .method('DELETE')
-            .data(ids)
+            .url(`${getServiceUrl()}/agent/template/batch-remove`) // 修改为新的URL
+            .method('POST')
+            .data(Array.isArray(ids) ? ids : [ids]) // 确保是数组格式
             .success((res) => {
                 RequestService.clearRequestTime();
                 callback(res);

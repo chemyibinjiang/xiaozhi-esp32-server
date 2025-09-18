@@ -209,10 +209,24 @@ public class AgentTemplateController {
         }
     }
     
-    @DeleteMapping("/batch-delete")
+    // 删除原有的批量删除方法
+    // @PostMapping("/batch-delete")
+    // @Operation(summary = "批量删除模板")
+    // @RequiresPermissions("sys:role:normal")
+    // public Result<String> batchDeleteAgentTemplates(@RequestBody List<String> ids) {
+    //     boolean deleted = agentTemplateService.removeByIds(ids);
+    //     if (deleted) {
+    //         return ResultUtils.success("批量删除成功");
+    //     } else {
+    //         return ResultUtils.error("批量删除模板失败");
+    //     }
+    // }
+    
+    // 添加新的批量删除方法，使用不同的URL
+    @PostMapping("/batch-remove")
     @Operation(summary = "批量删除模板")
     @RequiresPermissions("sys:role:normal")
-    public Result<String> batchDeleteAgentTemplates(@RequestBody List<String> ids) {
+    public Result<String> batchRemoveAgentTemplates(@RequestBody List<String> ids) {
         boolean deleted = agentTemplateService.removeByIds(ids);
         if (deleted) {
             return ResultUtils.success("批量删除成功");

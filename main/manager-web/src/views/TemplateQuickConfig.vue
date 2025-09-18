@@ -521,9 +521,9 @@ export default {
 }
 
 .main-wrapper {
-  margin: 0 22px 22px 22px; /* 保留左右和底部边距 */
+  margin: 1vh 22px; /* 借鉴角色配置页面，使用1vh的上下边距，使上下边框更加均衡 */
   border-radius: 15px;
-  height: calc(100vh - 14vh); /* 调整高度计算 */
+  height: calc(100vh - 24vh); /* 借鉴角色配置页面的高度计算方式 */
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   position: relative;
   background: rgba(237, 242, 255, 0.5);
@@ -534,16 +534,21 @@ export default {
 
 .content-panel {
   flex: 1;
-  overflow-y: auto;
-  padding: 0 !important; /* 确保没有内边距 */
-  margin: 0 !important; /* 确保没有外边距 */
+  display: flex;
+  overflow: hidden;
+  height: 100%;
+  border-radius: 15px;
+  background: transparent;
+  border: 1px solid #fff; /* 借鉴角色配置页面，添加白色边框 */
 }
 
 .content-area {
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0 !important;
-  height: 100% !important;
+  flex: 1;
+  height: 100%;
+  overflow: auto;
+  background-color: white;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 调整config-card样式 */

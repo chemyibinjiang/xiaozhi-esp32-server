@@ -23,11 +23,11 @@
             <el-table ref="templateTable" :data="templateList" style="width: 100%" v-loading="templateLoading"
               element-loading-text="拼命加载中" element-loading-spinner="el-icon-loading"
               element-loading-background="rgba(255, 255, 255, 0.7)"
-              class="transparent-table" @row-click="handleRowClick">
+              class="transparent-table"> <!-- 移除@row-click="handleRowClick" -->
               <!-- 自定义选择列，实现表头是"选择"文字，数据行是小方框 -->
               <el-table-column label="选择" align="center" width="80">
                 <template slot-scope="scope">
-                  <el-checkbox v-model="scope.row.selected" @change="handleRowSelectionChange(scope.row)"></el-checkbox>
+                  <el-checkbox v-model="scope.row.selected" @change="handleRowSelectionChange(scope.row)" @click.stop></el-checkbox>
                 </template>
               </el-table-column>
               <el-table-column label="模板名称" prop="agentName" align="center"></el-table-column>
@@ -298,6 +298,7 @@ export default {
     },
 
     // 修改batchDeleteTemplate方法，使用selectedTemplates
+    // 批量删除模板 - 完全重写这个方法
     batchDeleteTemplate() {
       if (this.selectedTemplates.length === 0) {
         this.$message.warning('请选择要删除的模板')
@@ -309,12 +310,19 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
+        // 确保参数格式正确 - 将id数组作为请求体
         const ids = this.selectedTemplates.map(template => template.id)
+        console.log('批量删除的模板ID:', ids)
+        
         agentApi.batchDeleteAgentTemplate(ids, (res) => {
+          // 添加更健壮的响应处理
+          console.log('批量删除响应:', res)
           if (res && typeof res === 'object') {
             if (res.data && res.data.code === 0) {
               this.$message.success('模板批量删除成功')
+              // 重新加载模板列表
               this.loadTemplateList()
+              // 清空选中状态
               this.selectedTemplates = []
               this.isAllSelected = false
             } else {
@@ -322,7 +330,7 @@ export default {
             }
           } else {
             console.error('无效的响应对象:', res)
-            this.$message.error('删除失败')
+            this.$message.error('删除失败，请检查后端服务是否正常')
           }
         })
       }).catch(() => {
@@ -402,14 +410,10 @@ export default {
       this.isAllSelected = this.templateList.length > 0 && this.selectedTemplates.length === this.templateList.length;
     },
 
-    // 修改handleRowClick方法，实现点击行选中/取消选中
+    // 修改handleRowClick方法，移除选中状态切换逻辑
     handleRowClick(row, event, column) {
-      // 如果点击的是选择框所在的列，则不触发行选择
-      if (column && column.label === '选择') {
-        return;
-      }
-      row.selected = !row.selected;
-      this.handleRowSelectionChange(row);
+    // 完全移除选中状态切换的逻辑，只允许通过复选框点击来选择
+    // 保留方法以避免可能的事件处理问题
     },
 
   }
