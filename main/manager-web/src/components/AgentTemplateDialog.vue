@@ -1,8 +1,14 @@
 <template>
   <el-dialog :title="title" :visible.sync="visible" width="60%" @close="handleClose">
     <el-form ref="templateForm" :model="templateData" label-width="120px" :rules="rules">
-      <el-form-item label="模板名称" prop="agentName">
-        <el-input v-model="templateData.agentName" placeholder="请输入模板名称" />
+      <el-form-item :label="$t('agentTemplateManagement.templateDialog.templateName')" prop="agentName">
+        <el-input v-model="templateData.agentName" :placeholder="$t('agentTemplateManagement.templateDialog.templateNamePlaceholder')" />
+      </el-form-item>
+      <el-form-item :label="$t('agentTemplateManagement.templateDialog.description')" prop="description">
+        <el-input v-model="templateData.description" :placeholder="$t('agentTemplateManagement.templateDialog.descriptionPlaceholder')" />
+      </el-form-item>
+      <el-form-item :label="$t('agentTemplateManagement.templateDialog.roleName')" prop="roleName">
+        <el-input v-model="templateData.roleName" :placeholder="$t('agentTemplateManagement.templateDialog.roleNamePlaceholder')" />
       </el-form-item>
       <el-form-item label="语言编码" prop="langCode">
         <el-input v-model="templateData.langCode" placeholder="请输入语言编码，如zh-CN" />
@@ -20,8 +26,8 @@
           <el-option label="记录文本和语音" :value="2" />
         </el-select>
       </el-form-item>
-      <el-form-item label="角色设定参数" prop="systemPrompt">
-        <el-input v-model="templateData.systemPrompt" type="textarea" placeholder="请输入角色设定参数" :rows="4" />
+      <el-form-item :label="$t('agentTemplateManagement.templateDialog.systemPrompt')" prop="systemPrompt">
+        <el-input v-model="templateData.systemPrompt" type="textarea" :placeholder="$t('agentTemplateManagement.templateDialog.systemPromptPlaceholder')" :rows="4" />
         <div class="form-tip">角色设定参数将作为智能体的系统提示，定义智能体的行为和回答风格</div>
       </el-form-item>
       <el-form-item label="总结记忆" prop="summaryMemory">
@@ -30,8 +36,8 @@
       </el-form-item>
     </el-form>
     <div slot="footer" class="dialog-footer">
-      <el-button @click="handleClose">取消</el-button>
-      <el-button type="primary" @click="handleSave">确定</el-button>
+      <el-button @click="handleClose">{{ $t('agentTemplateManagement.templateDialog.cancel') }}</el-button>
+      <el-button type="primary" @click="handleSave">{{ $t('agentTemplateManagement.templateDialog.save') }}</el-button>
     </div>
   </el-dialog>
 </template>
@@ -58,18 +64,13 @@ export default {
       // 表单验证规则
       rules: {
         agentName: [
-          { required: true, message: '请输入模板名称', trigger: 'blur' },
-          { min: 2, max: 50, message: '模板名称长度在 2 到 50 个字符', trigger: 'blur' }
+          { required: true, message: this.$t('agentTemplateManagement.templateDialog.nameRequired'), trigger: 'blur' }
         ],
-        langCode: [
-          { required: true, message: '请输入语言编码', trigger: 'blur' }
-        ],
-        language: [
-          { required: true, message: '请输入交互语种', trigger: 'blur' }
+        roleName: [
+          { required: true, message: this.$t('agentTemplateManagement.templateDialog.roleNameRequired'), trigger: 'blur' }
         ],
         systemPrompt: [
-          { required: true, message: '请输入角色设定参数', trigger: 'blur' },
-          { min: 10, message: '角色设定参数至少需要 10 个字符', trigger: 'blur' }
+          { required: true, message: this.$t('agentTemplateManagement.templateDialog.systemPromptRequired'), trigger: 'blur' }
         ]
       }
     }

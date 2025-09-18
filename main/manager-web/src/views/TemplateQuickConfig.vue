@@ -3,7 +3,7 @@
     <HeaderBar />
 
     <div class="operation-bar">
-      <h2 class="page-title">模板快速配置</h2>
+      <h2 class="page-title">{{ $t('templateQuickConfig.title') }}</h2>
     </div>
 
     <div class="main-wrapper">
@@ -17,8 +17,8 @@
               </div>
               <span class="header-title">{{ form.agentName }}</span>
               <div class="header-actions">
-                <el-button type="primary" class="save-btn" @click="saveConfig">保存配置</el-button>
-                <el-button class="reset-btn" @click="resetConfig">重置</el-button>
+                <el-button type="primary" class="save-btn" @click="saveConfig">{{ $t('templateQuickConfig.saveConfig') }}</el-button>
+                <el-button class="reset-btn" @click="resetConfig">{{ $t('templateQuickConfig.resetConfig') }}</el-button>
                 <button class="custom-close-btn" @click="goToHome">
                   ×
                 </button>
@@ -28,21 +28,21 @@
 
             <el-form ref="form" :model="form" label-width="72px" class="full-height-form">
               <!-- 助手昵称 -->
-              <el-form-item label="助手昵称" prop="agentName" class="nickname-item">
+              <el-form-item :label="$t('templateQuickConfig.agentSettings.agentName')" prop="agentName" class="nickname-item">
                 <el-input
                   v-model="form.agentName"
-                  placeholder="请输入助手昵称"
+                  :placeholder="$t('templateQuickConfig.agentSettings.agentNamePlaceholder')"
                   :validate-event="false"
                   class="form-input"
                 />
               </el-form-item>
               
               <!-- 角色介绍 -->
-              <el-form-item label="角色介绍" prop="systemPrompt" class="description-item">
+              <el-form-item :label="$t('templateQuickConfig.agentSettings.systemPrompt')" prop="systemPrompt" class="description-item">
                 <el-input
                   v-model="form.systemPrompt"
                   type="textarea"
-                  placeholder="请输入角色介绍"
+                  :placeholder="$t('templateQuickConfig.agentSettings.systemPromptPlaceholder')"
                   :validate-event="false"
                   show-word-limit
                   maxlength="2000"

@@ -3,12 +3,12 @@
     <HeaderBar />
 
     <div class="operation-bar">
-      <h2 class="page-title">默认角色管理</h2>
+      <h2 class="page-title">{{ $t('agentTemplateManagement.title') }}</h2>
       <div class="right-operations">
-        <el-input placeholder="请输入模板名称查询" v-model="search" class="search-input" clearable
+        <el-input :placeholder="$t('agentTemplateManagement.searchPlaceholder')" v-model="search" class="search-input" clearable
           @keyup.enter.native="handleSearch" style="width: 240px" />
         <el-button class="btn-search" @click="handleSearch">
-          搜索
+          {{ $t('agentTemplateManagement.search') }}
         </el-button>
       </div>
     </div>
@@ -23,61 +23,60 @@
             <el-table ref="templateTable" :data="templateList" style="width: 100%" v-loading="templateLoading"
               element-loading-text="拼命加载中" element-loading-spinner="el-icon-loading"
               element-loading-background="rgba(255, 255, 255, 0.7)"
-              class="transparent-table"> <!-- 移除@row-click="handleRowClick" -->
+              class="transparent-table" :header-cell-style="{padding: '10px 20px'}" :cell-style="{padding: '10px 20px'}"> <!-- 移除@row-click="handleRowClick" -->
               <!-- 自定义选择列，实现表头是"选择"文字，数据行是小方框 -->
-              <el-table-column label="选择" align="center" width="80">
+              <el-table-column :label="$t('agentTemplateManagement.select')" align="center" min-width="100">
                 <template slot-scope="scope">
                   <el-checkbox v-model="scope.row.selected" @change="handleRowSelectionChange(scope.row)" @click.stop></el-checkbox>
                 </template>
               </el-table-column>
-              <el-table-column label="模板名称" prop="agentName" align="center"></el-table-column>
-              <el-table-column label="语言编码" prop="langCode" align="center"></el-table-column>
-              <el-table-column label="交互语种" prop="language" align="center"></el-table-column>
-              <el-table-column label="排序" prop="sort" align="center"></el-table-column>
-              <!-- 将原来的操作列合并为一列，显示编辑和删除按钮 -->
-              <el-table-column label="操作" width="160" align="center">
+              <el-table-column :label="$t('agentTemplateManagement.templateName')" prop="agentName" min-width="250" show-overflow-tooltip>
                 <template slot-scope="scope">
-                  <el-button type="text" size="mini" @click.stop="editTemplate(scope.row)">编辑</el-button>
-                  <el-button type="text" size="mini" @click.stop="deleteTemplate(scope.row)" class="delete-btn">删除</el-button>
+                  <span>{{ scope.row.agentName }}</span>
+                </template>
+              </el-table-column>
+              <!-- 修改为序号列1 -->
+              <el-table-column :label="$t('agentTemplateManagement.serialNumber')" min-width="120" align="center">
+                <template slot-scope="scope">
+                  <span>{{ (currentPage - 1) * pageSize + scope.$index + 1 }}</span>
+                </template>
+              </el-table-column>
+              <!-- 删除重复的序号列2 -->
+              <el-table-column :label="$t('agentTemplateManagement.action')" min-width="250" align="center">
+                <template slot-scope="scope">
+                  <div style="display: flex; justify-content: center; gap: 15px;">
+                    <el-button type="text" @click="editTemplate(scope.row)">{{ $t('agentTemplateManagement.editTemplate') }}</el-button>
+                    <el-button type="text" @click="handleDelete(scope.row.id)">{{ $t('agentTemplateManagement.deleteTemplate') }}</el-button>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
-            
-            <!-- 修改table_bottom结构，添加按钮组容器 -->
+
+            <!-- 表格底部操作栏 -->
             <div class="table_bottom">
-              <!-- 左侧按钮组 -->
               <div class="ctrl_btn">
-                <!-- 将checkbox改为按钮样式 -->
-                <el-button size="mini" type="primary" class="select-all-btn" @click="handleSelectAll">
-                  {{ isAllSelected ? '取消全选' : '全选' }}
+                <el-button type="primary" @click="handleSelectAll" size="mini" class="select-all-btn">
+                  {{ isAllSelected ? $t('agentTemplateManagement.deselectAll') : $t('agentTemplateManagement.selectAll') }}
                 </el-button>
-                <el-button size="mini" type="success" @click="showAddTemplateDialog">新增模板</el-button>
-                <el-button size="mini" type="danger" @click="batchDeleteTemplate" :disabled="selectedTemplates.length === 0">
-                  批量删除模板
+                <el-button type="success" @click="handleCreate" size="mini">
+                  {{ $t('agentTemplateManagement.createTemplate') }}
+                </el-button>
+                <el-button type="danger" @click="batchDeleteTemplate" :disabled="!hasSelected" size="mini">
+                  {{ $t('agentTemplateManagement.batchDelete') }}
                 </el-button>
               </div>
-              
-              <!-- 右侧分页控件 -->
-              <div class="custom-pagination">
-                <el-select v-model="pageSize" @change="handlePageSizeChange" class="page-size-select">
-                  <el-option v-for="item in pageSizeOptions" :key="item" :label="`${item}条/页`" :value="item">
-                  </el-option>
-                </el-select>
 
-                <button class="pagination-btn" :disabled="currentPage === 1" @click="goFirst">
-                  首页
-                </button>
-                <button class="pagination-btn" :disabled="currentPage === 1" @click="goPrev">
-                  上一页
-                </button>
-                <button v-for="page in visiblePages" :key="page" class="pagination-btn"
-                  :class="{ active: page === currentPage }" @click="goToPage(page)">
-                  {{ page }}
-                </button>
-                <button class="pagination-btn" :disabled="currentPage === pageCount" @click="goNext">
-                  下一页
-                </button>
-                <span class="total-text">共{{ total }}条记录</span>
+              <!-- 分页 -->
+              <div class="custom-pagination">
+                <el-pagination
+                  v-model:current-page="currentPage"
+                  v-model:page-size="pageSize"
+                  :page-sizes="pageSizeOptions"
+                  layout="total, sizes, prev, pager, next, jumper"
+                  :total="total"
+                  @size-change="handlePageSizeChange"
+                  @current-change="handlePageChange"
+                />
               </div>
             </div>
           </el-card>
@@ -85,12 +84,14 @@
       </div>
     </div>
 
-    <!-- 使用模板编辑弹框组件 -->
-    <AgentTemplateDialog :visible.sync="templateDialogVisible" :title="templateDialogTitle" :templateData="templateForm"
-      @save="saveTemplate" />
-    <el-footer style="flex-shrink:unset;">
-      <version-footer />
-    </el-footer>
+    <!-- 模板编辑弹框 -->
+    <AgentTemplateDialog
+      ref="templateDialog"
+      :visible.sync="templateDialogVisible"
+      :title="templateDialogTitle"
+      :template-data="templateForm"
+      @save="saveTemplate"
+    />
   </div>
 </template>
 
@@ -147,14 +148,18 @@ export default {
   created() {
     this.loadTemplateList()
   },
+  // 在computed部分添加hasSelected属性
   computed: {
-    pageCount() {
-      return Math.ceil(this.total / this.pageSize)
+      pageCount() {
+        return Math.ceil(this.total / this.pageSize)
+      },
+      visiblePages() {
+        return this.getVisiblePages()
+      },
+      hasSelected() {
+        return this.selectedTemplates.length > 0
+      }
     },
-    visiblePages() {
-      return this.getVisiblePages()
-    }
-  },
   methods: {
     // 加载模板列表
     // 改进loadTemplateList方法的错误处理逻辑
@@ -230,8 +235,13 @@ export default {
       })
     },
     
+    // 添加handleCreate方法，与模板中绑定的按钮保持一致
+    handleCreate() {
+      this.showAddTemplateDialog();
+    },
+    
     // 保留原有的editTemplate方法
-    // 编辑模板 - 完全替换这个方法
+    // 编辑模板
     editTemplate(row) {
       // 跳转到模板快速配置页面，并传递模板ID参数
       this.$router.push({
@@ -341,9 +351,31 @@ export default {
 
 
     // 分页相关方法
-    handlePageSizeChange() {
-      this.currentPage = 1
+    // 添加日期格式化函数
+    formatDate(dateString) {
+      if (!dateString) return ''
+      const date = new Date(dateString)
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      const seconds = String(date.getSeconds()).padStart(2, '0')
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
     },
+    
+    // 完善分页相关方法
+    handlePageChange(page) {
+      this.currentPage = page
+      this.loadTemplateList()
+    },
+    
+    handlePageSizeChange(size) {
+      this.pageSize = size
+      this.currentPage = 1
+      this.loadTemplateList()
+    },
+    
     goFirst() {
       this.currentPage = 1
     },
