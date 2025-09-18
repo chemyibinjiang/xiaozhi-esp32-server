@@ -1,5 +1,6 @@
 export default {
   // HeaderBar组件文本
+  // 在header相关翻译中添加
   'header.smartManagement': '智能體管理',
   'header.modelConfig': '模型配置',
   'header.userManagement': '用戶管理',
@@ -7,6 +8,7 @@ export default {
   'header.paramDictionary': '參數字典',
   'header.paramManagement': '參數管理',
   'header.dictManagement': '字典管理',
+  'header.agentTemplate': '預設角色模板', // 添加这一行
 
   // 字典數據對話框相關
   'dictDataDialog.addDictData': '新增字典數據',
