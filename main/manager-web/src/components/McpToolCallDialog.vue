@@ -30,7 +30,7 @@
             </div>
             <div v-if="toolsLoading" class="tool-list-loading">
               <i class="el-icon-loading"></i>
-              <div class="loading-text">正在获取工具列表...</div>
+              <div class="loading-text">{{ $t("mcpToolCall.loadingToolList") }}</div>
             </div>
             <div v-else class="tool-list">
               <el-radio-group v-model="selectedToolName" class="tool-radio-group">
@@ -160,15 +160,18 @@
                 <el-table :data="tableData" border size="mini" style="width: 100%">
                   <el-table-column
                     prop="category"
-                    label="组件"
+                    :label="$t('mcpToolCall.table.component')"
                     width="120"
                   ></el-table-column>
                   <el-table-column
                     prop="property"
-                    label="属性"
+                    :label="$t('mcpToolCall.table.property')"
                     width="120"
                   ></el-table-column>
-                  <el-table-column prop="value" label="值"></el-table-column>
+                  <el-table-column
+                    prop="value"
+                    :label="$t('mcpToolCall.table.value')"
+                  ></el-table-column>
                 </el-table>
               </div>
               <!-- JSON展示模式 -->
@@ -226,11 +229,20 @@ export default {
     };
   },
   created() {
-    // 在created钩子中初始化themeOptions，此时this.$t已经可用
-    this.themeOptions = [
-      { label: this.$t("mcpToolCall.lightTheme"), value: "light" },
-      { label: this.$t("mcpToolCall.darkTheme"), value: "dark" },
-    ];
+    // 初始化主题选项
+    this.initializeThemeOptions();
+
+    // 添加对语言变化的监听
+    if (this.$eventBus) {
+      this.$eventBus.$on("languageChanged", this.initializeThemeOptions);
+    }
+  },
+
+  beforeDestroy() {
+    // 移除事件监听，避免内存泄漏
+    if (this.$eventBus) {
+      this.$eventBus.$off("languageChanged", this.initializeThemeOptions);
+    }
   },
   computed: {
     selectedTool() {
@@ -242,7 +254,8 @@ export default {
       return this.toolList.filter(
         (tool) =>
           tool.name.toLowerCase().includes(keyword) ||
-          tool.description.toLowerCase().includes(keyword)
+          tool.description.toLowerCase().includes(keyword) ||
+          this.getToolDisplayName(tool.name).toLowerCase().includes(keyword)
       );
     },
     formattedExecutionResult() {
@@ -275,6 +288,17 @@ export default {
     },
   },
   methods: {
+    // 初始化主题选项
+    initializeThemeOptions() {
+      this.themeOptions = [
+        { label: this.$t("mcpToolCall.lightTheme"), value: "light" },
+        { label: this.$t("mcpToolCall.darkTheme"), value: "dark" },
+      ];
+      this.$nextTick(() => {
+        this.$forceUpdate();
+      });
+    },
+
     // 添加handleThemeChange方法强制更新视图
     handleThemeChange() {
       this.$nextTick(() => {
@@ -305,8 +329,8 @@ export default {
       if (deviceData.audio_speaker) {
         if (deviceData.audio_speaker.volume !== undefined) {
           tableData.push({
-            category: "音频扬声器",
-            property: "音量",
+            category: this.$t("mcpToolCall.table.audioSpeaker"),
+            property: this.$t("mcpToolCall.prop.volume"),
             value: deviceData.audio_speaker.volume + "%",
           });
         }
@@ -315,16 +339,19 @@ export default {
       if (deviceData.screen) {
         if (deviceData.screen.brightness !== undefined) {
           tableData.push({
-            category: "屏幕",
-            property: "亮度",
+            category: this.$t("mcpToolCall.table.screen"),
+            property: this.$t("mcpToolCall.prop.brightness"),
             value: deviceData.screen.brightness + "%",
           });
         }
         if (deviceData.screen.theme !== undefined) {
           tableData.push({
-            category: "屏幕",
-            property: "主题",
-            value: deviceData.screen.theme === "dark" ? "深色" : "浅色",
+            category: this.$t("mcpToolCall.table.screen"),
+            property: this.$t("mcpToolCall.prop.theme"),
+            value:
+              deviceData.screen.theme === "dark"
+                ? this.$t("mcpToolCall.darkTheme")
+                : this.$t("mcpToolCall.lightTheme"),
           });
         }
       }
@@ -332,27 +359,27 @@ export default {
       if (deviceData.network) {
         if (deviceData.network.type !== undefined) {
           tableData.push({
-            category: "网络",
-            property: "类型",
+            category: this.$t("mcpToolCall.table.network"),
+            property: this.$t("mcpToolCall.prop.type"),
             value: deviceData.network.type.toUpperCase(),
           });
         }
         if (deviceData.network.ssid !== undefined) {
           tableData.push({
-            category: "网络",
-            property: "SSID",
+            category: this.$t("mcpToolCall.table.network"),
+            property: this.$t("mcpToolCall.prop.ssid"),
             value: deviceData.network.ssid,
           });
         }
         if (deviceData.network.signal !== undefined) {
           const signalMap = {
-            strong: "强",
-            medium: "中",
-            weak: "弱",
+            strong: this.$t("mcpToolCall.text.strong"),
+            medium: this.$t("mcpToolCall.text.medium"),
+            weak: this.$t("mcpToolCall.text.weak"),
           };
           tableData.push({
-            category: "网络",
-            property: "信号强度",
+            category: this.$t("mcpToolCall.table.network"),
+            property: this.$t("mcpToolCall.prop.signalStrength"),
             value: signalMap[deviceData.network.signal] || deviceData.network.signal,
           });
         }
@@ -367,27 +394,35 @@ export default {
 
       if (toolName === "self.audio_speaker.set_volume") {
         tableData.push({
-          category: "音频控制",
-          property: "操作结果",
-          value: result.success ? "设置成功" : "设置失败",
+          category: this.$t("mcpToolCall.table.audioControl"),
+          property: this.$t("mcpToolCall.prop.operationResult"),
+          value: result.success
+            ? this.$t("mcpToolCall.text.setSuccess")
+            : this.$t("mcpToolCall.text.setFailed"),
         });
       } else if (toolName === "self.screen.set_brightness") {
         tableData.push({
-          category: "屏幕控制",
-          property: "操作结果",
-          value: result.success ? "亮度设置成功" : "亮度设置失败",
+          category: this.$t("mcpToolCall.table.screenControl"),
+          property: this.$t("mcpToolCall.prop.operationResult"),
+          value: result.success
+            ? this.$t("mcpToolCall.text.brightnessSetSuccess")
+            : this.$t("mcpToolCall.text.brightnessSetFailed"),
         });
       } else if (toolName === "self.screen.set_theme") {
         tableData.push({
-          category: "屏幕控制",
-          property: "操作结果",
-          value: result.success ? "主题设置成功" : "主题设置失败",
+          category: this.$t("mcpToolCall.table.screenControl"),
+          property: this.$t("mcpToolCall.prop.operationResult"),
+          value: result.success
+            ? this.$t("mcpToolCall.text.themeSetSuccess")
+            : this.$t("mcpToolCall.text.themeSetFailed"),
         });
       } else if (toolName === "self.reboot") {
         tableData.push({
-          category: "系统控制",
-          property: "操作结果",
-          value: result.success ? "重启指令已发送" : "重启失败",
+          category: this.$t("mcpToolCall.table.systemControl"),
+          property: this.$t("mcpToolCall.prop.operationResult"),
+          value: result.success
+            ? this.$t("mcpToolCall.text.rebootCommandSent")
+            : this.$t("mcpToolCall.text.rebootFailed"),
         });
       } else if (toolName === "self.screen.get_info") {
         // 解析屏幕信息
@@ -402,38 +437,44 @@ export default {
             const screenInfo = JSON.parse(result.data.content[0].text);
             if (screenInfo.width !== undefined) {
               tableData.push({
-                category: "屏幕信息",
-                property: "宽度",
+                category: this.$t("mcpToolCall.table.screenInfo"),
+                property: this.$t("mcpToolCall.prop.width"),
                 value: screenInfo.width + "像素",
               });
             }
             if (screenInfo.height !== undefined) {
               tableData.push({
-                category: "屏幕信息",
-                property: "高度",
+                category: this.$t("mcpToolCall.table.screenInfo"),
+                property: this.$t("mcpToolCall.prop.height"),
                 value: screenInfo.height + "像素",
               });
             }
             if (screenInfo.monochrome !== undefined) {
               tableData.push({
-                category: "屏幕信息",
-                property: "类型",
-                value: screenInfo.monochrome ? "单色屏" : "彩色屏",
+                category: this.$t("mcpToolCall.table.screenInfo"),
+                property: this.$t("mcpToolCall.prop.screenType"),
+                value: screenInfo.monochrome
+                  ? this.$t("mcpToolCall.text.monochrome")
+                  : this.$t("mcpToolCall.text.color"),
               });
             }
           } catch (parseError) {
             // 解析失败时显示原始信息
             tableData.push({
-              category: "屏幕信息",
-              property: "获取结果",
-              value: result.success ? "获取成功，但解析失败" : "获取失败",
+              category: this.$t("mcpToolCall.table.screenInfo"),
+              property: this.$t("mcpToolCall.prop.getResult"),
+              value: result.success
+                ? this.$t("mcpToolCall.text.getSuccessParseFailed")
+                : this.$t("mcpToolCall.text.getFailed"),
             });
           }
         } else {
           tableData.push({
-            category: "屏幕信息",
-            property: "获取结果",
-            value: result.success ? "获取成功，但数据格式异常" : "获取失败",
+            category: this.$t("mcpToolCall.table.screenInfo"),
+            property: this.$t("mcpToolCall.prop.getResult"),
+            value: result.success
+              ? this.$t("mcpToolCall.text.getSuccessFormatError")
+              : this.$t("mcpToolCall.text.getFailed"),
           });
         }
       } else if (toolName === "self.get_system_info") {
@@ -451,8 +492,8 @@ export default {
             // 基本信息
             if (systemInfo.chip_model_name) {
               tableData.push({
-                category: "硬件信息",
-                property: "芯片型号",
+                category: this.$t("mcpToolCall.table.hardwareInfo"),
+                property: this.$t("mcpToolCall.prop.chipModel"),
                 value: systemInfo.chip_model_name.toUpperCase(),
               });
             }
@@ -460,15 +501,15 @@ export default {
             if (systemInfo.chip_info) {
               if (systemInfo.chip_info.cores) {
                 tableData.push({
-                  category: "硬件信息",
-                  property: "CPU核心数",
+                  category: this.$t("mcpToolCall.table.hardwareInfo"),
+                  property: this.$t("mcpToolCall.prop.cpuCores"),
                   value: systemInfo.chip_info.cores + "核",
                 });
               }
               if (systemInfo.chip_info.revision) {
                 tableData.push({
-                  category: "硬件信息",
-                  property: "芯片版本",
+                  category: this.$t("mcpToolCall.table.hardwareInfo"),
+                  property: this.$t("mcpToolCall.prop.chipVersion"),
                   value: "Rev " + systemInfo.chip_info.revision,
                 });
               }
@@ -476,8 +517,8 @@ export default {
 
             if (systemInfo.flash_size) {
               tableData.push({
-                category: "硬件信息",
-                property: "Flash大小",
+                category: this.$t("mcpToolCall.table.hardwareInfo"),
+                property: this.$t("mcpToolCall.prop.flashSize"),
                 value: (systemInfo.flash_size / 1024 / 1024).toFixed(0) + " MB",
               });
             }
@@ -485,8 +526,8 @@ export default {
             // 内存信息
             if (systemInfo.minimum_free_heap_size) {
               tableData.push({
-                category: "内存信息",
-                property: "最小可用堆",
+                category: this.$t("mcpToolCall.table.memoryInfo"),
+                property: this.$t("mcpToolCall.prop.minFreeHeap"),
                 value:
                   (parseInt(systemInfo.minimum_free_heap_size) / 1024).toFixed(0) + " KB",
               });
@@ -496,29 +537,29 @@ export default {
             if (systemInfo.application) {
               if (systemInfo.application.name) {
                 tableData.push({
-                  category: "应用信息",
-                  property: "应用名称",
+                  category: this.$t("mcpToolCall.table.applicationInfo"),
+                  property: this.$t("mcpToolCall.prop.applicationName"),
                   value: systemInfo.application.name,
                 });
               }
               if (systemInfo.application.version) {
                 tableData.push({
-                  category: "应用信息",
-                  property: "应用版本",
+                  category: this.$t("mcpToolCall.table.applicationInfo"),
+                  property: this.$t("mcpToolCall.prop.applicationVersion"),
                   value: systemInfo.application.version,
                 });
               }
               if (systemInfo.application.compile_time) {
                 tableData.push({
-                  category: "应用信息",
-                  property: "编译时间",
+                  category: this.$t("mcpToolCall.table.applicationInfo"),
+                  property: this.$t("mcpToolCall.prop.compileTime"),
                   value: systemInfo.application.compile_time,
                 });
               }
               if (systemInfo.application.idf_version) {
                 tableData.push({
-                  category: "应用信息",
-                  property: "IDF版本",
+                  category: this.$t("mcpToolCall.table.applicationInfo"),
+                  property: this.$t("mcpToolCall.prop.idfVersion"),
                   value: systemInfo.application.idf_version,
                 });
               }
@@ -527,8 +568,8 @@ export default {
             // 网络信息
             if (systemInfo.mac_address) {
               tableData.push({
-                category: "网络信息",
-                property: "MAC地址",
+                category: this.$t("mcpToolCall.table.networkInfo"),
+                property: this.$t("mcpToolCall.prop.macAddress"),
                 value: systemInfo.mac_address,
               });
             }
@@ -536,34 +577,36 @@ export default {
             if (systemInfo.board) {
               if (systemInfo.board.ip) {
                 tableData.push({
-                  category: "网络信息",
-                  property: "IP地址",
+                  category: this.$t("mcpToolCall.table.networkInfo"),
+                  property: this.$t("mcpToolCall.prop.ipAddress"),
                   value: systemInfo.board.ip,
                 });
               }
               if (systemInfo.board.ssid) {
                 tableData.push({
-                  category: "网络信息",
-                  property: "WiFi名称",
+                  category: this.$t("mcpToolCall.table.networkInfo"),
+                  property: this.$t("mcpToolCall.prop.wifiName"),
                   value: systemInfo.board.ssid,
                 });
               }
               if (systemInfo.board.rssi) {
                 const signalStrength = systemInfo.board.rssi;
-                let signalLevel = "弱";
-                if (signalStrength > -50) signalLevel = "强";
-                else if (signalStrength > -70) signalLevel = "中";
+                let signalLevel = this.$t("mcpToolCall.text.weak");
+                if (signalStrength > -50)
+                  signalLevel = this.$t("mcpToolCall.text.strong");
+                else if (signalStrength > -70)
+                  signalLevel = this.$t("mcpToolCall.text.medium");
 
                 tableData.push({
-                  category: "网络信息",
-                  property: "信号强度",
+                  category: this.$t("mcpToolCall.table.networkInfo"),
+                  property: this.$t("mcpToolCall.prop.signalStrength"),
                   value: `${signalStrength} dBm (${signalLevel})`,
                 });
               }
               if (systemInfo.board.channel) {
                 tableData.push({
-                  category: "网络信息",
-                  property: "WiFi信道",
+                  category: this.$t("mcpToolCall.table.networkInfo"),
+                  property: this.$t("mcpToolCall.prop.wifiChannel"),
                   value: systemInfo.board.channel + "频道",
                 });
               }
@@ -573,16 +616,18 @@ export default {
             if (systemInfo.display) {
               if (systemInfo.display.width && systemInfo.display.height) {
                 tableData.push({
-                  category: "显示信息",
-                  property: "屏幕尺寸",
+                  category: this.$t("mcpToolCall.table.displayInfo"),
+                  property: this.$t("mcpToolCall.prop.screenSize"),
                   value: `${systemInfo.display.width} × ${systemInfo.display.height}`,
                 });
               }
               if (systemInfo.display.monochrome !== undefined) {
                 tableData.push({
-                  category: "显示信息",
-                  property: "屏幕类型",
-                  value: systemInfo.display.monochrome ? "单色屏" : "彩色屏",
+                  category: this.$t("mcpToolCall.table.displayInfo"),
+                  property: this.$t("mcpToolCall.prop.screenType"),
+                  value: systemInfo.display.monochrome
+                    ? this.$t("mcpToolCall.text.monochrome")
+                    : this.$t("mcpToolCall.text.color"),
                 });
               }
             }
@@ -590,40 +635,44 @@ export default {
             // 其他信息
             if (systemInfo.uuid) {
               tableData.push({
-                category: "设备信息",
-                property: "设备UUID",
+                category: this.$t("mcpToolCall.table.deviceInfo"),
+                property: this.$t("mcpToolCall.prop.deviceUuid"),
                 value: systemInfo.uuid,
               });
             }
 
             if (systemInfo.language) {
               tableData.push({
-                category: "设备信息",
-                property: "系统语言",
+                category: this.$t("mcpToolCall.table.deviceInfo"),
+                property: this.$t("mcpToolCall.prop.systemLanguage"),
                 value: systemInfo.language,
               });
             }
 
             if (systemInfo.ota && systemInfo.ota.label) {
               tableData.push({
-                category: "系统信息",
-                property: "当前OTA分区",
+                category: this.$t("mcpToolCall.table.systemInfo"),
+                property: this.$t("mcpToolCall.prop.currentOtaPartition"),
                 value: systemInfo.ota.label,
               });
             }
           } catch (parseError) {
             // 解析失败时显示原始信息
             tableData.push({
-              category: "系统信息",
-              property: "获取结果",
-              value: result.success ? "获取成功，但解析失败" : "获取失败",
+              category: this.$t("mcpToolCall.table.systemInfo"),
+              property: this.$t("mcpToolCall.prop.getResult"),
+              value: result.success
+                ? this.$t("mcpToolCall.text.getSuccessParseFailed")
+                : this.$t("mcpToolCall.text.getFailed"),
             });
           }
         } else {
           tableData.push({
-            category: "系统信息",
-            property: "获取结果",
-            value: result.success ? "获取成功，但数据格式异常" : "获取失败",
+            category: this.$t("mcpToolCall.table.systemInfo"),
+            property: this.$t("mcpToolCall.prop.getResult"),
+            value: result.success
+              ? this.$t("mcpToolCall.text.getSuccessFormatError")
+              : this.$t("mcpToolCall.text.getFailed"),
           });
         }
       }
@@ -817,14 +866,14 @@ export default {
     },
 
     formatPropertyLabel(key, property) {
-      // 将属性名转换为更友好的中文标签
+      // 将属性名转换为更友好的标签
       const labelMap = {
-        volume: "音量",
-        brightness: "亮度",
-        theme: "主题",
-        question: "问题",
-        url: "网址",
-        quality: "质量",
+        volume: this.$t("mcpToolCall.prop.volume"),
+        brightness: this.$t("mcpToolCall.prop.brightness"),
+        theme: this.$t("mcpToolCall.prop.theme"),
+        question: this.$t("mcpToolCall.prop.question"),
+        url: this.$t("mcpToolCall.prop.url"),
+        quality: this.$t("mcpToolCall.prop.quality"),
       };
       return labelMap[key] || key;
     },
@@ -832,35 +881,36 @@ export default {
     // 获取工具的显示名称
     getToolDisplayName(toolName) {
       const nameMap = {
-        "self.get_device_status": "查看设备状态",
-        "self.audio_speaker.set_volume": "设置音量",
-        "self.screen.set_brightness": "设置亮度",
-        "self.screen.set_theme": "设置主题",
-        "self.camera.take_photo": "拍照识别",
-        "self.get_system_info": "系统信息",
-        "self.reboot": "重启设备",
-        "self.upgrade_firmware": "升级固件",
-        "self.screen.get_info": "屏幕信息",
-        "self.screen.snapshot": "屏幕截图",
-        "self.screen.preview_image": "预览图片",
-        "self.assets.set_download_url": "设置下载地址",
+        "self.get_device_status": this.$t("mcpToolCall.toolName.getDeviceStatus"),
+        "self.audio_speaker.set_volume": this.$t("mcpToolCall.toolName.setVolume"),
+        "self.screen.set_brightness": this.$t("mcpToolCall.toolName.setBrightness"),
+        "self.screen.set_theme": this.$t("mcpToolCall.toolName.setTheme"),
+        "self.camera.take_photo": this.$t("mcpToolCall.toolName.takePhoto"),
+        "self.get_system_info": this.$t("mcpToolCall.toolName.getSystemInfo"),
+        "self.reboot": this.$t("mcpToolCall.toolName.reboot"),
+        "self.upgrade_firmware": this.$t("mcpToolCall.toolName.upgradeFirmware"),
+        "self.screen.get_info": this.$t("mcpToolCall.toolName.getScreenInfo"),
+        "self.screen.snapshot": this.$t("mcpToolCall.toolName.snapshot"),
+        "self.screen.preview_image": this.$t("mcpToolCall.toolName.previewImage"),
+        "self.assets.set_download_url": this.$t("mcpToolCall.toolName.setDownloadUrl"),
       };
       return nameMap[toolName] || toolName;
     },
 
     // 获取工具分类
     getToolCategory(toolName) {
-      if (toolName.includes("audio_speaker")) return "音频";
-      if (toolName.includes("screen")) return "显示";
-      if (toolName.includes("camera")) return "拍摄";
+      if (toolName.includes("audio_speaker"))
+        return this.$t("mcpToolCall.category.audio");
+      if (toolName.includes("screen")) return this.$t("mcpToolCall.category.display");
+      if (toolName.includes("camera")) return this.$t("mcpToolCall.category.camera");
       if (
         toolName.includes("system") ||
         toolName.includes("reboot") ||
         toolName.includes("upgrade")
       )
-        return "系统";
-      if (toolName.includes("assets")) return "资源";
-      return "设备信息";
+        return this.$t("mcpToolCall.category.system");
+      if (toolName.includes("assets")) return this.$t("mcpToolCall.category.assets");
+      return this.$t("mcpToolCall.category.deviceInfo");
     },
 
     // 获取简化的工具描述
@@ -872,19 +922,18 @@ export default {
     // 获取工具帮助文本
     getToolHelpText(toolName) {
       const helpMap = {
-        "self.get_device_status": "查看设备的当前运行状态，包括音量、屏幕、电池等信息。",
-        "self.audio_speaker.set_volume": "调整设备的音量大小，请输入0-100之间的数值。",
-        "self.screen.set_brightness": "调整设备屏幕的亮度，请输入0-100之间的数值。",
-        "self.screen.set_theme": "切换设备屏幕的显示主题，可以选择浅色或深色模式。",
-        "self.camera.take_photo":
-          "使用设备摄像头拍摄照片并进行识别分析，请输入要询问的问题。",
-        "self.get_system_info": "获取设备的系统信息，包括硬件规格、软件版本等。",
-        "self.reboot": "重启设备，执行后设备将重新启动。",
-        "self.upgrade_firmware": "从指定URL下载并升级设备固件，升级后设备会自动重启。",
-        "self.screen.get_info": "获取屏幕的详细信息，如分辨率、尺寸等参数。",
-        "self.screen.snapshot": "对当前屏幕进行截图并上传到指定URL。",
-        "self.screen.preview_image": "在设备屏幕上预览指定URL的图片。",
-        "self.assets.set_download_url": "设置设备资源文件的下载地址。",
+        "self.get_device_status": this.$t("mcpToolCall.help.getDeviceStatus"),
+        "self.audio_speaker.set_volume": this.$t("mcpToolCall.help.setVolume"),
+        "self.screen.set_brightness": this.$t("mcpToolCall.help.setBrightness"),
+        "self.screen.set_theme": this.$t("mcpToolCall.help.setTheme"),
+        "self.camera.take_photo": this.$t("mcpToolCall.help.takePhoto"),
+        "self.get_system_info": this.$t("mcpToolCall.help.getSystemInfo"),
+        "self.reboot": this.$t("mcpToolCall.help.reboot"),
+        "self.upgrade_firmware": this.$t("mcpToolCall.help.upgradeFirmware"),
+        "self.screen.get_info": this.$t("mcpToolCall.help.getScreenInfo"),
+        "self.screen.snapshot": this.$t("mcpToolCall.help.snapshot"),
+        "self.screen.preview_image": this.$t("mcpToolCall.help.previewImage"),
+        "self.assets.set_download_url": this.$t("mcpToolCall.help.setDownloadUrl"),
       };
       return helpMap[toolName] || "";
     },
