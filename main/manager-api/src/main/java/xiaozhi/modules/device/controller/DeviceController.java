@@ -5,6 +5,10 @@ import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.BeanUtils;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -12,30 +16,26 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.AllArgsConstructor;
 import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.redis.RedisKeys;
 import xiaozhi.common.redis.RedisUtils;
 import xiaozhi.common.user.UserDetail;
 import xiaozhi.common.utils.Result;
+import xiaozhi.modules.device.dto.DeviceManualAddDTO;
 import xiaozhi.modules.device.dto.DeviceRegisterDTO;
 import xiaozhi.modules.device.dto.DeviceUnBindDTO;
 import xiaozhi.modules.device.dto.DeviceUpdateDTO;
-import xiaozhi.modules.device.dto.DeviceManualAddDTO;
 import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.sys.service.SysParamsService;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Tag(name = "设备管理")
 @RestController
@@ -47,7 +47,8 @@ public class DeviceController {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    public DeviceController(DeviceService deviceService, RedisUtils redisUtils, SysParamsService sysParamsService, RestTemplate restTemplate, ObjectMapper objectMapper) {
+    public DeviceController(DeviceService deviceService, RedisUtils redisUtils, SysParamsService sysParamsService,
+            RestTemplate restTemplate, ObjectMapper objectMapper) {
         this.deviceService = deviceService;
         this.redisUtils = redisUtils;
         this.sysParamsService = sysParamsService;
@@ -98,8 +99,8 @@ public class DeviceController {
         try {
             // 从系统参数中获取MQTT网关地址
             String mqttGatewayUrl = sysParamsService.getValue("server.mqtt_manager_api", true);
-            if (StringUtils.isBlank(mqttGatewayUrl)) {
-                return new Result<String>().error("MQTT网关地址未配置");
+            if (StringUtils.isBlank(mqttGatewayUrl) || "null".equals(mqttGatewayUrl)) {
+                return new Result<>();
             }
 
             // 获取当前用户的设备列表
@@ -152,7 +153,8 @@ public class DeviceController {
     private String generateBearerToken() {
         try {
             // 获取当前日期，格式为yyyy-MM-dd
-            String dateStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            String dateStr = java.time.LocalDate.now()
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
 
             // 获取MQTT签名密钥
             String signatureKey = sysParamsService.getValue("server.mqtt_signature_key", false);
@@ -214,13 +216,17 @@ public class DeviceController {
         try {
             // 从系统参数中获取MQTT网关地址
             String mqttGatewayUrl = sysParamsService.getValue("server.mqtt_manager_api", true);
-            if (StringUtils.isBlank(mqttGatewayUrl)) {
+            if (StringUtils.isBlank(mqttGatewayUrl) || "null".equals(mqttGatewayUrl)) {
                 return new Result<String>().error("MQTT网关地址未配置");
             }
 
             // 构建完整的URL
             // 获取设备信息以构建mqttClientId
             DeviceEntity deviceById = deviceService.selectById(deviceId);
+
+            if (!deviceById.getUserId().equals(SecurityUser.getUser().getId())) {
+                return new Result<String>().error("设备不存在");
+            }
             String macAddress = deviceById != null ? deviceById.getMacAddress() : "unknown";
             String groupId = deviceById != null ? deviceById.getBoard() : null;
             if (groupId == null) {
@@ -228,10 +234,10 @@ public class DeviceController {
             }
             groupId = groupId.replace(":", "_");
             macAddress = macAddress.replace(":", "_");
-            
+
             // 拼接为groupId@@@macAddress@@@deviceId格式
             String mqttClientId = groupId + "@@@" + macAddress + "@@@" + macAddress;
-            
+
             String url = "http://" + mqttGatewayUrl + "/api/commands/" + mqttClientId;
 
             // 设置请求头
@@ -239,7 +245,8 @@ public class DeviceController {
             headers.set("Content-Type", "application/json");
 
             // 生成Bearer令牌
-            String dateStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            String dateStr = java.time.LocalDate.now()
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
             String signatureKey = sysParamsService.getValue("server.mqtt_signature_key", false);
             if (StringUtils.isBlank(signatureKey)) {
                 return new Result<String>().error("MQTT签名密钥未配置");
