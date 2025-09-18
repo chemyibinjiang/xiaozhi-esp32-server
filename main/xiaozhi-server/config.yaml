@@ -922,3 +922,18 @@ TTS:
     # 默认音色，如需其他音色可到项目assets文件夹下注册
     voice: "jay_klee"
     output_dir: tmp/
+  AliBLTTS:
+    # 阿里百炼CosyVoice大模型流式文本语音合成
+    # 可在这里找到你的 api_key https://bailian.console.aliyun.com/?apiKey=1#/api-key
+    # cosyvoice-v3和部分音色需要申请开通
+    type: alibl_stream
+    api_key: 你的api_key
+    model: "cosyvoice-v2"
+    voice: "longcheng_v2"
+    output_dir: tmp/
+    # 以下可不用设置，使用默认设置
+    # format: pcm  # 音频格式：pcm、wav、mp3、opus
+    # sample_rate: 24000  # 采样率：16000, 24000, 48000
+    # volume: 50  # 音量：0-100
+    # rate: 1  # 语速：0.5~2
+    # pitch: 1  # 语调：0.5~2

@@ -1,4 +1,11 @@
 export default {
+  // 登录页面相关提示文本
+  'login.requiredUsername': '用户名不能为空',
+  'login.requiredPassword': '密码不能为空',
+  'login.requiredCaptcha': '验证码不能为空',
+  'login.requiredMobile': '请输入正确的手机号码',
+  'login.loginSuccess': '登录成功！',
+  
   // HeaderBar组件文本
   'header.smartManagement': '智能体管理',
   'header.modelConfig': '模型配置',
@@ -220,6 +227,38 @@ export default {
 
   // 手動添加設備對話框相關
   'manualAddDeviceDialog.title': '手动添加设备',
+
+  // AddModelDialog组件相关
+  'addModelDialog.requiredSupplier': '请选择供应器',
+  
+  // 注册页面相关
+  'register.title': '创建账号',
+  'register.welcome': '欢迎使用小智AI',
+  'register.usernamePlaceholder': '请输入用户名',
+  'register.mobilePlaceholder': '请输入手机号码',
+  'register.captchaPlaceholder': '请输入验证码',
+  'register.mobileCaptchaPlaceholder': '请输入短信验证码',
+  'register.passwordPlaceholder': '请设置密码',
+  'register.confirmPasswordPlaceholder': '请确认密码',
+  'register.goToLogin': '已有账号？登录',
+  'register.registerButton': '注册',
+  'register.agreeTo': '注册即表示您同意我们的',
+  'register.userAgreement': '用户协议',
+  'register.privacyPolicy': '隐私政策',
+  'register.notAllowRegister': '当前不允许用户注册',
+  'register.captchaLoadFailed': '验证码加载失败',
+  'register.inputCaptcha': '请输入验证码',
+  'register.inputCorrectMobile': '请输入正确的手机号码',
+  'register.captchaSendSuccess': '验证码发送成功',
+  'register.captchaSendFailed': '验证码发送失败',
+  'register.passwordsNotMatch': '两次输入的密码不一致',
+  'register.registerSuccess': '注册成功！',
+  'register.registerFailed': '注册失败',
+  'register.requiredUsername': '用户名不能为空',
+  'register.requiredPassword': '密码不能为空',
+  'register.requiredCaptcha': '验证码不能为空',
+  'register.requiredMobileCaptcha': '请输入短信验证码',
+  
   'manualAddDeviceDialog.deviceType': '设备型号',
   'manualAddDeviceDialog.deviceTypePlaceholder': '请选择设备型号',
   'manualAddDeviceDialog.firmwareVersion': '固件版本',
@@ -417,7 +456,7 @@ export default {
   'device.search': '搜索',
   'device.selectAll': '全选/取消全选',
   'deviceManagement.loading': '拼命加载中',
-  'device.bindWithCode': '扫码绑定',
+  'device.bindWithCode': '6位验证码绑定',
   'device.manualAdd': '手动添加',
   'device.unbind': '解绑',
   'device.toolCall': '工具调用',

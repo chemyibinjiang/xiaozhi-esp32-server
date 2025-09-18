@@ -1,4 +1,11 @@
 export default {
+  // 登錄頁面相關提示文本
+  'login.requiredUsername': '用戶名不能為空',
+  'login.requiredPassword': '密碼不能為空',
+  'login.requiredCaptcha': '驗證碼不能為空',
+  'login.requiredMobile': '請輸入正確的手機號碼',
+  'login.loginSuccess': '登錄成功！',
+  
   // HeaderBar组件文本
   'header.smartManagement': '智能體管理',
   'header.modelConfig': '模型配置',
@@ -220,6 +227,38 @@ export default {
 
   // 手動添加設備對話框相關
   'manualAddDeviceDialog.title': '手動添加設備',
+
+  // AddModelDialog組件相關
+  'addModelDialog.requiredSupplier': '請選擇供應器',
+  
+  // 註冊頁面相關
+  'register.title': '建立帳號',
+  'register.welcome': '歡迎使用小智慧AI',
+  'register.usernamePlaceholder': '請輸入用戶名',
+  'register.mobilePlaceholder': '請輸入手機號碼',
+  'register.captchaPlaceholder': '請輸入驗證碼',
+  'register.mobileCaptchaPlaceholder': '請輸入簡訊驗證碼',
+  'register.passwordPlaceholder': '請設定密碼',
+  'register.confirmPasswordPlaceholder': '請確認密碼',
+  'register.goToLogin': '已有帳號？登錄',
+  'register.registerButton': '註冊',
+  'register.agreeTo': '註冊即表示您同意我們的',
+  'register.userAgreement': '用戶協議',
+  'register.privacyPolicy': '隱私政策',
+  'register.notAllowRegister': '當前不允許用戶註冊',
+  'register.captchaLoadFailed': '驗證碼加載失敗',
+  'register.inputCaptcha': '請輸入驗證碼',
+  'register.inputCorrectMobile': '請輸入正確的手機號碼',
+  'register.captchaSendSuccess': '驗證碼發送成功',
+  'register.captchaSendFailed': '驗證碼發送失敗',
+  'register.passwordsNotMatch': '兩次輸入的密碼不一致',
+  'register.registerSuccess': '註冊成功！',
+  'register.registerFailed': '註冊失敗',
+  'register.requiredUsername': '用戶名不能為空',
+  'register.requiredPassword': '密碼不能為空',
+  'register.requiredCaptcha': '驗證碼不能為空',
+  'register.requiredMobileCaptcha': '請輸入簡訊驗證碼',
+  
   'manualAddDeviceDialog.deviceType': '設備型號',
   'manualAddDeviceDialog.deviceTypePlaceholder': '請選擇設備型號',
   'manualAddDeviceDialog.firmwareVersion': '固件版本',
@@ -416,7 +455,7 @@ export default {
   'device.search': '搜索',
   'device.selectAll': '全選/取消全選',
   'deviceManagement.loading': '拼命加載中',
-  'device.bindWithCode': '驗證碼綁定',
+  'device.bindWithCode': '6位驗證碼綁定',
   'device.manualAdd': '手動添加',
   'device.unbind': '解綁',
   'device.toolCall': '工具調用',
