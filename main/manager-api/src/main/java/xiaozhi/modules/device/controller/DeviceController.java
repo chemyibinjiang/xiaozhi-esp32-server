@@ -136,7 +136,7 @@ public class DeviceController {
             headers.set("Authorization", "Bearer " + token);
 
             // 构建请求体JSON
-            String jsonBody = "{\"deviceIds\":" + objectMapper.writeValueAsString(deviceIds) + "}";
+            String jsonBody = "{\"clientIds\":" + objectMapper.writeValueAsString(deviceIds) + "}";
             HttpEntity<String> requestEntity = new HttpEntity<>(jsonBody, headers);
 
             // 发送POST请求
