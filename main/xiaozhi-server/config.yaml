@@ -427,7 +427,26 @@ ASR:
     enable_itn: true  # 逆文本归一化
     #language: "zh"  # 语种，支持zh、en、ja、ko等
     context: ""  # 上下文信息，用于提高识别准确率，不超过10000 Token
-
+  XunfeiStreamASR:
+    # 讯飞流式语音识别服务
+    # 需要先在讯飞开放平台创建应用，获取以下认证信息
+    # 讯飞开放平台地址：https://www.xfyun.cn/
+    # 创建应用后，在"我的应用"中获取：
+    # - APPID
+    # - APISecret  
+    # - APIKey
+    type: xunfei_stream
+    # 必填参数 - 讯飞开放平台应用信息
+    app_id: 你的APPID
+    api_key: 你的APIKey
+    api_secret: 你的APISecret
+    # 识别参数配置
+    domain: slm # 识别领域，iat:日常用语，medical:医疗，finance:金融等
+    language: zh_cn # 语言，zh_cn:中文，en_us:英文
+    accent: mandarin # 方言，mandarin:普通话
+    dwa: wpgs # 动态修正，wpgs:实时返回中间结果
+    # 调整音频处理参数以提高长语音识别质量
+    output_dir: tmp/
   
 VAD:
   SileroVAD:
