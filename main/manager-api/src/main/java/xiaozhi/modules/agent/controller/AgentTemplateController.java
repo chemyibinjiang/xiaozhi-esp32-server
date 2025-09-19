@@ -106,6 +106,9 @@ public class AgentTemplateController {
     @Operation(summary = "创建模板")
     @RequiresPermissions("sys:role:superAdmin")
     public Result<AgentTemplateEntity> createAgentTemplate(@Valid @RequestBody AgentTemplateEntity template) {
+        // 设置排序值为下一个可用的序号
+        template.setSort(agentTemplateService.getNextAvailableSort());
+        
         boolean saved = agentTemplateService.save(template);
         if (saved) {
             return ResultUtils.success(template);
@@ -130,9 +133,20 @@ public class AgentTemplateController {
     @Operation(summary = "删除模板")
     @RequiresPermissions("sys:role:superAdmin")
     public Result<String> deleteAgentTemplate(@PathVariable("id") String id) {
+        // 先查询要删除的模板信息，获取其排序值
+        AgentTemplateEntity template = agentTemplateService.getById(id);
+        if (template == null) {
+            return ResultUtils.error("模板不存在");
+        }
+        
+        Integer deletedSort = template.getSort();
+        
+        // 执行删除操作
         boolean deleted = agentTemplateService.removeById(id);
         if (deleted) {
-            return ResultUtils.success("删除成功");
+            // 删除成功后，重新排序剩余模板
+            agentTemplateService.reorderTemplatesAfterDelete(deletedSort);
+            return ResultUtils.success("删除模板成功");
         } else {
             return ResultUtils.error("删除模板失败");
         }
