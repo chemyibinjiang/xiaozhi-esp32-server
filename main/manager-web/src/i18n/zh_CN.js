@@ -827,7 +827,7 @@ export default {
   'providerDialog.batchDeleteFieldsSuccess': '成功删除{count}个字段',
 
   // 默认角色模版和模版快速配置页面
-  // 在agentTemplateManagement对象中添加
+  // 在agentTemplateManagement对象中添加以下键
   agentTemplateManagement: {
   title: '默认角色管理',
   templateName: '模板名称',
@@ -848,6 +848,12 @@ export default {
   serialNumber: '序号',
   selectAll: '全选',
   deselectAll: '取消全选',
+  loading: '拼命加载中',
+  confirmSingleDelete: '确定要删除这个模板吗？',
+  confirmBatchDelete: '确定要删除选中的 {count} 个模板吗？',
+  deleteFailed: '模板删除失败',
+  batchDeleteFailed: '模板批量删除失败',
+  deleteBackendError: '删除失败，请检查后端服务是否正常',
   templateDialog: {
     title: '模板配置',
     templateName: '模板名称',

@@ -827,7 +827,7 @@ export default {
   'providerDialog.confirmBatchDeleteFields': 'Are you sure to delete {count} selected fields?',
   'providerDialog.batchDeleteFieldsSuccess': 'Successfully deleted {count} fields',
 
-  // ...existing code ...
+  // 在agentTemplateManagement对象中添加以下键
   agentTemplateManagement: {
     title: 'Default Role Management',
     templateName: 'Template Name',
@@ -848,6 +848,14 @@ export default {
     serialNumber: 'Serial Number',
     selectAll: 'Select All',
     deselectAll: 'Deselect All',
+    loading: 'Loading...',
+    confirmSingleDelete: 'Are you sure you want to delete this template?',
+    confirmBatchDelete: 'Are you sure you want to delete the selected {count} templates?',
+    deleteSuccess: 'Template deleted successfully',
+    deleteFailed: 'Template deletion failed',
+    batchDeleteSuccess: 'Templates deleted successfully',
+    batchDeleteFailed: 'Template batch deletion failed',
+    deleteBackendError: 'Deletion failed, please check if the backend service is working properly',
     templateDialog: {
       title: 'Template Configuration',
       templateName: 'Template Name',

@@ -1,6 +1,6 @@
 <template>
   <div class="welcome">
-    <HeaderBar />
+    <HeaderBar />    
 
     <div class="operation-bar">
       <h2 class="page-title">{{ $t('agentTemplateManagement.title') }}</h2>
@@ -21,7 +21,7 @@
             
             
             <el-table ref="templateTable" :data="templateList" style="width: 100%" v-loading="templateLoading"
-              element-loading-text="拼命加载中" element-loading-spinner="el-icon-loading"
+              :element-loading-text="$t('agentTemplateManagement.loading')" element-loading-spinner="el-icon-loading"
               element-loading-background="rgba(255, 255, 255, 0.7)"
               class="transparent-table" :header-cell-style="{padding: '10px 20px'}" :cell-style="{padding: '10px 20px'}"> <!-- 移除@row-click="handleRowClick" -->
               <!-- 自定义选择列，实现表头是"选择"文字，数据行是小方框 -->
@@ -30,23 +30,43 @@
                   <el-checkbox v-model="scope.row.selected" @change="handleRowSelectionChange(scope.row)" @click.stop></el-checkbox>
                 </template>
               </el-table-column>
-              <el-table-column :label="$t('agentTemplateManagement.templateName')" prop="agentName" min-width="250" show-overflow-tooltip>
-                <template slot-scope="scope">
-                  <span>{{ scope.row.agentName }}</span>
-                </template>
-              </el-table-column>
-              <!-- 修改为序号列1 -->
+              <!-- 修改为序号列 -->
               <el-table-column :label="$t('agentTemplateManagement.serialNumber')" min-width="120" align="center">
                 <template slot-scope="scope">
                   <span>{{ (currentPage - 1) * pageSize + scope.$index + 1 }}</span>
                 </template>
               </el-table-column>
-              <!-- 删除重复的序号列2 -->
+              <!-- 模板名称 -->
+              <el-table-column :label="$t('agentTemplateManagement.templateName')" prop="agentName" min-width="250" show-overflow-tooltip>
+                <template slot-scope="scope">
+                  <span>{{ scope.row.agentName }}</span>
+                </template>
+              </el-table-column>
+              <!-- 模板描述 -->
+              <el-table-column :label="$t('agentTemplateManagement.description')" prop="description" min-width="200" show-overflow-tooltip>
+                <template slot-scope="scope">
+                  <span>{{ scope.row.description }}</span>
+                </template>
+              </el-table-column>
+              <!-- 语言 -->
+              <el-table-column :label="$t('templateQuickConfig.agentSettings.agentName')" prop="language" min-width="100" show-overflow-tooltip>
+                <template slot-scope="scope">
+                  <span>{{ scope.row.language }}</span>
+                </template>
+              </el-table-column>
+              <!-- 创建时间 -->
+              <el-table-column :label="$t('agentTemplateManagement.createTime')" min-width="180" align="center">
+                <template slot-scope="scope">
+                  <span>{{ formatDate(scope.row.createdAt) }}</span>
+                </template>
+              </el-table-column>
+              <!-- 操作列 -->
               <el-table-column :label="$t('agentTemplateManagement.action')" min-width="250" align="center">
                 <template slot-scope="scope">
                   <div style="display: flex; justify-content: center; gap: 15px;">
                     <el-button type="text" @click="editTemplate(scope.row)">{{ $t('agentTemplateManagement.editTemplate') }}</el-button>
-                    <el-button type="text" @click="handleDelete(scope.row.id)">{{ $t('agentTemplateManagement.deleteTemplate') }}</el-button>
+                    <!-- 修复：调用正确的方法名 -->
+                    <el-button type="text" @click="deleteTemplate(scope.row)">{{ $t('agentTemplateManagement.deleteTemplate') }}</el-button>
                   </div>
                 </template>
               </el-table-column>
@@ -84,30 +104,19 @@
       </div>
     </div>
 
-    <!-- 模板编辑弹框 -->
-    <AgentTemplateDialog
-      ref="templateDialog"
-      :visible.sync="templateDialogVisible"
-      :title="templateDialogTitle"
-      :template-data="templateForm"
-      @save="saveTemplate"
-    />
   </div>
 </template>
 
 <script>
-import agentApi from '@/apis/module/agent'
-import AgentTemplateDialog from '@/components/AgentTemplateDialog.vue'
-import HeaderBar from '@/components/HeaderBar.vue'
-import VersionFooter from '@/components/VersionFooter.vue'
+import HeaderBar from '@/components/HeaderBar';
+import agentApi from '@/apis/module/agent';
 
 export default {
   name: 'AgentTemplateManagement',
   components: {
-    HeaderBar,
-    AgentTemplateDialog,
-    VersionFooter
+    HeaderBar
   },
+ 
   // 1. 首先确保在 data 部分添加了 isAllSelected 状态
   data() {
     return {
@@ -116,27 +125,7 @@ export default {
       templateLoading: false,
       selectedTemplates: [],
       isAllSelected: false, // 添加全选状态
-      templateDialogVisible: false,
-      templateDialogTitle: '新增模板',
-      templateForm: {
-        id: null,
-        agentCode: '',
-        agentName: '',
-        asrModelId: '',
-        vadModelId: '',
-        llmModelId: '',
-        vllmModelId: '',
-        ttsModelId: '',
-        ttsVoiceId: '',
-        memModelId: '',
-        intentModelId: '',
-        chatHistoryConf: 0,
-        systemPrompt: '',
-        summaryMemory: '',
-        langCode: '',
-        language: '',
-        sort: 0
-      },
+      
       search: '',
       // 分页相关数据
       pageSizeOptions: [10, 20, 50, 100],
@@ -250,39 +239,11 @@ export default {
       })
     },
 
-    // 保存模板
-    saveTemplate(data) {
-      // 这里需要调用保存模板的API
-      if (data.id) {
-        // 更新模板
-        agentApi.updateAgentTemplate(data, (res) => {
-          if (res.code === 0) {
-            this.$message.success('模板更新成功')
-            this.templateDialogVisible = false
-            this.loadTemplateList()
-          } else {
-            this.$message.error('模板更新失败')
-          }
-        })
-      } else {
-        // 新增模板
-        agentApi.addAgentTemplate(data, (res) => {
-          if (res.code === 0) {
-            this.$message.success('模板新增成功')
-            this.templateDialogVisible = false
-            this.loadTemplateList()
-          } else {
-            this.$message.error('模板新增失败')
-          }
-        })
-      }
-    },
-
     // 删除模板
     deleteTemplate(row) {
-      this.$confirm('确定要删除这个模板吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+      this.$confirm(this.$t('agentTemplateManagement.confirmSingleDelete'), this.$t('common.warning'), {
+        confirmButtonText: this.$t('common.confirm'),
+        cancelButtonText: this.$t('common.cancel'),
         type: 'warning'
       }).then(() => {
         agentApi.deleteAgentTemplate(row.id, (res) => {
@@ -292,18 +253,18 @@ export default {
           if (res && typeof res === 'object') {
             // 检查res.data是否存在且包含code=0
             if (res.data && res.data.code === 0) {
-              this.$message.success('模板删除成功')
+              this.$message.success(this.$t('agentTemplateManagement.deleteSuccess'))
               this.loadTemplateList()
             } else {
-              this.$message.error(res?.data?.msg || '模板删除失败')
+              this.$message.error(res?.data?.msg || this.$t('agentTemplateManagement.deleteFailed'))
             }
           } else {
             console.error('无效的响应对象:', res);
-            this.$message.error('删除失败，请检查后端服务是否正常')
+            this.$message.error(this.$t('agentTemplateManagement.deleteBackendError'))
           }
         })
       }).catch(() => {
-        this.$message.info('已取消删除')
+        this.$message.info(this.$t('common.deleteCancelled'))
       })
     },
 
@@ -311,13 +272,13 @@ export default {
     // 批量删除模板 - 完全重写这个方法
     batchDeleteTemplate() {
       if (this.selectedTemplates.length === 0) {
-        this.$message.warning('请选择要删除的模板')
+        this.$message.warning(this.$t('agentTemplateManagement.selectTemplate'))
         return
       }
 
-      this.$confirm(`确定要删除选中的 ${this.selectedTemplates.length} 个模板吗？`, '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+      this.$confirm(this.$t('agentTemplateManagement.confirmBatchDelete', { count: this.selectedTemplates.length }), this.$t('common.warning'), {
+        confirmButtonText: this.$t('common.confirm'),
+        cancelButtonText: this.$t('common.cancel'),
         type: 'warning'
       }).then(() => {
         // 确保参数格式正确 - 将id数组作为请求体
@@ -329,22 +290,22 @@ export default {
           console.log('批量删除响应:', res)
           if (res && typeof res === 'object') {
             if (res.data && res.data.code === 0) {
-              this.$message.success('模板批量删除成功')
+              this.$message.success(this.$t('agentTemplateManagement.batchDeleteSuccess'))
               // 重新加载模板列表
               this.loadTemplateList()
               // 清空选中状态
               this.selectedTemplates = []
               this.isAllSelected = false
             } else {
-              this.$message.error(res?.data?.msg || '模板批量删除失败')
+              this.$message.error(res?.data?.msg || this.$t('agentTemplateManagement.batchDeleteFailed'))
             }
           } else {
             console.error('无效的响应对象:', res)
-            this.$message.error('删除失败，请检查后端服务是否正常')
+            this.$message.error(this.$t('agentTemplateManagement.deleteBackendError'))
           }
         })
       }).catch(() => {
-        this.$message.info('已取消删除')
+        this.$message.info(this.$t('common.deleteCancelled'))
       })
     },
 

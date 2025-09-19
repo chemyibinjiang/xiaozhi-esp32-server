@@ -26,6 +26,7 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import xiaozhi.common.constant.Constant;
 import xiaozhi.common.page.PageData;
+import xiaozhi.common.utils.ConvertUtils;
 import xiaozhi.common.utils.Result;
 import xiaozhi.common.utils.ResultUtils;
 import xiaozhi.modules.agent.entity.AgentTemplateEntity;
@@ -42,42 +43,17 @@ public class AgentTemplateController {
     
     @GetMapping("/all")
     @Operation(summary = "获取所有模板列表")
-    @RequiresPermissions("sys:role:normal")
+    @RequiresPermissions("sys:role:superAdmin")
     public Result<List<AgentTemplateVO>> getAgentTemplates() {
         List<AgentTemplateEntity> templates = agentTemplateService.list();
-        // 转换为VO列表
-        List<AgentTemplateVO> voList = templates.stream().map(template -> {
-            AgentTemplateVO vo = new AgentTemplateVO();
-            // 复制属性
-            vo.setId(template.getId());
-            vo.setAgentCode(template.getAgentCode());
-            vo.setAgentName(template.getAgentName());
-            vo.setAsrModelId(template.getAsrModelId());
-            vo.setVadModelId(template.getVadModelId());
-            vo.setLlmModelId(template.getLlmModelId());
-            vo.setVllmModelId(template.getVllmModelId());
-            vo.setTtsModelId(template.getTtsModelId());
-            vo.setTtsVoiceId(template.getTtsVoiceId());
-            vo.setMemModelId(template.getMemModelId());
-            vo.setIntentModelId(template.getIntentModelId());
-            vo.setChatHistoryConf(template.getChatHistoryConf());
-            vo.setSystemPrompt(template.getSystemPrompt());
-            vo.setSummaryMemory(template.getSummaryMemory());
-            vo.setLangCode(template.getLangCode());
-            vo.setLanguage(template.getLanguage());
-            vo.setSort(template.getSort());
-            vo.setCreator(template.getCreator());
-            vo.setCreatedAt(template.getCreatedAt());
-            vo.setUpdater(template.getUpdater());
-            vo.setUpdatedAt(template.getUpdatedAt());
-            return vo;
-        }).toList();
+        // 使用ConvertUtils转换为VO列表
+        List<AgentTemplateVO> voList = ConvertUtils.sourceToTarget(templates, AgentTemplateVO.class);
         return new Result<List<AgentTemplateVO>>().ok(voList);
     }
     
     @GetMapping("/page")
     @Operation(summary = "获取模板分页列表")
-    @RequiresPermissions("sys:role:normal")
+    @RequiresPermissions("sys:role:superAdmin")
     @Parameters({
             @Parameter(name = Constant.PAGE, description = "当前页码，从1开始", required = true),
             @Parameter(name = Constant.LIMIT, description = "每页显示记录数", required = true),
@@ -102,33 +78,8 @@ public class AgentTemplateController {
         // 执行分页查询
         IPage<AgentTemplateEntity> pageResult = agentTemplateService.page(pageInfo, wrapper);
         
-        // 转换为PageData对象
-        List<AgentTemplateVO> voList = pageResult.getRecords().stream().map(template -> {
-            AgentTemplateVO vo = new AgentTemplateVO();
-            // 复制属性
-            vo.setId(template.getId());
-            vo.setAgentCode(template.getAgentCode());
-            vo.setAgentName(template.getAgentName());
-            vo.setAsrModelId(template.getAsrModelId());
-            vo.setVadModelId(template.getVadModelId());
-            vo.setLlmModelId(template.getLlmModelId());
-            vo.setVllmModelId(template.getVllmModelId());
-            vo.setTtsModelId(template.getTtsModelId());
-            vo.setTtsVoiceId(template.getTtsVoiceId());
-            vo.setMemModelId(template.getMemModelId());
-            vo.setIntentModelId(template.getIntentModelId());
-            vo.setChatHistoryConf(template.getChatHistoryConf());
-            vo.setSystemPrompt(template.getSystemPrompt());
-            vo.setSummaryMemory(template.getSummaryMemory());
-            vo.setLangCode(template.getLangCode());
-            vo.setLanguage(template.getLanguage());
-            vo.setSort(template.getSort());
-            vo.setCreator(template.getCreator());
-            vo.setCreatedAt(template.getCreatedAt());
-            vo.setUpdater(template.getUpdater());
-            vo.setUpdatedAt(template.getUpdatedAt());
-            return vo;
-        }).toList();
+        // 使用ConvertUtils转换为VO列表
+        List<AgentTemplateVO> voList = ConvertUtils.sourceToTarget(pageResult.getRecords(), AgentTemplateVO.class);
 
         // 修复：使用构造函数创建PageData对象，而不是无参构造+setter
         PageData<AgentTemplateVO> pageData = new PageData<>(voList, pageResult.getTotal());
@@ -138,44 +89,22 @@ public class AgentTemplateController {
     
     @GetMapping("/{id}")
     @Operation(summary = "获取模板详情")
-    @RequiresPermissions("sys:role:normal")
+    @RequiresPermissions("sys:role:superAdmin")
     public Result<AgentTemplateVO> getAgentTemplateById(@PathVariable("id") String id) {
         AgentTemplateEntity template = agentTemplateService.getById(id);
         if (template == null) {
             return ResultUtils.error("模板不存在");
         }
         
-        // 转换为VO
-        AgentTemplateVO vo = new AgentTemplateVO();
-        // 复制属性
-        vo.setId(template.getId());
-        vo.setAgentCode(template.getAgentCode());
-        vo.setAgentName(template.getAgentName());
-        vo.setAsrModelId(template.getAsrModelId());
-        vo.setVadModelId(template.getVadModelId());
-        vo.setLlmModelId(template.getLlmModelId());
-        vo.setVllmModelId(template.getVllmModelId());
-        vo.setTtsModelId(template.getTtsModelId());
-        vo.setTtsVoiceId(template.getTtsVoiceId());
-        vo.setMemModelId(template.getMemModelId());
-        vo.setIntentModelId(template.getIntentModelId());
-        vo.setChatHistoryConf(template.getChatHistoryConf());
-        vo.setSystemPrompt(template.getSystemPrompt());
-        vo.setSummaryMemory(template.getSummaryMemory());
-        vo.setLangCode(template.getLangCode());
-        vo.setLanguage(template.getLanguage());
-        vo.setSort(template.getSort());
-        vo.setCreator(template.getCreator());
-        vo.setCreatedAt(template.getCreatedAt());
-        vo.setUpdater(template.getUpdater());
-        vo.setUpdatedAt(template.getUpdatedAt());
+        // 使用ConvertUtils转换为VO
+        AgentTemplateVO vo = ConvertUtils.sourceToTarget(template, AgentTemplateVO.class);
         
         return ResultUtils.success(vo);
     }
     
     @PostMapping
     @Operation(summary = "创建模板")
-    @RequiresPermissions("sys:role:normal")
+    @RequiresPermissions("sys:role:superAdmin")
     public Result<AgentTemplateEntity> createAgentTemplate(@Valid @RequestBody AgentTemplateEntity template) {
         boolean saved = agentTemplateService.save(template);
         if (saved) {
@@ -187,7 +116,7 @@ public class AgentTemplateController {
     
     @PutMapping
     @Operation(summary = "更新模板")
-    @RequiresPermissions("sys:role:normal")
+    @RequiresPermissions("sys:role:superAdmin")
     public Result<AgentTemplateEntity> updateAgentTemplate(@Valid @RequestBody AgentTemplateEntity template) {
         boolean updated = agentTemplateService.updateById(template);
         if (updated) {
@@ -199,7 +128,7 @@ public class AgentTemplateController {
     
     @DeleteMapping("/{id}")
     @Operation(summary = "删除模板")
-    @RequiresPermissions("sys:role:normal")
+    @RequiresPermissions("sys:role:superAdmin")
     public Result<String> deleteAgentTemplate(@PathVariable("id") String id) {
         boolean deleted = agentTemplateService.removeById(id);
         if (deleted) {
@@ -209,23 +138,11 @@ public class AgentTemplateController {
         }
     }
     
-    // 删除原有的批量删除方法
-    // @PostMapping("/batch-delete")
-    // @Operation(summary = "批量删除模板")
-    // @RequiresPermissions("sys:role:normal")
-    // public Result<String> batchDeleteAgentTemplates(@RequestBody List<String> ids) {
-    //     boolean deleted = agentTemplateService.removeByIds(ids);
-    //     if (deleted) {
-    //         return ResultUtils.success("批量删除成功");
-    //     } else {
-    //         return ResultUtils.error("批量删除模板失败");
-    //     }
-    // }
     
     // 添加新的批量删除方法，使用不同的URL
     @PostMapping("/batch-remove")
     @Operation(summary = "批量删除模板")
-    @RequiresPermissions("sys:role:normal")
+    @RequiresPermissions("sys:role:superAdmin")
     public Result<String> batchRemoveAgentTemplates(@RequestBody List<String> ids) {
         boolean deleted = agentTemplateService.removeByIds(ids);
         if (deleted) {
