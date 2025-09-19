@@ -937,3 +937,25 @@ TTS:
     # volume: 50  # 音量：0-100
     # rate: 1  # 语速：0.5~2
     # pitch: 1  # 语调：0.5~2
+  XunFeiTTS:
+    # 讯飞TTS服务 官方网站：https://www.xfyun.cn/
+    # 登录讯飞语音技术平台 https://console.xfyun.cn/app/myapp 创建相关应用
+    # 选择需要的服务获取api相关配置 https://console.xfyun.cn/services/uts
+    # 为需要使用的应用(APPID)购买相关服务 例如：超拟人合成 https://console.xfyun.cn/services/uts
+    type: xunfei_stream
+    api_url: wss://cbm01.cn-huabei-1.xf-yun.com/v1/private/mcd9m97e6
+    app_id: 你的app_id
+    api_secret: 你的api_secret
+    api_key: 你的api_key
+    voice: x5_lingxiaoxuan_flow
+    output_dir: tmp/
+    # 以下可不用设置，使用默认设置，注意V5音色不支持口语化配置
+    # oral_level: mid  # 口语化等级：high, mid, low
+    # spark_assist: 1  # 是否通过大模型进行口语化 开启:1, 关闭:0
+    # stop_split: 0  # 关闭服务端拆句 不关闭：0，关闭：1
+    # remain: 0  # 是否保留原书面语的样子	保留:1, 不保留:0
+    # format: raw  # 音频格式：raw(PCM), lame(MP3), speex, opus, opus-wb, opus-swb, speex-wb
+    # sample_rate: 24000  # 采样率：16000, 8000, 24000
+    # volume: 50  # 音量：0-100
+    # speed: 50  # 语速：0-100
+    # pitch: 50  # 语调：0-100
