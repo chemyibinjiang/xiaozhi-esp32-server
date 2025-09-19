@@ -42,22 +42,10 @@
                   <span>{{ scope.row.agentName }}</span>
                 </template>
               </el-table-column>
-              <!-- 模板描述 -->
-              <el-table-column :label="$t('agentTemplateManagement.description')" prop="description" min-width="200" show-overflow-tooltip>
-                <template slot-scope="scope">
-                  <span>{{ scope.row.description }}</span>
-                </template>
-              </el-table-column>
               <!-- 语言 -->
               <el-table-column :label="$t('templateQuickConfig.agentSettings.agentName')" prop="language" min-width="100" show-overflow-tooltip>
                 <template slot-scope="scope">
                   <span>{{ scope.row.language }}</span>
-                </template>
-              </el-table-column>
-              <!-- 创建时间 -->
-              <el-table-column :label="$t('agentTemplateManagement.createTime')" min-width="180" align="center">
-                <template slot-scope="scope">
-                  <span>{{ formatDate(scope.row.createdAt) }}</span>
                 </template>
               </el-table-column>
               <!-- 操作列 -->
@@ -71,7 +59,7 @@
                 </template>
               </el-table-column>
             </el-table>
-
+            
             <!-- 表格底部操作栏 -->
             <div class="table_bottom">
               <div class="ctrl_btn">
