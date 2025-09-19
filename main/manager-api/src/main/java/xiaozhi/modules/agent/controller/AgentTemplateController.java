@@ -41,16 +41,6 @@ public class AgentTemplateController {
     
     private final AgentTemplateService agentTemplateService;
     
-    @GetMapping("/all")
-    @Operation(summary = "获取所有模板列表")
-    @RequiresPermissions("sys:role:superAdmin")
-    public Result<List<AgentTemplateVO>> getAgentTemplates() {
-        List<AgentTemplateEntity> templates = agentTemplateService.list();
-        // 使用ConvertUtils转换为VO列表
-        List<AgentTemplateVO> voList = ConvertUtils.sourceToTarget(templates, AgentTemplateVO.class);
-        return new Result<List<AgentTemplateVO>>().ok(voList);
-    }
-    
     @GetMapping("/page")
     @Operation(summary = "获取模板分页列表")
     @RequiresPermissions("sys:role:superAdmin")
