@@ -170,29 +170,16 @@ VueRouter.prototype.push = function push(location) {
 // 需要登录才能访问的路由
 const protectedRoutes = ['home', 'RoleConfig', 'DeviceManagement', 'UserManagement', 'ModelConfig']
 
-// 需要管理员权限才能访问的路由
-const adminRoutes = ['TemplateQuickConfig', 'AgentTemplateManagement']
-
 // 路由守卫
 router.beforeEach((to, from, next) => {
   // 检查是否是需要保护的路由
-  if (protectedRoutes.includes(to.name) || adminRoutes.includes(to.name)) {
+  if (protectedRoutes.includes(to.name)) {
     // 从localStorage获取token
     const token = localStorage.getItem('token')
     if (!token) {
       // 未登录，跳转到登录页
       next({ name: 'login', query: { redirect: to.fullPath } })
       return
-    }
-    
-    // 对于需要管理员权限的路由，检查用户是否是超级管理员
-    if (adminRoutes.includes(to.name)) {
-      const isSuperAdmin = localStorage.getItem('isSuperAdmin') === 'true'
-      if (!isSuperAdmin) {
-        // 不是管理员，跳转到首页或显示无权限提示
-        next({ name: 'home' })
-        return
-      }
     }
   }
   next()
