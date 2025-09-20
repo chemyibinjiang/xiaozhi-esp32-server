@@ -832,6 +832,8 @@ export default {
   'agentTemplateManagement.description': '模板描述',
   'agentTemplateManagement.createTime': '创建时间',
   'agentTemplateManagement.action': '操作',
+  'templateQuickConfig.saveSuccess': '配置保存成功',
+  'templateQuickConfig.saveFailed': '配置保存失败',
   'agentTemplateManagement.createTemplate': '创建模板',
   'agentTemplateManagement.editTemplate': '编辑模板',
   'agentTemplateManagement.deleteTemplate': '删除模板',

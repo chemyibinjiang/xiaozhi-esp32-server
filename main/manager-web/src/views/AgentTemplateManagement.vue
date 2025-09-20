@@ -83,7 +83,6 @@
                     <el-button type="text" @click="editTemplate(scope.row)">{{
                       $t("agentTemplateManagement.editTemplate")
                     }}</el-button>
-                    <!-- 修复：调用正确的方法名 -->
                     <el-button type="text" @click="deleteTemplate(scope.row)">{{
                       $t("agentTemplateManagement.deleteTemplate")
                     }}</el-button>
@@ -150,7 +149,6 @@ export default {
     HeaderBar,
   },
 
-  // 1. 首先确保在 data 部分添加了 isAllSelected 状态
   data() {
     return {
       // 模板相关
@@ -270,12 +268,6 @@ export default {
       });
     },
 
-    // 添加handleCreate方法，与模板中绑定的按钮保持一致
-    handleCreate() {
-      this.showAddTemplateDialog();
-    },
-
-    // 保留原有的editTemplate方法
     // 编辑模板
     editTemplate(row) {
       // 跳转到模板快速配置页面，并传递模板ID参数
@@ -322,8 +314,7 @@ export default {
         });
     },
 
-    // 修改batchDeleteTemplate方法，使用selectedTemplates
-    // 批量删除模板 - 完全重写这个方法
+    // 批量删除模板
     batchDeleteTemplate() {
       if (this.selectedTemplates.length === 0) {
         this.$message.warning(this.$t("agentTemplateManagement.selectTemplate"));
@@ -372,20 +363,6 @@ export default {
         .catch(() => {
           this.$message.info(this.$t("common.deleteCancelled"));
         });
-    },
-
-    // 分页相关方法
-    // 添加日期格式化函数
-    formatDate(dateString) {
-      if (!dateString) return "";
-      const date = new Date(dateString);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      const hours = String(date.getHours()).padStart(2, "0");
-      const minutes = String(date.getMinutes()).padStart(2, "0");
-      const seconds = String(date.getSeconds()).padStart(2, "0");
-      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     },
 
     // 完善分页相关方法

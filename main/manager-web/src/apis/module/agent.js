@@ -84,7 +84,7 @@ export default {
     // 新增方法：获取智能体模板
     getAgentTemplate(callback) {  // 移除templateName参数
         RequestService.sendRequest()
-            .url(`${getServiceUrl()}/agent/template/all`)
+            .url(`${getServiceUrl()}/agent/template`)
             .method('GET')
             .success((res) => {
                 RequestService.clearRequestTime();
@@ -97,26 +97,7 @@ export default {
                 });
             }).send();
     },
-    // 删除以下重复定义的方法
-    // 保留此方法以保持向后兼容性，但内部使用分页API
-    // getAgentTemplate(callback) {
-    //   // 内部调用分页API获取所有模板
-    //   this.getAgentTemplatesPage({ pageNum: 1, pageSize: 100 }, (res) => {
-    //     if (res && res.data && res.data.code === 0) {
-    //       // 转换响应格式以保持兼容性
-    //       const compatibleRes = {
-    //         data: {
-    //           code: 0,
-    //           data: res.data.data?.records || []
-    //         }
-    //       };
-    //       callback(compatibleRes);
-    //     } else {
-    //       callback(res);
-    //     }
-    //   });
-    // },
-    
+   
     // 新增：获取智能体模板分页列表
     getAgentTemplatesPage(params, callback) {
         RequestService.sendRequest()
