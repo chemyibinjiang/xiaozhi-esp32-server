@@ -106,7 +106,7 @@
                       : $t("agentTemplateManagement.selectAll")
                   }}
                 </el-button>
-                <el-button type="success" @click="handleCreate" size="mini">
+                <el-button type="success" @click="showAddTemplateDialog" size="mini">
                   {{ $t("agentTemplateManagement.createTemplate") }}
                 </el-button>
                 <el-button
@@ -208,10 +208,6 @@ export default {
                 this.total =
                   typeof responseData.total === "number" ? responseData.total : 0;
               } else {
-                console.error(
-                  this.$t("agentTemplateManagement.fetchTemplateFailed"),
-                  res
-                );
                 this.templateList = [];
                 this.total = 0;
                 this.$message.error(
@@ -219,7 +215,6 @@ export default {
                 );
               }
             } else {
-              console.error(this.$t("agentTemplateManagement.invalidResponse"), res);
               this.templateList = [];
               this.total = 0;
               this.$message.error(
@@ -229,7 +224,6 @@ export default {
             this.templateLoading = false;
           },
           (error) => {
-            console.error(this.$t("agentTemplateManagement.apiCallFailed"), error);
             this.templateList = [];
             this.total = 0;
             this.templateLoading = false;
@@ -237,7 +231,6 @@ export default {
           }
         );
       } catch (error) {
-        console.error(this.$t("agentTemplateManagement.apiCallException"), error);
         this.templateList = [];
         this.total = 0;
         this.templateLoading = false;
@@ -290,9 +283,6 @@ export default {
       )
         .then(() => {
           agentApi.deleteAgentTemplate(row.id, (res) => {
-            // 添加调试日志
-            console.log("删除模板响应:", res);
-
             if (res && typeof res === "object") {
               // 检查res.data是否存在且包含code=0
               if (res.data && res.data.code === 0) {
@@ -304,7 +294,6 @@ export default {
                 );
               }
             } else {
-              console.error("无效的响应对象:", res);
               this.$message.error(this.$t("agentTemplateManagement.deleteBackendError"));
             }
           });
@@ -335,10 +324,8 @@ export default {
         .then(() => {
           // 确保参数格式正确 - 将id数组作为请求体
           const ids = this.selectedTemplates.map((template) => template.id);
-          console.log("批量删除的模板ID:", ids);
 
           agentApi.batchDeleteAgentTemplate(ids, (res) => {
-            console.log("批量删除响应:", res);
             if (res && typeof res === "object") {
               if (res.data && res.data.code === 0) {
                 this.$message.success(
@@ -355,7 +342,6 @@ export default {
                 );
               }
             } else {
-              console.error("无效的响应对象:", res);
               this.$message.error(this.$t("agentTemplateManagement.deleteBackendError"));
             }
           });
