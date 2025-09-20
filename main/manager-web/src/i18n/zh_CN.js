@@ -878,5 +878,11 @@ export default {
   'templateQuickConfig.fetchTemplateFailed': '获取模板失败',
   'templateQuickConfig.fetchTemplateBackendError': '获取模板失败，请检查后端服务是否正常',
   'warning': '警告',
-  'info': '提示'
+  'info': '提示',
+
+// 在agentTemplateManagement部分添加以下内容
+  'agentTemplateManagement.invalidResponse': '无效的响应对象:',
+  'agentTemplateManagement.apiCallFailed': 'API调用失败:',
+  'agentTemplateManagement.apiCallException': '调用API时发生异常:',
+  'common.networkError': '网络请求失败'
 }

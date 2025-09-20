@@ -881,7 +881,12 @@ export default {
   'templateQuickConfig.templateNotFound': 'Template not found',
   'templateQuickConfig.fetchTemplateFailed': 'Failed to fetch template',
   'templateQuickConfig.fetchTemplateBackendError': 'Failed to fetch template, please check if the backend service is normal',
-    'warning': 'Warning',
-    'info': 'Info'
-  }
-;
+  'warning': 'Warning',
+  'info': 'Info',
+  
+  // agentTemplateManagement error handling
+  'agentTemplateManagement.invalidResponse': 'Invalid response object:',
+  'agentTemplateManagement.apiCallFailed': 'API call failed:',
+  'agentTemplateManagement.apiCallException': 'Exception occurred when calling API:',
+  'common.networkError': 'Network request failed'
+}

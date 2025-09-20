@@ -883,5 +883,11 @@ export default {
   'templateQuickConfig.fetchTemplateBackendError': '獲取模板失敗，請檢查後端服務是否正常',
   'error': '錯誤',
   'warning': '警告',
-  'info': '提示'
+  'info': '提示',
+  
+  // agentTemplateManagement錯誤處理相關
+  'agentTemplateManagement.invalidResponse': '無效的回應物件:',
+  'agentTemplateManagement.apiCallFailed': 'API調用失敗:',
+  'agentTemplateManagement.apiCallException': '調用API時發生異常:',
+  'common.networkError': '網路請求失敗'
 }
