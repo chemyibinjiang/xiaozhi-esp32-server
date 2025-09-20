@@ -97,6 +97,25 @@ export default {
                 });
             }).send();
     },
+    // 删除以下重复定义的方法
+    // 保留此方法以保持向后兼容性，但内部使用分页API
+    // getAgentTemplate(callback) {
+    //   // 内部调用分页API获取所有模板
+    //   this.getAgentTemplatesPage({ pageNum: 1, pageSize: 100 }, (res) => {
+    //     if (res && res.data && res.data.code === 0) {
+    //       // 转换响应格式以保持兼容性
+    //       const compatibleRes = {
+    //         data: {
+    //           code: 0,
+    //           data: res.data.data?.records || []
+    //         }
+    //       };
+    //       callback(compatibleRes);
+    //     } else {
+    //       callback(res);
+    //     }
+    //   });
+    // },
     
     // 新增：获取智能体模板分页列表
     getAgentTemplatesPage(params, callback) {
@@ -347,6 +366,22 @@ export default {
             .networkFail(() => {
                 RequestService.reAjaxFun(() => {
                     this.batchDeleteAgentTemplate(ids, callback);
+                });
+            }).send();
+    },
+    // 在getAgentTemplate方法后添加获取单个模板的方法
+    getAgentTemplateById(templateId, callback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/agent/template/${templateId}`)
+            .method('GET')
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .networkFail((err) => {
+                console.error('获取单个模板失败:', err);
+                RequestService.reAjaxFun(() => {
+                    this.getAgentTemplateById(templateId, callback);
                 });
             }).send();
     },

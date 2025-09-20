@@ -30,22 +30,16 @@
                   <el-checkbox v-model="scope.row.selected" @change="handleRowSelectionChange(scope.row)" @click.stop></el-checkbox>
                 </template>
               </el-table-column>
-              <!-- 修改为序号列 -->
-              <el-table-column :label="$t('agentTemplateManagement.serialNumber')" min-width="120" align="center">
-                <template slot-scope="scope">
-                  <span>{{ (currentPage - 1) * pageSize + scope.$index + 1 }}</span>
-                </template>
-              </el-table-column>
               <!-- 模板名称 -->
               <el-table-column :label="$t('agentTemplateManagement.templateName')" prop="agentName" min-width="250" show-overflow-tooltip>
                 <template slot-scope="scope">
                   <span>{{ scope.row.agentName }}</span>
                 </template>
               </el-table-column>
-              <!-- 语言 -->
-              <el-table-column :label="$t('templateQuickConfig.agentSettings.agentName')" prop="language" min-width="100" show-overflow-tooltip>
+              <!-- 修改为序号列，并移动到此处 -->
+              <el-table-column :label="$t('agentTemplateManagement.serialNumber')" min-width="120" align="center">
                 <template slot-scope="scope">
-                  <span>{{ scope.row.language }}</span>
+                  <span>{{ (currentPage - 1) * pageSize + scope.$index + 1 }}</span>
                 </template>
               </el-table-column>
               <!-- 操作列 -->
