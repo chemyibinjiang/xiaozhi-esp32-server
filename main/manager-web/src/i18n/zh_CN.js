@@ -855,7 +855,6 @@ export default {
   
   // 模板快速配置页面文本
   'templateQuickConfig.title': '模块快速配置',
-  'templateQuickConfig.basicSettings': '基本设置',
   'templateQuickConfig.agentSettings.agentName': '助手昵称',
   'templateQuickConfig.agentSettings.agentNamePlaceholder': '请输入助手昵称',
   'templateQuickConfig.agentSettings.systemPrompt': '角色介绍',

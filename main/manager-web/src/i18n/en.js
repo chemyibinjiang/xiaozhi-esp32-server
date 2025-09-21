@@ -856,7 +856,6 @@ export default {
   
   // templateQuickConfig
   'templateQuickConfig.title': 'Module Quick Configuration',
-  'templateQuickConfig.basicSettings': 'Basic Settings',
   'templateQuickConfig.agentSettings.agentName': 'Nickname',
   'templateQuickConfig.agentSettings.agentNamePlaceholder': 'Please enter nickname',
   'templateQuickConfig.agentSettings.systemPrompt': 'Introduction',
