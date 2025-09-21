@@ -53,17 +53,16 @@
             <el-dropdown-item @click.native="goProviderManagement">
               {{ $t('header.providerManagement') }}
             </el-dropdown-item>
-            <el-dropdown-item @click.native="goServerSideManagement">
-              {{ $t('header.serverSideManagement') }}
-            </el-dropdown-item>
-            <!-- 添加默认角色模板管理到参数字典下拉菜单 -->
             <el-dropdown-item @click.native="goAgentTemplateManagement">
               {{ $t('header.agentTemplate') }}
+            </el-dropdown-item>
+            <el-dropdown-item @click.native="goServerSideManagement">
+              {{ $t('header.serverSideManagement') }}
             </el-dropdown-item>
           </el-dropdown-menu>
         </el-dropdown>
       </div>
-      
+
       <!-- 右侧元素 -->
       <div class="header-right">
         <div class="search-container" v-if="$route.path === '/home' && !(isSuperAdmin && isSmallScreen)">
