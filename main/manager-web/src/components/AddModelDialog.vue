@@ -195,7 +195,7 @@ export default {
       this.saving = true;
 
       if (!this.formData.supplier) {
-        this.$message.error('请选择供应器');
+        this.$message.error(this.$t('addModelDialog.requiredSupplier'));
         this.saving = false;
         return;
       }
