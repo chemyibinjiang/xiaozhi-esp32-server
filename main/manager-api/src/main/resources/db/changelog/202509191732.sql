@@ -1,7 +1,7 @@
 -- 添加讯飞流式语音识别服务配置
 delete from `ai_model_provider` where id = 'SYSTEM_ASR_XunfeiStream';
 INSERT INTO `ai_model_provider` (`id`, `model_type`, `provider_code`, `name`, `fields`, `sort`, `creator`, `create_date`, `updater`, `update_date`) VALUES
-('SYSTEM_ASR_XunfeiStream', 'ASR', 'xunfei_stream', '讯飞流式语音识别', '[{"key":"app_id","label":"应用ID","type":"string"},{"key":"api_key","label":"API密钥","type":"password"},{"key":"api_secret","label":"API密钥","type":"password"},{"key":"domain","label":"识别领域","type":"string"},{"key":"language","label":"识别语言","type":"string"},{"key":"accent","label":"方言","type":"string"},{"key":"dwa","label":"动态修正","type":"string"},{"key":"output_dir","label":"输出目录","type":"string"}]', 18, 1, NOW(), 1, NOW());
+('SYSTEM_ASR_XunfeiStream', 'ASR', 'xunfei_stream', '讯飞流式语音识别', '[{"key":"app_id","label":"应用ID","type":"string"},{"key":"api_key","label":"API_KEY","type":"password"},{"key":"api_secret","label":"API_SECRET","type":"password"},{"key":"domain","label":"识别领域","type":"string"},{"key":"language","label":"识别语言","type":"string"},{"key":"accent","label":"方言","type":"string"},{"key":"dwa","label":"动态修正","type":"string"},{"key":"output_dir","label":"输出目录","type":"string"}]', 18, 1, NOW(), 1, NOW());
 
 delete from `ai_model_config` where id = 'ASR_XunfeiStream';
 INSERT INTO `ai_model_config` VALUES ('ASR_XunfeiStream', 'ASR', '讯飞流式语音识别', '讯飞流式语音识别服务', 0, 1, '{"type": "xunfei_stream", "app_id": "", "api_key": "", "api_secret": "", "domain": "slm", "language": "zh_cn", "accent": "mandarin", "dwa": "wpgs", "output_dir": "tmp/"}', 'https://www.xfyun.cn/doc/spark/spark_zh_iat.html', '支持实时流式语音识别，适用于中文普通话及多种方言识别', 21, NULL, NULL, NULL, NULL);
