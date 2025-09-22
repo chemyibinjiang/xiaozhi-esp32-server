@@ -5,7 +5,7 @@ INSERT INTO `ai_model_config` VALUES ('LLM_XunfeiSparkLLM', 'LLM', '讯飞星火
 UPDATE `ai_model_config` SET
 `doc_link` = 'https://www.xfyun.cn/doc/spark/HTTP%E8%B0%83%E7%94%A8%E6%96%87%E6%A1%A3.html',
 `remark` = '讯飞星火认知大模型配置说明：
-1. 登录讯飞开放平台 https://www.xfyun.cn/
+1. 登录讯飞开放平台 https://www.xfyun.cn/，每一个模型对应每一个api_password,更改模型时需要查看对应模型的api_password
 2. 创建星火认知大模型应用获取API Password
 3. 参数说明：
    - api_password: API Password，在讯飞开放平台创建应用后获得
