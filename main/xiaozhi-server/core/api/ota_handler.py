@@ -81,38 +81,29 @@ class OTAHandler(BaseHandler):
                 },
             }
             
-            mqtt_gateway_config = server_config.get("mqtt_gateway", {})
-            mqtt_gateway_host = mqtt_gateway_config.get("host", "")
-            mqtt_gateway_port = mqtt_gateway_config.get("port", "")
+
+            mqtt_gateway_endpoint = server_config.get("mqtt_gateway")
             
-            
-            if mqtt_gateway_host:  # 配置了mqtt_gateway，使用MQTT和UDP协议传输
-                # 从设备型号获取group_id，与manager-api保持一致
-                # 客户端ID格式：groupId@@@macAddress@@@macAddress
+            if mqtt_gateway_endpoint:  # 如果配置了非空字符串
                 # 尝试从请求数据中获取设备型号
                 device_model = "default"
                 try:
-                    # 假设设备型号在request数据的某个字段中
                     if "device" in data_json and isinstance(data_json["device"], dict):
                         device_model = data_json["device"].get("model", "default")
                     elif "model" in data_json:
                         device_model = data_json["model"]
-                    # 为了保证格式一致性，进行与manager-api相同的处理
                     group_id = f"GID_{device_model}".replace(":", "_").replace(" ", "_")
                 except Exception as e:
                     self.logger.bind(tag=TAG).error(f"获取设备型号失败: {e}")
-                    # 如果获取失败，使用配置文件中的默认值
-                    group_id = mqtt_gateway_config.get("group_id", "GID_default").replace(":", "_")
-                
+                    group_id = "GID_default"
+
                 mac_address_safe = device_id.replace(":", "_")
                 mqtt_client_id = f"{group_id}@@@{mac_address_safe}@@@{mac_address_safe}"
 
-                # 构建用户数据（包含IP等信息）
+                # 构建用户数据
                 user_data = {
                     "ip": "unknown"
                 }
-                
-                # 将用户数据编码为Base64 JSON
                 try:
                     user_data_json = json.dumps(user_data)
                     username = base64.b64encode(user_data_json.encode('utf-8')).decode('utf-8')
@@ -120,24 +111,19 @@ class OTAHandler(BaseHandler):
                     self.logger.bind(tag=TAG).error(f"生成用户名失败: {e}")
                     username = ""
 
-                # 获取MQTT签名密钥
+                # 生成密码
                 password = ""
                 signature_key = server_config.get("mqtt_signature_key", "")
                 if signature_key:
-                    # 使用签名密钥生成密码
                     password = self.generate_password_signature(mqtt_client_id + "|" + username, signature_key)
                     if not password:
-                        # 如果签名生成失败，使用配置文件中的密码
-                        password = mqtt_gateway_config.get("password", "")
+                        password = ""  # 签名失败则留空，由设备决定是否允许无密码
                 else:
-                    # 如果没有签名密钥，使用配置文件中的密码
-                    password = mqtt_gateway_config.get("password", "")
-                    self.logger.bind(tag=TAG).warning("缺少MQTT签名密钥，使用配置文件中的密码")
+                    self.logger.bind(tag=TAG).warning("缺少MQTT签名密钥，密码留空")
 
-                # 构建MQTT配置
-                endpoint = f"{mqtt_gateway_host}:{mqtt_gateway_port}"
+                # 构建MQTT配置（直接使用 mqtt_gateway 字符串）
                 return_json["mqtt_gateway"] = {
-                    "endpoint": endpoint,
+                    "endpoint": mqtt_gateway_endpoint,
                     "client_id": mqtt_client_id,
                     "username": username,
                     "password": password,
@@ -146,19 +132,8 @@ class OTAHandler(BaseHandler):
                 }
                 self.logger.bind(tag=TAG).info(f"为设备 {device_id} 下发MQTT网关配置")
                 
-                # 添加UDP网关配置
-                if "udp_gateway" in server_config:
-                    udp_config = server_config["udp_gateway"]
-                    udp_host = udp_config.get("host", "")
-                    udp_port = udp_config.get("port", "")
-                    if udp_host:
-                        return_json["udp_gateway"] = {
-                            "host": udp_host,
-                            "port": udp_port
-                        }
-                        self.logger.bind(tag=TAG).info(f"为设备 {device_id} 下发UDP网关配置")
                 
-            else:  # 未配置mqtt_gateway，使用WebSocket协议传输
+            else:  # 未配置 mqtt_gateway，下发 WebSocket
                 return_json["websocket"] = {
                     "url": self._get_websocket_url(local_ip, port),
                 }
