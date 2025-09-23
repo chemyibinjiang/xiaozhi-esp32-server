@@ -604,6 +604,16 @@ VLLM:
     url: https://dashscope.aliyuncs.com/compatible-mode/v1
     # 可在这里找到你的api key https://bailian.console.aliyun.com/?apiKey=1#/api-key
     api_key: 你的api_key
+  XunfeiSparkLLM:
+    # 定义LLM API类型
+    type: openai
+    # 先新建应用，在下面的地址
+    # 开通应用地址：https://console.xfyun.cn/app/myapp
+    # 有免费额度，但也要开通服务，才能获取api_key
+    # 每一个模型都需要单独开通，每一个模型的api_password都不同，例如Lite模型在https://console.xfyun.cn/services/cbm 开通
+    base_url: https://ark.cn-beijing.volces.com/api/v3
+    model_name: lite
+    api_key: 你的api_password
 TTS:
   # 当前支持的type为edge、doubao，可自行适配
   EdgeTTS:
