@@ -41,10 +41,24 @@ server:
     # 可选:设备白名单，如果设置了白名单，那么白名单的机器无论是什么token都可以连接。
     #allowed_devices:
     #  - "24:0A:C4:1D:3B:F0"  # MAC地址列表
-  # MQTT网关配置，用于通过OTA下发到设备，与智控台要求格式相同，与mqtt_gateway的配置相同
-  mqtt_gateway: null
-  # MQTT签名密钥，用于生成MQTT连接密钥，与mqtt_gateway的配置相同
+ # MQTT网关配置，用于通过OTA下发到设备
+  mqtt_gateway:
+    # MQTT服务器地址以及端口,根据mqtt_gateway的.env文件配置，为null或者不填写时使用websocket协议
+    host: null
+    port: null
+    # group_id会从设备型号动态生成，格式为GID_设备型号
+    # 此配置仅作为当获取设备型号失败时可以填写的回退值
+    # group_id: 
+  
+  # MQTT签名密钥，用于生成MQTT连接密码，根据mqtt_gateway的.env文件配置
   mqtt_signature_key: null
+  
+  # UDP网关配置，根据mqtt_gateway的.env文件配置  
+  udp_gateway:
+    # UDP服务器地址
+    host: null
+    # UDP服务器端口
+    port: null
 log:
   # 设置控制台输出的日志格式，时间、日志级别、标签、消息
   log_format: "<green>{time:YYMMDD HH:mm:ss}</green>[{version}_{selected_module}][<light-blue>{extra[tag]}</light-blue>]-<level>{level}</level>-<light-green>{message}</light-green>"
