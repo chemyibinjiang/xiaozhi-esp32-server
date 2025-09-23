@@ -224,9 +224,9 @@ public class SysParamsServiceImpl extends BaseServiceImpl<SysParamsDao, SysParam
         // 如果公钥或私钥为空，则生成新的密钥对
         if (StringUtils.isBlank(publicKey) || StringUtils.isBlank(privateKey) || 
             "null".equals(publicKey) || "null".equals(privateKey)) {
-            String[] keyPair = SM2Utils.generateKeyPairStrings();
-            String newPublicKey = keyPair[0];
-            String newPrivateKey = keyPair[1];
+            Map<String, String> keyPair = SM2Utils.createKey();
+            String newPublicKey = keyPair.get(SM2Utils.KEY_PUBLIC_KEY);
+            String newPrivateKey = keyPair.get(SM2Utils.KEY_PRIVATE_KEY);
 
             // 更新数据库中的密钥对
             updateValueByCode(Constant.SM2_PUBLIC_KEY, newPublicKey);

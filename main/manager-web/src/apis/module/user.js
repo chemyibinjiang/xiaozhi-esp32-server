@@ -192,5 +192,24 @@ export default {
                     this.retrievePassword(passwordData, callback, failCallback);
                 });
             }).send()
+    },
+    // 获取SM2公钥
+    getSM2PublicKey(callback, failCallback) {
+        RequestService.sendRequest()
+            .url(`${getServiceUrl()}/user/sm2-public-key`)
+            .method('GET')
+            .success((res) => {
+                RequestService.clearRequestTime();
+                callback(res);
+            })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                failCallback(err);
+            })
+            .networkFail(() => {
+                RequestService.reAjaxFun(() => {
+                    this.getSM2PublicKey(callback, failCallback);
+                });
+            }).send()
     }
 }

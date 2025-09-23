@@ -1044,5 +1044,14 @@ export default {
   'templateQuickConfig.resetSuccess': '重置成功',
   'warning': '警告',
   'info': '提示',
-  'common.networkError': '网络请求失败'
+  'common.networkError': '网络请求失败',
+  // SM2加密相关错误消息
+  'sm2.publicKeyNotConfigured': 'SM2公钥未配置，请联系管理员',
+  'sm2.failedToGetPublicKey': '获取SM2公钥失败',
+  'sm2.encryptionFailed': '密码加密失败',
+  'sm2.keyGenerationFailed': '密钥对生成失败',
+  'sm2.invalidPublicKey': '无效的公钥格式',
+  'sm2.encryptionError': '加密过程中发生错误',
+  'sm2.publicKeyRetry': '正在重试获取公钥...',
+  'sm2.publicKeyRetryFailed': '公钥获取重试失败'
 }

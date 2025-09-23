@@ -1045,5 +1045,13 @@ export default {
   'templateQuickConfig.templateNotFound': 'Template not found',
   'warning': 'Warning',
   'info': 'Info',
-  'common.networkError': 'Network request failed'
+  'common.networkError': 'Network request failed',
+  'sm2.publicKeyNotConfigured': 'SM2 public key not configured, please contact administrator',
+  'sm2.failedToGetPublicKey': 'Failed to get SM2 public key',
+  'sm2.encryptionFailed': 'Password encryption failed',
+  'sm2.keyGenerationFailed': 'Key pair generation failed',
+  'sm2.invalidPublicKey': 'Invalid public key format',
+  'sm2.encryptionError': 'Error occurred during encryption',
+  'sm2.publicKeyRetry': 'Retrying to get public key...',
+  'sm2.publicKeyRetryFailed': 'Public key retrieval retry failed'
 }

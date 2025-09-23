@@ -1,5 +1,6 @@
 package xiaozhi.common.utils;
 
+import org.bouncycastle.asn1.gm.GMNamedCurves;
 import org.bouncycastle.asn1.x9.X9ECParameters;
 import org.bouncycastle.crypto.engines.SM2Engine;
 import org.bouncycastle.crypto.params.ECDomainParameters;
@@ -8,184 +9,122 @@ import org.bouncycastle.crypto.params.ECPublicKeyParameters;
 import org.bouncycastle.crypto.params.ParametersWithRandom;
 import org.bouncycastle.jcajce.provider.asymmetric.ec.BCECPrivateKey;
 import org.bouncycastle.jcajce.provider.asymmetric.ec.BCECPublicKey;
-import org.bouncycastle.jcajce.provider.asymmetric.util.ECUtil;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.math.ec.ECPoint;
-import org.bouncycastle.util.encoders.Base64;
+import org.bouncycastle.util.encoders.Hex;
 
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.ECGenParameterSpec;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * SM2加密工具类
+ * SM2加密工具类（采用十六进制格式，与chancheng-archive-service项目保持一致）
  */
 public class SM2Utils {
+
+    /**
+     * 公钥常量
+     */
+    public static final String KEY_PUBLIC_KEY = "publicKey";
+    /**
+     * 私钥返回值常量
+     */
+    public static final String KEY_PRIVATE_KEY = "privateKey";
 
     static {
         Security.addProvider(new BouncyCastleProvider());
     }
 
     /**
-     * 生成SM2密钥对
+     * SM2加密算法
      *
-     * @return 密钥对
+     * @param publicKey 十六进制公钥
+     * @param data      明文数据
+     * @return 十六进制密文
      */
-    public static KeyPair generateKeyPair() {
+    public static String encrypt(String publicKey, String data) {
         try {
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC", "BC");
-            ECGenParameterSpec sm2Spec = new ECGenParameterSpec("sm2p256v1");
-            keyPairGenerator.initialize(sm2Spec, new SecureRandom());
-            return keyPairGenerator.generateKeyPair();
-        } catch (Exception e) {
-            throw new RuntimeException("生成SM2密钥对失败", e);
-        }
-    }
+            // 获取一条SM2曲线参数
+            X9ECParameters sm2ECParameters = GMNamedCurves.getByName("sm2p256v1");
+            // 构造ECC算法参数，曲线方程、椭圆曲线G点、大整数N
+            ECDomainParameters domainParameters = new ECDomainParameters(sm2ECParameters.getCurve(), sm2ECParameters.getG(), sm2ECParameters.getN());
+            //提取公钥点
+            ECPoint pukPoint = sm2ECParameters.getCurve().decodePoint(Hex.decode(publicKey));
+            // 公钥前面的02或者03表示是压缩公钥，04表示未压缩公钥, 04的时候，可以去掉前面的04
+            ECPublicKeyParameters publicKeyParameters = new ECPublicKeyParameters(pukPoint, domainParameters);
 
-    /**
-     * 获取公钥字符串
-     *
-     * @param publicKey 公钥
-     * @return Base64编码的公钥字符串
-     */
-    public static String getPublicKeyStr(PublicKey publicKey) {
-        BCECPublicKey bcPublicKey = (BCECPublicKey) publicKey;
-        return Base64.toBase64String(bcPublicKey.getEncoded());
-    }
-
-    /**
-     * 获取私钥字符串
-     *
-     * @param privateKey 私钥
-     * @return Base64编码的私钥字符串
-     */
-    public static String getPrivateKeyStr(PrivateKey privateKey) {
-        BCECPrivateKey bcPrivateKey = (BCECPrivateKey) privateKey;
-        return Base64.toBase64String(bcPrivateKey.getEncoded());
-    }
-
-    /**
-     * 从字符串加载公钥
-     *
-     * @param publicKeyStr Base64编码的公钥字符串
-     * @return 公钥对象
-     */
-    public static PublicKey loadPublicKey(String publicKeyStr) {
-        try {
-            byte[] keyBytes = Base64.decode(publicKeyStr);
-            X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
-            KeyFactory keyFactory = KeyFactory.getInstance("EC", "BC");
-            return keyFactory.generatePublic(keySpec);
-        } catch (Exception e) {
-            throw new RuntimeException("加载公钥失败", e);
-        }
-    }
-
-    /**
-     * 从字符串加载私钥
-     *
-     * @param privateKeyStr Base64编码的私钥字符串
-     * @return 私钥对象
-     */
-    public static PrivateKey loadPrivateKey(String privateKeyStr) {
-        try {
-            byte[] keyBytes = Base64.decode(privateKeyStr);
-            PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
-            KeyFactory keyFactory = KeyFactory.getInstance("EC", "BC");
-            return keyFactory.generatePrivate(keySpec);
-        } catch (Exception e) {
-            throw new RuntimeException("加载私钥失败", e);
-        }
-    }
-
-    /**
-     * SM2加密
-     *
-     * @param publicKey  公钥
-     * @param plainText  明文
-     * @return Base64编码的密文
-     */
-    public static String encrypt(PublicKey publicKey, String plainText) {
-        try {
-            BCECPublicKey bcPublicKey = (BCECPublicKey) publicKey;
-            ECPoint ecPoint = bcPublicKey.getQ();
-            X9ECParameters x9ECParameters = ECUtil.getNamedCurveByName("sm2p256v1");
-            ECDomainParameters ecDomainParameters = new ECDomainParameters(
-                    x9ECParameters.getCurve(), x9ECParameters.getG(), x9ECParameters.getN());
-            ECPublicKeyParameters publicKeyParameters = new ECPublicKeyParameters(ecPoint, ecDomainParameters);
-
-            SM2Engine sm2Engine = new SM2Engine();
+            SM2Engine sm2Engine = new SM2Engine(SM2Engine.Mode.C1C3C2);
+            // 设置sm2为加密模式
             sm2Engine.init(true, new ParametersWithRandom(publicKeyParameters, new SecureRandom()));
 
-            byte[] input = plainText.getBytes(StandardCharsets.UTF_8);
-            byte[] encrypted = sm2Engine.processBlock(input, 0, input.length);
-            return Base64.toBase64String(encrypted);
+            byte[] in = data.getBytes(StandardCharsets.UTF_8);
+            byte[] arrayOfBytes = sm2Engine.processBlock(in, 0, in.length);
+            return Hex.toHexString(arrayOfBytes);
         } catch (Exception e) {
             throw new RuntimeException("SM2加密失败", e);
         }
     }
 
     /**
-     * SM2解密
+     * SM2解密算法
      *
-     * @param privateKey 私钥
-     * @param cipherText Base64编码的密文
+     * @param privateKey 十六进制私钥
+     * @param cipherData 十六进制密文数据
      * @return 明文
      */
-    public static String decrypt(PrivateKey privateKey, String cipherText) {
+    public static String decrypt(String privateKey, String cipherData) {
         try {
-            BCECPrivateKey bcPrivateKey = (BCECPrivateKey) privateKey;
-            BigInteger privateKeyValue = bcPrivateKey.getD();
-            X9ECParameters x9ECParameters = ECUtil.getNamedCurveByName("sm2p256v1");
-            ECDomainParameters ecDomainParameters = new ECDomainParameters(
-                    x9ECParameters.getCurve(), x9ECParameters.getG(), x9ECParameters.getN());
-            ECPrivateKeyParameters privateKeyParameters = new ECPrivateKeyParameters(privateKeyValue, ecDomainParameters);
+            // 使用BC库加解密时密文以04开头，传入的密文前面没有04则补上
+            if (!cipherData.startsWith("04")) {
+                cipherData = "04" + cipherData;
+            }
+            byte[] cipherDataByte = Hex.decode(cipherData);
+            BigInteger privateKeyD = new BigInteger(privateKey, 16);
+            //获取一条SM2曲线参数
+            X9ECParameters sm2ECParameters = GMNamedCurves.getByName("sm2p256v1");
+            //构造domain参数
+            ECDomainParameters domainParameters = new ECDomainParameters(sm2ECParameters.getCurve(), sm2ECParameters.getG(), sm2ECParameters.getN());
+            ECPrivateKeyParameters privateKeyParameters = new ECPrivateKeyParameters(privateKeyD, domainParameters);
 
-            SM2Engine sm2Engine = new SM2Engine();
+            SM2Engine sm2Engine = new SM2Engine(SM2Engine.Mode.C1C3C2);
+            // 设置sm2为解密模式
             sm2Engine.init(false, privateKeyParameters);
 
-            byte[] encrypted = Base64.decode(cipherText);
-            byte[] decrypted = sm2Engine.processBlock(encrypted, 0, encrypted.length);
-            return new String(decrypted, StandardCharsets.UTF_8);
+            byte[] arrayOfBytes = sm2Engine.processBlock(cipherDataByte, 0, cipherDataByte.length);
+            return new String(arrayOfBytes, StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw new RuntimeException("SM2解密失败", e);
         }
     }
 
     /**
-     * 验证SM2密钥对是否匹配
-     *
-     * @param publicKeyStr  公钥字符串
-     * @param privateKeyStr 私钥字符串
-     * @return 是否匹配
+     * 生成密钥对
      */
-    public static boolean verifyKeyPair(String publicKeyStr, String privateKeyStr) {
+    public static Map<String, String> createKey() {
         try {
-            String testData = "test_sm2_encryption";
-            PublicKey publicKey = loadPublicKey(publicKeyStr);
-            PrivateKey privateKey = loadPrivateKey(privateKeyStr);
-
-            String encrypted = encrypt(publicKey, testData);
-            String decrypted = decrypt(privateKey, encrypted);
-
-            return testData.equals(decrypted);
+            ECGenParameterSpec sm2Spec = new ECGenParameterSpec("sm2p256v1");
+            // 获取一个椭圆曲线类型的密钥对生成器
+            KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC", new BouncyCastleProvider());
+            // 使用SM2参数初始化生成器
+            kpg.initialize(sm2Spec);
+            // 获取密钥对
+            KeyPair keyPair = kpg.generateKeyPair();
+            PublicKey publicKey = keyPair.getPublic();
+            BCECPublicKey p = (BCECPublicKey) publicKey;
+            PrivateKey privateKey = keyPair.getPrivate();
+            BCECPrivateKey s = (BCECPrivateKey) privateKey;
+            
+            Map<String, String> result = new HashMap<>();
+            result.put(KEY_PUBLIC_KEY, Hex.toHexString(p.getQ().getEncoded(false)));
+            result.put(KEY_PRIVATE_KEY, Hex.toHexString(s.getD().toByteArray()));
+            return result;
         } catch (Exception e) {
-            return false;
+            throw new RuntimeException("生成SM2密钥对失败", e);
         }
     }
 
-    /**
-     * 生成SM2密钥对并返回Base64编码的字符串
-     *
-     * @return 包含公钥和私钥的字符串数组 [公钥, 私钥]
-     */
-    public static String[] generateKeyPairStrings() {
-        KeyPair keyPair = generateKeyPair();
-        String publicKeyStr = getPublicKeyStr(keyPair.getPublic());
-        String privateKeyStr = getPrivateKeyStr(keyPair.getPrivate());
-        return new String[]{publicKeyStr, privateKeyStr};
-    }
+
 }

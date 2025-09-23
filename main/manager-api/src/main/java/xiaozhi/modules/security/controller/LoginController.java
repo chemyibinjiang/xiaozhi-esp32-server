@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import xiaozhi.common.constant.Constant;
 import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.exception.RenException;
@@ -44,6 +45,7 @@ import xiaozhi.modules.sys.vo.SysDictDataItem;
 /**
  * 登录控制层
  */
+@Slf4j
 @AllArgsConstructor
 @RestController
 @RequestMapping("/user")
@@ -91,9 +93,27 @@ public class LoginController {
             throw new RenException(ErrorCode.SMS_CAPTCHA_ERROR);
         }
         
+        String username = login.getUsername();
         String password = login.getPassword();
         
-        // 如果密码是SM2加密格式（Base64编码），则进行解密
+        // 如果用户名是SM2加密格式，则进行解密
+        if (isSM2Encrypted(username)) {
+            try {
+                // 获取SM2私钥
+                String privateKeyStr = sysParamsService.getValue(Constant.SM2_PRIVATE_KEY, true);
+                if (StringUtils.isBlank(privateKeyStr)) {
+                    throw new RenException(ErrorCode.SM2_KEY_NOT_CONFIGURED);
+                }
+                
+                // 使用SM2私钥解密用户名（十六进制格式）
+                String decryptedUsername = SM2Utils.decrypt(privateKeyStr, username);
+                login.setUsername(decryptedUsername);
+            } catch (Exception e) {
+                throw new RenException(ErrorCode.SM2_DECRYPT_ERROR);
+            }
+        }
+        
+        // 如果密码是SM2加密格式，则进行解密
         if (isSM2Encrypted(password)) {
             try {
                 // 获取SM2私钥
@@ -103,7 +123,7 @@ public class LoginController {
                 }
                 
                 // 使用SM2私钥解密密码
-                String decryptedPassword = SM2Utils.decrypt(SM2Utils.loadPrivateKey(privateKeyStr), password);
+                String decryptedPassword = SM2Utils.decrypt(privateKeyStr, password);
                 login.setPassword(decryptedPassword);
             } catch (Exception e) {
                 throw new RenException(ErrorCode.SM2_DECRYPT_ERROR);
@@ -132,7 +152,8 @@ public class LoginController {
         if (StringUtils.isBlank(str)) {
             return false;
         }
-        if (str.length() > 100 && str.matches("^[A-Za-z0-9+/=]+$")) {
+        // 十六进制格式检测（长度较长且只包含0-9,a-f,A-F字符）
+        if (str.length() > 100 && str.matches("^[0-9a-fA-F]+$")) {
             return true;
         }
         return false;
