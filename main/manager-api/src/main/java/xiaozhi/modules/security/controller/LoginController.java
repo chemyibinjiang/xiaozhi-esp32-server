@@ -31,6 +31,8 @@ import xiaozhi.modules.security.password.PasswordUtils;
 import xiaozhi.modules.security.service.CaptchaService;
 import xiaozhi.modules.security.service.SysUserTokenService;
 import xiaozhi.modules.security.user.SecurityUser;
+import xiaozhi.common.utils.SM2Utils;
+import org.apache.commons.lang3.StringUtils;
 import xiaozhi.modules.sys.dto.PasswordDTO;
 import xiaozhi.modules.sys.dto.RetrievePasswordDTO;
 import xiaozhi.modules.sys.dto.SysUserDTO;
@@ -88,6 +90,26 @@ public class LoginController {
         if (!validate) {
             throw new RenException(ErrorCode.SMS_CAPTCHA_ERROR);
         }
+        
+        String password = login.getPassword();
+        
+        // 如果密码是SM2加密格式（Base64编码），则进行解密
+        if (isSM2Encrypted(password)) {
+            try {
+                // 获取SM2私钥
+                String privateKeyStr = sysParamsService.getValue(Constant.SM2_PRIVATE_KEY, true);
+                if (StringUtils.isBlank(privateKeyStr)) {
+                    throw new RenException(ErrorCode.SM2_KEY_NOT_CONFIGURED);
+                }
+                
+                // 使用SM2私钥解密密码
+                String decryptedPassword = SM2Utils.decrypt(SM2Utils.loadPrivateKey(privateKeyStr), password);
+                login.setPassword(decryptedPassword);
+            } catch (Exception e) {
+                throw new RenException(ErrorCode.SM2_DECRYPT_ERROR);
+            }
+        }
+        
         // 按照用户名获取用户
         SysUserDTO userDTO = sysUserService.getByUsername(login.getUsername());
         // 判断用户是否存在
@@ -99,6 +121,21 @@ public class LoginController {
             throw new RenException(ErrorCode.ACCOUNT_PASSWORD_ERROR);
         }
         return sysUserTokenService.createToken(userDTO.getId());
+    }
+    
+    /**
+     * 判断字符串是否为SM2加密格式
+     * @param str 待判断的字符串
+     * @return 是否为SM2加密格式
+     */
+    private boolean isSM2Encrypted(String str) {
+        if (StringUtils.isBlank(str)) {
+            return false;
+        }
+        if (str.length() > 100 && str.matches("^[A-Za-z0-9+/=]+$")) {
+            return true;
+        }
+        return false;
     }
 
     @PostMapping("/register")
@@ -210,5 +247,16 @@ public class LoginController {
         config.put("name", sysParamsService.getValue(Constant.SysBaseParam.SERVER_NAME.getValue(), true));
 
         return new Result<Map<String, Object>>().ok(config);
+    }
+
+    @GetMapping("/sm2-public-key")
+    @Operation(summary = "获取SM2公钥")
+    public Result<String> getSM2PublicKey() {
+        // 获取SM2公钥
+        String publicKey = sysParamsService.getValue(Constant.SM2_PUBLIC_KEY, true);
+        if (StringUtils.isBlank(publicKey)) {
+            throw new RenException(ErrorCode.SM2_KEY_NOT_CONFIGURED);
+        }
+        return new Result<String>().ok(publicKey);
     }
 }

@@ -164,4 +164,8 @@ public interface ErrorCode {
     
     // 字典相关错误码
     int DICT_LABEL_DUPLICATE = 10128; // 字典标签重复
+
+    // SM2加密相关错误码
+    int SM2_KEY_NOT_CONFIGURED = 10129; // SM2密钥未配置
+    int SM2_DECRYPT_ERROR = 10130; // SM2解密失败
 }
