@@ -148,7 +148,7 @@
 import Api from "@/apis/api";
 import VersionFooter from "@/components/VersionFooter.vue";
 import i18n, { changeLanguage } from "@/i18n";
-import { getUUID, goToPage, showDanger, showSuccess, validateMobile, generateSm2KeyPairHex, sm2Encrypt, isBase64 } from "@/utils";
+import { getUUID, goToPage, showDanger, showSuccess, validateMobile, sm2Encrypt, isBase64 } from "@/utils";
 import { mapState } from "vuex";
 import Constant from "@/utils/constant";
 
@@ -198,7 +198,6 @@ export default {
       isMobileLogin: false,
       languageDropdownVisible: false,
       serverPublicKey: "", // 服务器公钥
-      clientKeyPair: null, // 客户端密钥对
     };
   },
   mounted() {
@@ -209,8 +208,6 @@ export default {
     });
     // 获取服务器公钥
     this.getServerPublicKey();
-    // 生成客户端密钥对
-    this.generateClientKeyPair();
   },
   methods: {
     // 获取服务器公钥
@@ -225,30 +222,28 @@ export default {
       }
       
       console.log('本地存储无公钥，从服务器获取...');
-      // 从服务器获取公钥
-      Api.user.getSM2PublicKey(
+      // 从公共配置接口获取公钥
+      Api.user.getPubConfig(
         (res) => {
-          if (res.data && res.data.data) {
-            console.log('获取到服务器公钥，长度:', res.data.data.length);
-            this.serverPublicKey = res.data.data;
+          if (res.data && res.data.data && res.data.data.sm2PublicKey) {
+            console.log('获取到服务器公钥，长度:', res.data.data.sm2PublicKey.length);
+            this.serverPublicKey = res.data.data.sm2PublicKey;
             // 存储到本地
             localStorage.setItem(Constant.STORAGE_KEY.PUBLIC_KEY, this.serverPublicKey);
             console.log('公钥已存储到本地');
           } else {
             console.error('服务器返回数据格式异常:', res);
+            showDanger(this.$t('sm2.failedToGetPublicKey'));
           }
         },
         (err) => {
-          console.error("获取SM2公钥失败:", err);
+          console.error("获取公共配置失败:", err);
           showDanger(this.$t('sm2.failedToGetPublicKey'));
         }
       );
     },
     
-    // 生成客户端密钥对
-    generateClientKeyPair() {
-      this.clientKeyPair = generateSm2KeyPairHex();
-    },
+
     
     fetchCaptcha() {
       if (this.$store.getters.getToken) {
@@ -357,36 +352,26 @@ export default {
       }
 
       // 加密密码
-      let encryptedPassword = this.form.password;
-      if (!this.isSM2Encrypted(this.form.password)) {
-        try {
-          encryptedPassword = sm2Encrypt(this.serverPublicKey, this.form.password);
-        } catch (error) {
-          console.error("密码加密失败:", error);
-          showDanger(this.$t('sm2.encryptionFailed'));
-          return;
-        }
+      let encryptedPassword;
+      try {
+        // 拼接验证码和密码
+        const captchaAndPassword = this.form.captcha + this.form.password;
+        encryptedPassword = sm2Encrypt(this.serverPublicKey, captchaAndPassword);
+      } catch (error) {
+        console.error("密码加密失败:", error);
+        showDanger(this.$t('sm2.encryptionFailed'));
+        return;
       }
 
-      // 加密用户名
-      let encryptedUsername = this.form.username;
-      if (!this.isSM2Encrypted(this.form.username)) {
-        try {
-          encryptedUsername = sm2Encrypt(this.serverPublicKey, this.form.username);
-        } catch (error) {
-          console.error("用户名加密失败:", error);
-          showDanger(this.$t('sm2.encryptionFailed'));
-          return;
-        }
-      }
+      const plainUsername = this.form.username;
 
       this.form.captchaId = this.captchaUuid;
       
-      // 使用加密后的用户名和密码
+      // 加密
       const loginData = {
-        ...this.form,
-        username: encryptedUsername,
-        password: encryptedPassword
+        username: plainUsername,
+        password: encryptedPassword,
+        captchaId: this.form.captchaId
       };
 
       Api.user.login(
@@ -422,19 +407,6 @@ export default {
     },
     goToForgetPassword() {
       goToPage("/retrieve-password");
-    },
-    
-    /**
-     * 判断字符串是否为SM2加密格式（十六进制格式）
-     * @param {string} str 待判断的字符串
-     * @returns {boolean} 是否为SM2加密格式
-     */
-    isSM2Encrypted(str) {
-      if (typeof str !== 'string' || str.trim() === '') {
-        return false;
-      }
-      // 长度大于100且只包含0-9,a-f,A-F字符
-      return str.length > 100 && /^[0-9a-fA-F]+$/.test(str);
     }
   },
 };

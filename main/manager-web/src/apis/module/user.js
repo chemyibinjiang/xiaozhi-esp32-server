@@ -154,7 +154,7 @@ export default {
             }).send()
     },
     // 获取公共配置
-    getPubConfig(callback) {
+    getPubConfig(callback, failCallback) {
         RequestService.sendRequest()
             .url(`${getServiceUrl()}/user/pub-config`)
             .method('GET')
@@ -162,10 +162,16 @@ export default {
                 RequestService.clearRequestTime();
                 callback(res);
             })
+            .fail((err) => {
+                RequestService.clearRequestTime();
+                if (failCallback) {
+                    failCallback(err);
+                }
+            })
             .networkFail((err) => {
                 console.error('获取公共配置失败:', err);
                 RequestService.reAjaxFun(() => {
-                    this.getPubConfig(callback);
+                    this.getPubConfig(callback, failCallback);
                 });
             }).send();
     },
@@ -193,23 +199,5 @@ export default {
                 });
             }).send()
     },
-    // 获取SM2公钥
-    getSM2PublicKey(callback, failCallback) {
-        RequestService.sendRequest()
-            .url(`${getServiceUrl()}/user/sm2-public-key`)
-            .method('GET')
-            .success((res) => {
-                RequestService.clearRequestTime();
-                callback(res);
-            })
-            .fail((err) => {
-                RequestService.clearRequestTime();
-                failCallback(err);
-            })
-            .networkFail(() => {
-                RequestService.reAjaxFun(() => {
-                    this.getSM2PublicKey(callback, failCallback);
-                });
-            }).send()
-    }
+
 }

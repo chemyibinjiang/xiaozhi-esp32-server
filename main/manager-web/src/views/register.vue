@@ -121,7 +121,7 @@
 <script>
 import Api from '@/apis/api';
 import VersionFooter from '@/components/VersionFooter.vue';
-import { getUUID, goToPage, showDanger, showSuccess, validateMobile, generateSm2KeyPairHex, sm2Encrypt, isBase64 } from '@/utils';
+import { getUUID, goToPage, showDanger, showSuccess, validateMobile, sm2Encrypt, isBase64 } from '@/utils';
 import { mapState } from 'vuex';
 import Constant from '@/utils/constant';
 
@@ -159,8 +159,6 @@ export default {
       countdown: 0,
       timer: null,
       serverPublicKey: "", // 服务器公钥
-      clientKeyPair: null, // 客户端密钥对
-      isGettingPublicKey: false // 获取公钥状态
     }
   },
   mounted() {
@@ -175,8 +173,6 @@ export default {
     this.fetchCaptcha();
     // 获取服务器公钥
     this.getServerPublicKey();
-    // 生成客户端密钥对
-    this.generateClientKeyPair();
   },
   methods: {
     // 获取服务器公钥
@@ -191,30 +187,28 @@ export default {
       }
       
       console.log('本地存储无公钥，从服务器获取...');
-      // 从服务器获取公钥
-      Api.user.getSM2PublicKey(
+      // 从公共配置接口获取公钥
+      Api.user.getPubConfig(
         (res) => {
-          if (res.data && res.data.data) {
-            console.log('获取到服务器公钥，长度:', res.data.data.length);
-            this.serverPublicKey = res.data.data;
+          if (res.data && res.data.data && res.data.data.sm2PublicKey) {
+            console.log('获取到服务器公钥，长度:', res.data.data.sm2PublicKey.length);
+            this.serverPublicKey = res.data.data.sm2PublicKey;
             // 存储到本地
             localStorage.setItem(Constant.STORAGE_KEY.PUBLIC_KEY, this.serverPublicKey);
             console.log('公钥已存储到本地');
           } else {
             console.error('服务器返回数据格式异常:', res);
+            showDanger(this.$t('sm2.failedToGetPublicKey'));
           }
         },
         (err) => {
-          console.error("获取SM2公钥失败:", err);
+          console.error("获取公共配置失败:", err);
           showDanger(this.$t('sm2.failedToGetPublicKey'));
         }
       );
     },
     
-    // 生成客户端密钥对
-    generateClientKeyPair() {
-      this.clientKeyPair = generateSm2KeyPairHex();
-    },
+
 
     // 复用验证码获取方法
     fetchCaptcha() {
@@ -343,41 +337,30 @@ export default {
         }
       }
 
-      // 加密密码
-      let encryptedPassword = this.form.password;
-      if (!this.isSM2Encrypted(this.form.password)) {
-        try {
-          encryptedPassword = sm2Encrypt(this.serverPublicKey, this.form.password);
-        } catch (error) {
-          console.error("密码加密失败:", error);
-          showDanger(this.$t('sm2.encryptionFailed'));
-          return;
-        }
+      // 加密
+      let encryptedPassword;
+      try {
+        // 拼接验证码和密码
+        const captchaAndPassword = this.form.captcha + this.form.password;
+        encryptedPassword = sm2Encrypt(this.serverPublicKey, captchaAndPassword);
+      } catch (error) {
+        console.error("密码加密失败:", error);
+        showDanger(this.$t('sm2.encryptionFailed'));
+        return;
       }
 
-      // 加密用户名
-      let encryptedUsername = this.form.username;
+      let plainUsername;
       if (this.enableMobileRegister) {
-        this.form.username = this.form.areaCode + this.form.mobile;
-        encryptedUsername = this.form.username;
-      }
-      
-      if (!this.isSM2Encrypted(encryptedUsername)) {
-        try {
-          encryptedUsername = sm2Encrypt(this.serverPublicKey, encryptedUsername);
-        } catch (error) {
-          console.error("用户名加密失败:", error);
-          showDanger(this.$t('sm2.encryptionFailed'));
-          return;
-        }
+        plainUsername = this.form.areaCode + this.form.mobile;
+      } else {
+        plainUsername = this.form.username;
       }
 
       // 准备注册数据
       const registerData = {
-        ...this.form,
-        username: encryptedUsername,
+        username: plainUsername,
         password: encryptedPassword,
-        confirmPassword: encryptedPassword
+        captchaId: this.form.captchaId
       };
 
       Api.user.register(registerData, ({ data }) => {
@@ -393,19 +376,6 @@ export default {
 
     goToLogin() {
       goToPage('/login')
-    },
-    
-    /**
-     * 判断字符串是否为SM2加密格式（十六进制格式）
-     * @param {string} str 待判断的字符串
-     * @returns {boolean} 是否为SM2加密格式
-     */
-    isSM2Encrypted(str) {
-      if (typeof str !== 'string' || str.trim() === '') {
-        return false;
-      }
-      // 长度大于100且只包含0-9,a-f,A-F字符
-      return str.length > 100 && /^[0-9a-fA-F]+$/.test(str);
     }
   },
   beforeDestroy() {
