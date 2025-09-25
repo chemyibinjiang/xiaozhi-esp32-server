@@ -154,8 +154,6 @@ pm2 logs xz-mqtt
 ```
 在`server`下找到`mqtt_signature_key`填入你在`.env`文件中设置的`MQTT_SIGNATURE_KEY`。
 
-在`server`下找到`mqtt_signature_key`填入你在`.env`文件中设置的`MQTT_SIGNATURE_KEY`。
-
 在`server`下找到`udp_gateway`填入你在`.env`文件中设置的`PUBLIC_IP`+`:`+`UDP_PORT`。类似这样
 ```
 192.168.0.7:8884
