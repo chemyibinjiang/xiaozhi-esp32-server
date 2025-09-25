@@ -165,6 +165,44 @@ public class LoginController {
         if (!sysUserService.getAllowUserRegister()) {
             throw new RenException(ErrorCode.USER_REGISTER_DISABLED);
         }
+        
+        String username = login.getUsername();
+        String password = login.getPassword();
+        
+        // 如果用户名是SM2加密格式，则进行解密
+        if (isSM2Encrypted(username)) {
+            try {
+                // 获取SM2私钥
+                String privateKeyStr = sysParamsService.getValue(Constant.SM2_PRIVATE_KEY, true);
+                if (StringUtils.isBlank(privateKeyStr)) {
+                    throw new RenException(ErrorCode.SM2_KEY_NOT_CONFIGURED);
+                }
+                
+                // 使用SM2私钥解密用户名（十六进制格式）
+                String decryptedUsername = SM2Utils.decrypt(privateKeyStr, username);
+                login.setUsername(decryptedUsername);
+            } catch (Exception e) {
+                throw new RenException(ErrorCode.SM2_DECRYPT_ERROR);
+            }
+        }
+        
+        // 如果密码是SM2加密格式，则进行解密
+        if (isSM2Encrypted(password)) {
+            try {
+                // 获取SM2私钥
+                String privateKeyStr = sysParamsService.getValue(Constant.SM2_PRIVATE_KEY, true);
+                if (StringUtils.isBlank(privateKeyStr)) {
+                    throw new RenException(ErrorCode.SM2_KEY_NOT_CONFIGURED);
+                }
+                
+                // 使用SM2私钥解密密码
+                String decryptedPassword = SM2Utils.decrypt(privateKeyStr, password);
+                login.setPassword(decryptedPassword);
+            } catch (Exception e) {
+                throw new RenException(ErrorCode.SM2_DECRYPT_ERROR);
+            }
+        }
+        
         // 是否开启手机注册
         Boolean isMobileRegister = sysParamsService
                 .getValueObject(Constant.SysMSMParam.SERVER_ENABLE_MOBILE_REGISTER.getValue(), Boolean.class);

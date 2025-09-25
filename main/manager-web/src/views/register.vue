@@ -121,8 +121,9 @@
 <script>
 import Api from '@/apis/api';
 import VersionFooter from '@/components/VersionFooter.vue';
-import { getUUID, goToPage, showDanger, showSuccess, validateMobile } from '@/utils';
+import { getUUID, goToPage, showDanger, showSuccess, validateMobile, generateSm2KeyPairHex, sm2Encrypt, isBase64 } from '@/utils';
 import { mapState } from 'vuex';
+import Constant from '@/utils/constant';
 
 // 导入语言切换功能
 import { changeLanguage } from '@/i18n';
@@ -156,7 +157,10 @@ export default {
       },
       captchaUrl: '',
       countdown: 0,
-      timer: null
+      timer: null,
+      serverPublicKey: "", // 服务器公钥
+      clientKeyPair: null, // 客户端密钥对
+      isGettingPublicKey: false // 获取公钥状态
     }
   },
   mounted() {
@@ -169,8 +173,49 @@ export default {
       }
     });
     this.fetchCaptcha();
+    // 获取服务器公钥
+    this.getServerPublicKey();
+    // 生成客户端密钥对
+    this.generateClientKeyPair();
   },
   methods: {
+    // 获取服务器公钥
+    getServerPublicKey() {
+      console.log('开始获取服务器公钥...');
+      // 先从本地存储获取
+      const storedPublicKey = localStorage.getItem(Constant.STORAGE_KEY.PUBLIC_KEY);
+      if (storedPublicKey) {
+        console.log('从本地存储获取到公钥，长度:', storedPublicKey.length);
+        this.serverPublicKey = storedPublicKey;
+        return;
+      }
+      
+      console.log('本地存储无公钥，从服务器获取...');
+      // 从服务器获取公钥
+      Api.user.getSM2PublicKey(
+        (res) => {
+          if (res.data && res.data.data) {
+            console.log('获取到服务器公钥，长度:', res.data.data.length);
+            this.serverPublicKey = res.data.data;
+            // 存储到本地
+            localStorage.setItem(Constant.STORAGE_KEY.PUBLIC_KEY, this.serverPublicKey);
+            console.log('公钥已存储到本地');
+          } else {
+            console.error('服务器返回数据格式异常:', res);
+          }
+        },
+        (err) => {
+          console.error("获取SM2公钥失败:", err);
+          showDanger(this.$t('sm2.failedToGetPublicKey'));
+        }
+      );
+    },
+    
+    // 生成客户端密钥对
+    generateClientKeyPair() {
+      this.clientKeyPair = generateSm2KeyPairHex();
+    },
+
     // 复用验证码获取方法
     fetchCaptcha() {
       this.form.captchaId = getUUID();
@@ -240,7 +285,7 @@ export default {
     },
 
     // 注册逻辑
-    register() {
+    async register() {
       if (this.enableMobileRegister) {
         // 手机号注册验证
         if (!validateMobile(this.form.mobile, this.form.areaCode)) {
@@ -271,11 +316,71 @@ export default {
         return;
       }
 
-      if (this.enableMobileRegister) {
-        this.form.username = this.form.areaCode + this.form.mobile
+      // 检查服务器公钥是否已获取，如果未获取则重新获取
+      if (!this.serverPublicKey) {
+        try {
+          // 等待公钥获取完成
+          await new Promise((resolve, reject) => {
+            this.getServerPublicKey();
+            // 设置超时检查，最多等待3秒
+            const checkInterval = setInterval(() => {
+              if (this.serverPublicKey) {
+                clearInterval(checkInterval);
+                resolve();
+              }
+            }, 100);
+            
+            setTimeout(() => {
+              clearInterval(checkInterval);
+              if (!this.serverPublicKey) {
+                reject(new Error('获取公钥超时'));
+              }
+            }, 3000);
+          });
+        } catch (error) {
+          showDanger(this.$t('sm2.failedToGetPublicKey'));
+          return;
+        }
       }
 
-      Api.user.register(this.form, ({ data }) => {
+      // 加密密码
+      let encryptedPassword = this.form.password;
+      if (!this.isSM2Encrypted(this.form.password)) {
+        try {
+          encryptedPassword = sm2Encrypt(this.serverPublicKey, this.form.password);
+        } catch (error) {
+          console.error("密码加密失败:", error);
+          showDanger(this.$t('sm2.encryptionFailed'));
+          return;
+        }
+      }
+
+      // 加密用户名
+      let encryptedUsername = this.form.username;
+      if (this.enableMobileRegister) {
+        this.form.username = this.form.areaCode + this.form.mobile;
+        encryptedUsername = this.form.username;
+      }
+      
+      if (!this.isSM2Encrypted(encryptedUsername)) {
+        try {
+          encryptedUsername = sm2Encrypt(this.serverPublicKey, encryptedUsername);
+        } catch (error) {
+          console.error("用户名加密失败:", error);
+          showDanger(this.$t('sm2.encryptionFailed'));
+          return;
+        }
+      }
+
+      // 准备注册数据
+      const registerData = {
+        ...this.form,
+        username: encryptedUsername,
+        password: encryptedPassword,
+        confirmPassword: encryptedPassword
+      };
+
+      Api.user.register(registerData, ({ data }) => {
         showSuccess(this.$t('register.registerSuccess'))
         goToPage('/login')
       }, (err) => {
@@ -288,6 +393,19 @@ export default {
 
     goToLogin() {
       goToPage('/login')
+    },
+    
+    /**
+     * 判断字符串是否为SM2加密格式（十六进制格式）
+     * @param {string} str 待判断的字符串
+     * @returns {boolean} 是否为SM2加密格式
+     */
+    isSM2Encrypted(str) {
+      if (typeof str !== 'string' || str.trim() === '') {
+        return false;
+      }
+      // 长度大于100且只包含0-9,a-f,A-F字符
+      return str.length > 100 && /^[0-9a-fA-F]+$/.test(str);
     }
   },
   beforeDestroy() {
