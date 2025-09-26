@@ -331,13 +331,6 @@ onMounted(async () => {
             </view>
           </view>
         </view>
-
-        <view class="forgot-password">
-          <text class="forgot-text">
-            {{ t('login.forgotPassword') }}
-          </text>
-        </view>
-
         <view
           class="login-btn"
           @click="handleLogin"

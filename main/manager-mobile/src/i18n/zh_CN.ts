@@ -16,7 +16,6 @@ export default {
   'login.enterUsername': '请输入用户名',
   'login.enterPassword': '请输入密码',
   'login.enterCaptcha': '请输入验证码',
-  'login.forgotPassword': '忘记密码？',
   'login.loginButton': '登录',
   'login.loggingIn': '登录中...',
   'login.noAccount': '还没有账户？',

@@ -16,7 +16,6 @@ export default {
   'login.enterUsername': '請輸入用戶名',
   'login.enterPassword': '請輸入密碼',
   'login.enterCaptcha': '請輸入驗證碼',
-  'login.forgotPassword': '忘記密碼？',
   'login.loginButton': '登錄',
   'login.loggingIn': '登錄中...',
   'login.noAccount': '還沒有賬戶？',

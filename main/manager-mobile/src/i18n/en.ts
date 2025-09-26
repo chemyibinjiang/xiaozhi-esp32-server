@@ -16,7 +16,6 @@ export default {
   'login.enterUsername': 'Please enter username',
   'login.enterPassword': 'Please enter password',
   'login.enterCaptcha': 'Please enter verification code',
-  'login.forgotPassword': 'Forgot password?',
   'login.loginButton': 'Login',
   'login.loggingIn': 'Logging in...',
   'login.noAccount': 'did not have an account?',
@@ -273,6 +272,7 @@ export default {
   'message.languageChanged': 'Language changed',
   'message.passwordError': 'Account or password error',
   'message.phoneRegistered': 'This phone number has been registered',
+
   // Agent Tools Page
   'agent.tools.pageTitle': 'Agent Tools',
   'agent.tools.unselected': 'Unselected',
