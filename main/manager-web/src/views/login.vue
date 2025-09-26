@@ -351,8 +351,7 @@ export default {
 .login-type-container {
   margin: 10px 20px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: center;
 }
 
 .title-language-dropdown {
