@@ -148,7 +148,7 @@ export default {
   'device.lastConnected': 'Last Conversation',
   'device.otaUpdate': 'OTA Update',
   'device.unbind': 'Unbind',
-  'device.confirmUnbind': 'sure',
+  'device.confirmUnbind': 'Sure',
   'device.bindDevice': 'Bind New Device',
   'device.deviceType': 'Device Type',
   'device.loading': 'Loading...',
