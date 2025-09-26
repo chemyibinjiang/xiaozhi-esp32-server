@@ -371,12 +371,12 @@ public class ConfigServiceImpl implements ConfigService {
             Map<String, Object> result,
             boolean isCache) {
         Map<String, String> selectedModule = new HashMap<>();
-    
+
         String[] modelTypes = { "VAD", "ASR", "TTS", "Memory", "Intent", "LLM", "VLLM" };
         String[] modelIds = { vadModelId, asrModelId, ttsModelId, memModelId, intentModelId, llmModelId, vllmModelId };
         String intentLLMModelId = null;
         String memLocalShortLLMModelId = null;
-    
+
         for (int i = 0; i < modelIds.length; i++) {
             if (modelIds[i] == null) {
                 continue;
@@ -390,17 +390,14 @@ public class ConfigServiceImpl implements ConfigService {
                 // 复制一份配置，避免修改原始数据
                 JSONObject configJsonCopy = new JSONObject(model.getConfigJson());
                 
-                // 对敏感数据进行隐藏处理
-                JSONObject maskedConfigJson = SensitiveDataUtils.maskSensitiveFields(configJsonCopy);
-                
-                typeConfig.put(model.getId(), maskedConfigJson);
+                typeConfig.put(model.getId(), configJsonCopy);
                 
             }
             result.put(modelTypes[i], typeConfig);
-    
+
             selectedModule.put(modelTypes[i], model.getId());
         }
-    
+
         result.put("selected_module", selectedModule);
         if (StringUtils.isNotBlank(prompt)) {
             prompt = prompt.replace("{{assistant_name}}", StringUtils.isBlank(assistantName) ? "小智" : assistantName);
