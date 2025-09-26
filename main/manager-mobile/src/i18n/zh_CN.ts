@@ -271,6 +271,8 @@ export default {
   'message.serverError': '服务器错误，请稍后再试',
   'message.invalidAddress': '无效地址，请检查服务端是否启动或网络连接是否正常',
   'message.languageChanged': '语言已切换',
+  'message.passwordError': '账号或密码错误',
+  'message.phoneRegistered': '此手机号码已经注册过',
 
   // Agent工具页面
   'agent.tools.pageTitle': 'Agent工具',

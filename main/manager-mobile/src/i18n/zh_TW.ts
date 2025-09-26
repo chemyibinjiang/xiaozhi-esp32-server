@@ -271,6 +271,8 @@ export default {
   'message.serverError': '服務器錯誤，請稍後再試',
   'message.invalidAddress': '無效地址，請檢查服務端是否啟動或網絡連接是否正常',
   'message.languageChanged': '語言已切換',
+  'message.passwordError': '帳號或密碼錯誤',
+  'message.phoneRegistered': '此手機號已經註冊過',
 
   // Agent工具頁面
   'agent.tools.pageTitle': 'Agent工具',

@@ -271,7 +271,8 @@ export default {
   'message.serverError': 'Server error, please try again later',
   'message.invalidAddress': 'Invalid address, please check if the server is started or network connection is normal',
   'message.languageChanged': 'Language changed',
-
+  'message.passwordError': 'Account or password error',
+  'message.phoneRegistered': 'This phone number has been registered',
   // Agent Tools Page
   'agent.tools.pageTitle': 'Agent Tools',
   'agent.tools.unselected': 'Unselected',

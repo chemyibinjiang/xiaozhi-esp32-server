@@ -257,6 +257,10 @@ async function handleRegister() {
     if (error.message.includes('请求错误[10067]')) {
       toast.warning(t('login.captchaError'))
     }
+    // 处理手机号码已注册错误
+    else if (error.message.includes('请求错误[10070]')) {
+      toast.warning(t('message.phoneRegistered'))
+    }
     // 注册失败重新获取验证码
     refreshCaptcha()
   }

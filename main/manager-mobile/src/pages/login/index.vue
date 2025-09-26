@@ -196,6 +196,10 @@ async function handleLogin() {
     if (error.message.includes('请求错误[10067]')) {
       toast.warning(t('login.captchaError'))
     }
+    // 处理账号或密码错误
+    else if (error.message.includes('请求错误[10004]')) {
+      toast.warning(t('message.passwordError'))
+    }
   }
   finally {
     loading.value = false
