@@ -69,11 +69,6 @@ public class LoginController {
     @PostMapping("/smsVerification")
     @Operation(summary = "短信验证码")
     public Result<Void> smsVerification(@RequestBody SmsVerificationDTO dto) {
-        // 验证图形验证码
-        boolean validate = captchaService.validate(dto.getCaptchaId(), dto.getCaptcha(), true);
-        if (!validate) {
-            throw new RenException(ErrorCode.SMS_CAPTCHA_ERROR);
-        }
         Boolean isMobileRegister = sysParamsService
                 .getValueObject(Constant.SysMSMParam.SERVER_ENABLE_MOBILE_REGISTER.getValue(), Boolean.class);
         if (!isMobileRegister) {
@@ -182,12 +177,17 @@ public class LoginController {
         // 是否开启手机注册
         Boolean isMobileRegister = sysParamsService
                 .getValueObject(Constant.SysMSMParam.SERVER_ENABLE_MOBILE_REGISTER.getValue(), Boolean.class);
-        
+        boolean validate;
         if (isMobileRegister) {
             // 验证用户是否是手机号码
             boolean validPhone = ValidatorUtils.isValidPhone(login.getUsername());
             if (!validPhone) {
                 throw new RenException(ErrorCode.USERNAME_NOT_PHONE);
+            }
+            // 验证短信验证码是否正常
+            validate = captchaService.validateSMSValidateCode(login.getUsername(), login.getMobileCaptcha(), false);
+            if (!validate) {
+                throw new RenException(ErrorCode.SMS_CODE_ERROR);
             }
         }
 

@@ -256,19 +256,3 @@ export function sm2Decrypt(privateKey, cipherText) {
     return sm2.doDecrypt(dataWithoutPrefix, privateKey, 1);
 }
 
-/**
- * 判断字符串是否为Base64编码
- * @param {string} str 待判断的字符串
- * @returns {boolean} 是否为Base64编码
- */
-export function isBase64(str) {
-    if (typeof str !== 'string' || str.trim() === '') {
-        return false;
-    }
-    try {
-        return btoa(atob(str)) === str;
-    } catch (e) {
-        return false;
-    }
-}
-

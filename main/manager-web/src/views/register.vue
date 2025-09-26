@@ -121,7 +121,7 @@
 <script>
 import Api from '@/apis/api';
 import VersionFooter from '@/components/VersionFooter.vue';
-import { getUUID, goToPage, showDanger, showSuccess, validateMobile, sm2Encrypt, isBase64 } from '@/utils';
+import { getUUID, goToPage, showDanger, showSuccess, validateMobile, sm2Encrypt } from '@/utils';
 import { mapState } from 'vuex';
 import Constant from '@/utils/constant';
 
@@ -177,32 +177,25 @@ export default {
   methods: {
     // 获取服务器公钥
     getServerPublicKey() {
-      console.log('开始获取服务器公钥...');
       // 先从本地存储获取
       const storedPublicKey = localStorage.getItem(Constant.STORAGE_KEY.PUBLIC_KEY);
       if (storedPublicKey) {
-        console.log('从本地存储获取到公钥，长度:', storedPublicKey.length);
         this.serverPublicKey = storedPublicKey;
         return;
       }
       
-      console.log('本地存储无公钥，从服务器获取...');
       // 从公共配置接口获取公钥
       Api.user.getPubConfig(
         (res) => {
           if (res.data && res.data.data && res.data.data.sm2PublicKey) {
-            console.log('获取到服务器公钥，长度:', res.data.data.sm2PublicKey.length);
             this.serverPublicKey = res.data.data.sm2PublicKey;
             // 存储到本地
             localStorage.setItem(Constant.STORAGE_KEY.PUBLIC_KEY, this.serverPublicKey);
-            console.log('公钥已存储到本地');
           } else {
-            console.error('服务器返回数据格式异常:', res);
             showDanger(this.$t('sm2.failedToGetPublicKey'));
           }
         },
         (err) => {
-          console.error("获取公共配置失败:", err);
           showDanger(this.$t('sm2.failedToGetPublicKey'));
         }
       );
