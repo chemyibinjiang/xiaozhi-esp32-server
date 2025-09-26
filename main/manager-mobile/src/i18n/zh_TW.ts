@@ -148,7 +148,7 @@ export default {
   'device.lastConnected': '最近對話',
   'device.otaUpdate': 'OTA升級',
   'device.unbind': '解除綁定',
-  'device.confirmUnbind': '確定要解除綁定設備',
+  'device.confirmUnbind': '確定要解綁設備',
   'device.bindDevice': '綁定新設備',
   'device.deviceType': '設備類型',
   'device.loading': '加載中...',
