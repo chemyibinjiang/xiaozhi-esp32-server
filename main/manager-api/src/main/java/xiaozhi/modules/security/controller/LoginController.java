@@ -69,6 +69,12 @@ public class LoginController {
     @PostMapping("/smsVerification")
     @Operation(summary = "短信验证码")
     public Result<Void> smsVerification(@RequestBody SmsVerificationDTO dto) {
+        // 验证图形验证码
+        boolean validate = captchaService.validate(dto.getCaptchaId(), dto.getCaptcha(), true);
+        if (!validate) {
+            throw new RenException(ErrorCode.SMS_CAPTCHA_ERROR);
+        }
+
         Boolean isMobileRegister = sysParamsService
                 .getValueObject(Constant.SysMSMParam.SERVER_ENABLE_MOBILE_REGISTER.getValue(), Boolean.class);
         if (!isMobileRegister) {
