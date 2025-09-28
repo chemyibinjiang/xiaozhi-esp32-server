@@ -508,7 +508,10 @@ export default {
 
     // 检测字段是否为敏感字段
     isSensitiveField(fieldName) {
-      return this.sensitive_keys.some((key) => fieldName.toLowerCase().includes(key));
+      // 将字段名转换为小写进行比较
+      const lowerFieldName = fieldName.toLowerCase();
+      // 精确匹配keyMap中定义的7个敏感词
+      return this.sensitive_keys.includes(lowerFieldName);
     },
 
     // 获取敏感字段对应的中文名称
