@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 
-import cn.hutool.json.JSONObject;
 import lombok.AllArgsConstructor;
 import xiaozhi.common.constant.Constant;
 import xiaozhi.common.exception.ErrorCode;
@@ -20,7 +19,6 @@ import xiaozhi.common.redis.RedisKeys;
 import xiaozhi.common.redis.RedisUtils;
 import xiaozhi.common.utils.ConvertUtils;
 import xiaozhi.common.utils.JsonUtils;
-import xiaozhi.common.utils.SensitiveDataUtils;
 import xiaozhi.modules.agent.dao.AgentVoicePrintDao;
 import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.entity.AgentPluginMapping;
@@ -72,7 +70,7 @@ public class ConfigServiceImpl implements ConfigService {
         // 查询默认智能体
         AgentTemplateEntity agent = agentTemplateService.getDefaultTemplate();
         if (agent == null) {
-            throw new RenException(ErrorCode.DEFAULT_AGENT_NOT_FOUND);
+            throw new RenException("默认智能体未找到");
         }
 
         // 构建模块配置
@@ -115,7 +113,7 @@ public class ConfigServiceImpl implements ConfigService {
         // 获取智能体信息
         AgentEntity agent = agentService.getAgentById(device.getAgentId());
         if (agent == null) {
-            throw new RenException(ErrorCode.AGENT_NOT_FOUND);
+            throw new RenException("智能体未找到");
         }
         // 获取音色信息
         String voice = null;
@@ -300,7 +298,7 @@ public class ConfigServiceImpl implements ConfigService {
             Map<String, Object> voiceprintConfig = new HashMap<>();
             voiceprintConfig.put("url", voiceprintUrl);
             voiceprintConfig.put("speakers", speakers);
-
+            
             // 获取声纹识别相似度阈值，默认0.4
             String thresholdStr = sysParamsService.getValue("server.voiceprint_similarity_threshold", true);
             if (StringUtils.isNotBlank(thresholdStr) && !"null".equals(thresholdStr)) {
@@ -351,9 +349,6 @@ public class ConfigServiceImpl implements ConfigService {
      * @param intentModelId  意图模型ID
      * @param result         结果Map
      */
-    /**
-     * 构建模块配置
-     */
     private void buildModuleConfig(
             String assistantName,
             String prompt,
@@ -387,11 +382,60 @@ public class ConfigServiceImpl implements ConfigService {
             }
             Map<String, Object> typeConfig = new HashMap<>();
             if (model.getConfigJson() != null) {
-                // 复制一份配置，避免修改原始数据
-                JSONObject configJsonCopy = new JSONObject(model.getConfigJson());
-
-                typeConfig.put(model.getId(), configJsonCopy);
-
+                typeConfig.put(model.getId(), model.getConfigJson());
+                // 如果是TTS类型，添加private_voice属性
+                if ("TTS".equals(modelTypes[i])) {
+                    if (voice != null)
+                        ((Map<String, Object>) model.getConfigJson()).put("private_voice", voice);
+                    if (referenceAudio != null)
+                        ((Map<String, Object>) model.getConfigJson()).put("ref_audio", referenceAudio);
+                    if (referenceText != null)
+                        ((Map<String, Object>) model.getConfigJson()).put("ref_text", referenceText);
+                }
+                // 如果是Intent类型，且type=intent_llm，则给他添加附加模型
+                if ("Intent".equals(modelTypes[i])) {
+                    Map<String, Object> map = (Map<String, Object>) model.getConfigJson();
+                    if ("intent_llm".equals(map.get("type"))) {
+                        intentLLMModelId = (String) map.get("llm");
+                        if (StringUtils.isNotBlank(intentLLMModelId) && intentLLMModelId.equals(llmModelId)) {
+                            intentLLMModelId = null;
+                        }
+                    }
+                    if (map.get("functions") != null) {
+                        String functionStr = (String) map.get("functions");
+                        if (StringUtils.isNotBlank(functionStr)) {
+                            String[] functions = functionStr.split("\\;");
+                            map.put("functions", functions);
+                        }
+                    }
+                    System.out.println("map: " + map);
+                }
+                if ("Memory".equals(modelTypes[i])) {
+                    Map<String, Object> map = (Map<String, Object>) model.getConfigJson();
+                    if ("mem_local_short".equals(map.get("type"))) {
+                        memLocalShortLLMModelId = (String) map.get("llm");
+                        if (StringUtils.isNotBlank(memLocalShortLLMModelId)
+                                && memLocalShortLLMModelId.equals(llmModelId)) {
+                            memLocalShortLLMModelId = null;
+                        }
+                    }
+                }
+                // 如果是LLM类型，且intentLLMModelId不为空，则添加附加模型
+                if ("LLM".equals(modelTypes[i])) {
+                    if (StringUtils.isNotBlank(intentLLMModelId)) {
+                        if (!typeConfig.containsKey(intentLLMModelId)) {
+                            ModelConfigEntity intentLLM = modelConfigService.getModelById(intentLLMModelId, isCache);
+                            typeConfig.put(intentLLM.getId(), intentLLM.getConfigJson());
+                        }
+                    }
+                    if (StringUtils.isNotBlank(memLocalShortLLMModelId)) {
+                        if (!typeConfig.containsKey(memLocalShortLLMModelId)) {
+                            ModelConfigEntity memLocalShortLLM = modelConfigService
+                                    .getModelById(memLocalShortLLMModelId, isCache);
+                            typeConfig.put(memLocalShortLLM.getId(), memLocalShortLLM.getConfigJson());
+                        }
+                    }
+                }
             }
             result.put(modelTypes[i], typeConfig);
 
