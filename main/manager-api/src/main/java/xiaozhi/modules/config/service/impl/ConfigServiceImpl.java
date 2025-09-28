@@ -300,7 +300,7 @@ public class ConfigServiceImpl implements ConfigService {
             Map<String, Object> voiceprintConfig = new HashMap<>();
             voiceprintConfig.put("url", voiceprintUrl);
             voiceprintConfig.put("speakers", speakers);
-            
+
             // 获取声纹识别相似度阈值，默认0.4
             String thresholdStr = sysParamsService.getValue("server.voiceprint_similarity_threshold", true);
             if (StringUtils.isNotBlank(thresholdStr) && !"null".equals(thresholdStr)) {
@@ -389,9 +389,9 @@ public class ConfigServiceImpl implements ConfigService {
             if (model.getConfigJson() != null) {
                 // 复制一份配置，避免修改原始数据
                 JSONObject configJsonCopy = new JSONObject(model.getConfigJson());
-                
+
                 typeConfig.put(model.getId(), configJsonCopy);
-                
+
             }
             result.put(modelTypes[i], typeConfig);
 
