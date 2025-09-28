@@ -190,10 +190,19 @@
                   :placeholder="$t('modelConfigDialog.enterJsonExample')"
                   class="custom-input-bg"
                   @change="(val) => handleJsonChange(field.prop, val)"
-                  @focus="handleJsonInputFocus(field.prop, fieldJsonMap[field.prop])"
-                  @blur="handleJsonInputBlur(field.prop)"
+                  @focus="
+                    isSensitiveField(field.prop)
+                      ? handleJsonInputFocus(field.prop, fieldJsonMap[field.prop])
+                      : undefined
+                  "
+                  @blur="
+                    isSensitiveField(field.prop)
+                      ? handleJsonInputBlur(field.prop)
+                      : undefined
+                  "
                 ></el-input>
               </template>
+
               <el-input
                 v-else
                 v-model="form.configJson[field.prop]"
@@ -201,8 +210,14 @@
                 :type="field.type"
                 class="custom-input-bg"
                 :show-password="field.type === 'password'"
-                @focus="handleInputFocus(field.prop, form.configJson[field.prop])"
-                @blur="handleInputBlur(field.prop)"
+                @focus="
+                  isSensitiveField(field.prop)
+                    ? handleInputFocus(field.prop, form.configJson[field.prop])
+                    : undefined
+                "
+                @blur="
+                  isSensitiveField(field.prop) ? handleInputBlur(field.prop) : undefined
+                "
               ></el-input>
             </el-form-item>
           </div>
