@@ -253,6 +253,7 @@ export default {
   'register.captchaSendSuccess': '驗證碼發送成功',
   'register.captchaSendFailed': '驗證碼發送失敗',
   'register.passwordsNotMatch': '兩次輸入的密碼不一致',
+  'register.secondsLater': '秒後',
   'register.registerSuccess': '註冊成功！',
   'register.registerFailed': '註冊失敗',
   'register.requiredUsername': '用戶名不能為空',

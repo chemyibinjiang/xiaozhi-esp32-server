@@ -384,6 +384,7 @@ export default {
   'register.registerSuccess': '注册成功！',
   'register.registerFailed': '注册失败',
   'register.passwordsNotMatch': '两次输入的密码不一致',
+  'register.secondsLater': '秒后',
 
   // 忘记密码页面文本
   'retrievePassword.title': '重置密码',

@@ -70,7 +70,7 @@ public class LoginController {
     @Operation(summary = "短信验证码")
     public Result<Void> smsVerification(@RequestBody SmsVerificationDTO dto) {
         // 验证图形验证码
-        boolean validate = captchaService.validate(dto.getCaptchaId(), dto.getCaptcha(), true);
+        boolean validate = captchaService.validate(dto.getCaptchaId(), dto.getCaptcha(), false);
         if (!validate) {
             throw new RenException(ErrorCode.SMS_CAPTCHA_ERROR);
         }

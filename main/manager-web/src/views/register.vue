@@ -353,7 +353,8 @@ export default {
       const registerData = {
         username: plainUsername,
         password: encryptedPassword,
-        captchaId: this.form.captchaId
+        captchaId: this.form.captchaId,
+        mobileCaptcha: this.form.mobileCaptcha
       };
 
       Api.user.register(registerData, ({ data }) => {
