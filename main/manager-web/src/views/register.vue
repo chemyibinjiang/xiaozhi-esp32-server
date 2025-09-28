@@ -45,9 +45,10 @@
                 <div style="display: flex; align-items: center; margin-top: 20px; width: 100%; gap: 10px;">
                   <div class="input-box" style="width: calc(100% - 130px); margin-top: 0;">
                     <img loading="lazy" alt="" class="input-icon" src="@/assets/login/shield.png" />
-                    <el-input v-model="form.captcha" :placeholder="$t('register.captchaPlaceholder')" style="flex: 1;" />
+                    <el-input v-model="form.captcha" :placeholder="$t('register.captchaPlaceholder')"
+                      style="flex: 1;" />
                   </div>
-                  <img loading="lazy" v-if="captchaUrl" :src="captchaUrl" alt="验证码" 
+                  <img loading="lazy" v-if="captchaUrl" :src="captchaUrl" alt="验证码"
                     style="width: 150px; height: 40px; cursor: pointer;" @click="fetchCaptcha" />
                 </div>
 
@@ -56,7 +57,8 @@
                 <div style="display: flex; align-items: center; margin-top: 20px; width: 100%; gap: 10px;">
                   <div class="input-box" style="width: calc(100% - 130px); margin-top: 0;">
                     <img loading="lazy" alt="" class="input-icon" src="@/assets/login/phone.png" />
-                    <el-input v-model="form.mobileCaptcha" :placeholder="$t('register.mobileCaptchaPlaceholder')" style="flex: 1;" maxlength="6" />
+                    <el-input v-model="form.mobileCaptcha" :placeholder="$t('register.mobileCaptchaPlaceholder')"
+                      style="flex: 1;" maxlength="6" />
                   </div>
                   <el-button type="primary" class="send-captcha-btn" :disabled="!canSendMobileCaptcha"
                     @click="sendMobileCaptcha">
@@ -70,13 +72,15 @@
               <!-- 密码输入框 -->
               <div class="input-box">
                 <img loading="lazy" alt="" class="input-icon" src="@/assets/login/password.png" />
-                <el-input v-model="form.password" :placeholder="$t('register.passwordPlaceholder')" type="password" show-password />
+                <el-input v-model="form.password" :placeholder="$t('register.passwordPlaceholder')" type="password"
+                  show-password />
               </div>
 
               <!-- 新增确认密码 -->
               <div class="input-box">
                 <img loading="lazy" alt="" class="input-icon" src="@/assets/login/password.png" />
-                <el-input v-model="form.confirmPassword" :placeholder="$t('register.confirmPasswordPlaceholder')" type="password" show-password />
+                <el-input v-model="form.confirmPassword" :placeholder="$t('register.confirmPasswordPlaceholder')"
+                  type="password" show-password />
               </div>
 
               <!-- 验证码部分保持相同 -->
@@ -121,12 +125,10 @@
 <script>
 import Api from '@/apis/api';
 import VersionFooter from '@/components/VersionFooter.vue';
-import { getUUID, goToPage, showDanger, showSuccess, validateMobile, sm2Encrypt } from '@/utils';
+import { getUUID, goToPage, showDanger, showSuccess, sm2Encrypt, validateMobile } from '@/utils';
 import { mapState } from 'vuex';
-import Constant from '@/utils/constant';
 
 // 导入语言切换功能
-import { changeLanguage } from '@/i18n';
 
 export default {
   name: 'register',
@@ -137,7 +139,8 @@ export default {
     ...mapState({
       allowUserRegister: state => state.pubConfig.allowUserRegister,
       enableMobileRegister: state => state.pubConfig.enableMobileRegister,
-      mobileAreaList: state => state.pubConfig.mobileAreaList
+      mobileAreaList: state => state.pubConfig.mobileAreaList,
+      sm2PublicKey: state => state.pubConfig.sm2PublicKey,
     }),
     canSendMobileCaptcha() {
       return this.countdown === 0 && validateMobile(this.form.mobile, this.form.areaCode);
@@ -158,7 +161,6 @@ export default {
       captchaUrl: '',
       countdown: 0,
       timer: null,
-      serverPublicKey: "", // 服务器公钥
     }
   },
   mounted() {
@@ -171,38 +173,8 @@ export default {
       }
     });
     this.fetchCaptcha();
-    // 获取服务器公钥
-    this.getServerPublicKey();
   },
   methods: {
-    // 获取服务器公钥
-    getServerPublicKey() {
-      // 先从本地存储获取
-      const storedPublicKey = localStorage.getItem(Constant.STORAGE_KEY.PUBLIC_KEY);
-      if (storedPublicKey) {
-        this.serverPublicKey = storedPublicKey;
-        return;
-      }
-      
-      // 从公共配置接口获取公钥
-      Api.user.getPubConfig(
-        (res) => {
-          if (res.data && res.data.data && res.data.data.sm2PublicKey) {
-            this.serverPublicKey = res.data.data.sm2PublicKey;
-            // 存储到本地
-            localStorage.setItem(Constant.STORAGE_KEY.PUBLIC_KEY, this.serverPublicKey);
-          } else {
-            showDanger(this.$t('sm2.failedToGetPublicKey'));
-          }
-        },
-        (err) => {
-          showDanger(this.$t('sm2.failedToGetPublicKey'));
-        }
-      );
-    },
-    
-
-
     // 复用验证码获取方法
     fetchCaptcha() {
       this.form.captchaId = getUUID();
@@ -302,40 +274,12 @@ export default {
       if (!this.validateInput(this.form.captcha, this.$t('register.requiredCaptcha'))) {
         return;
       }
-
-      // 检查服务器公钥是否已获取，如果未获取则重新获取
-      if (!this.serverPublicKey) {
-        try {
-          // 等待公钥获取完成
-          await new Promise((resolve, reject) => {
-            this.getServerPublicKey();
-            // 设置超时检查，最多等待3秒
-            const checkInterval = setInterval(() => {
-              if (this.serverPublicKey) {
-                clearInterval(checkInterval);
-                resolve();
-              }
-            }, 100);
-            
-            setTimeout(() => {
-              clearInterval(checkInterval);
-              if (!this.serverPublicKey) {
-                reject(new Error('获取公钥超时'));
-              }
-            }, 3000);
-          });
-        } catch (error) {
-          showDanger(this.$t('sm2.failedToGetPublicKey'));
-          return;
-        }
-      }
-
       // 加密
       let encryptedPassword;
       try {
         // 拼接验证码和密码
         const captchaAndPassword = this.form.captcha + this.form.password;
-        encryptedPassword = sm2Encrypt(this.serverPublicKey, captchaAndPassword);
+        encryptedPassword = sm2Encrypt(this.sm2PublicKey, captchaAndPassword);
       } catch (error) {
         console.error("密码加密失败:", error);
         showDanger(this.$t('sm2.encryptionFailed'));

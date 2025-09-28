@@ -148,9 +148,8 @@
 import Api from "@/apis/api";
 import VersionFooter from "@/components/VersionFooter.vue";
 import i18n, { changeLanguage } from "@/i18n";
-import { getUUID, goToPage, showDanger, showSuccess, validateMobile, sm2Encrypt } from "@/utils";
+import { getUUID, goToPage, showDanger, showSuccess, sm2Encrypt, validateMobile } from "@/utils";
 import { mapState } from "vuex";
-import Constant from "@/utils/constant";
 
 export default {
   name: "login",
@@ -162,6 +161,7 @@ export default {
       allowUserRegister: (state) => state.pubConfig.allowUserRegister,
       enableMobileRegister: (state) => state.pubConfig.enableMobileRegister,
       mobileAreaList: (state) => state.pubConfig.mobileAreaList,
+      sm2PublicKey: (state) => state.pubConfig.sm2PublicKey,
     }),
     // 获取当前语言
     currentLanguage() {
@@ -197,7 +197,6 @@ export default {
       captchaUrl: "",
       isMobileLogin: false,
       languageDropdownVisible: false,
-      serverPublicKey: "", // 服务器公钥
     };
   },
   mounted() {
@@ -206,38 +205,8 @@ export default {
       // 根据配置决定默认登录方式
       this.isMobileLogin = this.enableMobileRegister;
     });
-    // 获取服务器公钥
-    this.getServerPublicKey();
   },
   methods: {
-    // 获取服务器公钥
-    getServerPublicKey() {
-      // 先从本地存储获取
-      const storedPublicKey = localStorage.getItem(Constant.STORAGE_KEY.PUBLIC_KEY);
-      if (storedPublicKey) {
-        this.serverPublicKey = storedPublicKey;
-        return;
-      }
-      
-      // 从公共配置接口获取公钥
-      Api.user.getPubConfig(
-        (res) => {
-          if (res.data && res.data.data && res.data.data.sm2PublicKey) {
-            this.serverPublicKey = res.data.data.sm2PublicKey;
-            // 存储到本地
-            localStorage.setItem(Constant.STORAGE_KEY.PUBLIC_KEY, this.serverPublicKey);
-          } else {
-            showDanger(this.$t('sm2.failedToGetPublicKey'));
-          }
-        },
-        (err) => {
-          showDanger(this.$t('sm2.failedToGetPublicKey'));
-        }
-      );
-    },
-    
-
-    
     fetchCaptcha() {
       if (this.$store.getters.getToken) {
         if (this.$route.path !== "/home") {
@@ -316,40 +285,12 @@ export default {
       if (!this.validateInput(this.form.captcha, 'login.requiredCaptcha')) {
         return;
       }
-
-      // 检查服务器公钥是否已获取，如果未获取则重新获取
-      if (!this.serverPublicKey) {
-        try {
-          // 等待公钥获取完成
-          await new Promise((resolve, reject) => {
-            this.getServerPublicKey();
-            // 设置超时检查，最多等待3秒
-            const checkInterval = setInterval(() => {
-              if (this.serverPublicKey) {
-                clearInterval(checkInterval);
-                resolve();
-              }
-            }, 100);
-            
-            setTimeout(() => {
-              clearInterval(checkInterval);
-              if (!this.serverPublicKey) {
-                reject(new Error('获取公钥超时'));
-              }
-            }, 3000);
-          });
-        } catch (error) {
-          showDanger(this.$t('sm2.failedToGetPublicKey'));
-          return;
-        }
-      }
-
       // 加密密码
       let encryptedPassword;
       try {
         // 拼接验证码和密码
         const captchaAndPassword = this.form.captcha + this.form.password;
-        encryptedPassword = sm2Encrypt(this.serverPublicKey, captchaAndPassword);
+        encryptedPassword = sm2Encrypt(this.sm2PublicKey, captchaAndPassword);
       } catch (error) {
         console.error("密码加密失败:", error);
         showDanger(this.$t('sm2.encryptionFailed'));
@@ -359,7 +300,7 @@ export default {
       const plainUsername = this.form.username;
 
       this.form.captchaId = this.captchaUuid;
-      
+
       // 加密
       const loginData = {
         username: plainUsername,
@@ -377,7 +318,7 @@ export default {
         (err) => {
           // 直接使用后端返回的国际化消息
           let errorMessage = err.data.msg || "登录失败";
-          
+
           showDanger(errorMessage);
           if (
             err.data != null &&
@@ -410,8 +351,7 @@ export default {
 .login-type-container {
   margin: 10px 20px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: center;
 }
 
 .title-language-dropdown {
