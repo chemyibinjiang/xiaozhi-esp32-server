@@ -4,7 +4,6 @@ import { http } from '@/http/request/alova'
 export interface LoginData {
   username: string
   password: string
-  captcha: string
   captchaId: string
   areaCode?: string
   mobile?: string

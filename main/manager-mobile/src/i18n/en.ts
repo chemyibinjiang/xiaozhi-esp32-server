@@ -186,6 +186,15 @@ export default {
   'common.unknownError': 'Unknown error',
   'common.networkError': 'Network error',
 
+  // SM2 encryption related error messages
+  'sm2.publicKeyNotConfigured': 'SM2 public key not configured, please contact administrator',
+  'sm2.encryptionFailed': 'Password encryption failed',
+  'sm2.keyGenerationFailed': 'Key pair generation failed',
+  'sm2.invalidPublicKey': 'Invalid public key format',
+  'sm2.encryptionError': 'Error occurred during encryption',
+  'sm2.publicKeyRetry': 'Retrying to get public key...',
+  'sm2.publicKeyRetryFailed': 'Public key retrieval retry failed',
+
   // Voiceprint page
   'voiceprint.noSelectedAgent': 'No agent selected',
   'voiceprint.pleaseSelectAgent': 'Please select an agent first',

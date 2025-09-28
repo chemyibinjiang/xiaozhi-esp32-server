@@ -186,6 +186,15 @@ export default {
   'common.unknownError': '未知錯誤',
   'common.networkError': '網路錯誤',
 
+  // SM2加密相關錯誤消息
+  'sm2.publicKeyNotConfigured': 'SM2公鑰未配置，請聯繫管理員',
+  'sm2.encryptionFailed': '密碼加密失敗',
+  'sm2.keyGenerationFailed': '金鑰對生成失敗',
+  'sm2.invalidPublicKey': '無效的公鑰格式',
+  'sm2.encryptionError': '加密過程中發生錯誤',
+  'sm2.publicKeyRetry': '正在重試獲取公鑰...',
+  'sm2.publicKeyRetryFailed': '公鑰獲取重試失敗',
+
   // Voiceprint page
   'voiceprint.noSelectedAgent': '沒有選中的智能體',
   'voiceprint.pleaseSelectAgent': '請先選擇智能體',

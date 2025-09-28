@@ -402,7 +402,7 @@ onMounted(async () => {
             </view>
             <view class="flex items-center">
               <text class="text-[32rpx] text-[#9d9ea3] font-semibold mr-[16rpx]">
-                {{ supportedLanguages.find(lang => lang.code === currentLanguage.value)?.name }}
+                {{ supportedLanguages.find(lang => lang.code === currentLanguage)?.name }}
               </text>
               <wd-icon name="arrow-right" custom-class="text-[32rpx] text-[#9d9ea3]" />
             </view>

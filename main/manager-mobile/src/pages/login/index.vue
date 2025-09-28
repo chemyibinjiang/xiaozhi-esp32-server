@@ -18,6 +18,8 @@ import { toast } from '@/utils/toast'
 // 导入国际化相关功能
 import { t, changeLanguage, getSupportedLanguages, initI18n } from '@/i18n'
 import type { Language } from '@/store/lang'
+// 导入SM2加密工具
+import { sm2Encrypt } from '@/utils'
 
 // 获取屏幕边界到安全区域距离
 let safeAreaInsets
@@ -42,7 +44,7 @@ systemInfo = uni.getSystemInfoSync()
 safeAreaInsets = systemInfo.safeAreaInsets
 // #endif
 // 表单数据
-const formData = ref<LoginData>({
+const formData = ref({
   username: '',
   password: '',
   captcha: '',
@@ -74,6 +76,11 @@ const enableMobileLogin = computed(() => {
 // 计算属性：区号列表
 const areaCodeList = computed(() => {
   return configStore.config.mobileAreaList || [{ name: '中国大陆', key: '+86' }]
+})
+
+// SM2公钥
+const sm2PublicKey = computed(() => {
+  return configStore.config.sm2PublicKey
 })
 
 // 切换登录方式
@@ -164,15 +171,39 @@ async function handleLogin() {
     return
   }
 
+  // 检查SM2公钥是否配置
+  if (!sm2PublicKey.value) {
+    toast.warning(t('sm2.publicKeyNotConfigured'))
+    return
+  }
+
   try {
     loading.value = true
 
+    // 加密密码
+    let encryptedPassword
+    try {
+      // 拼接验证码和密码
+      const captchaAndPassword = formData.value.captcha + formData.value.password
+      encryptedPassword = sm2Encrypt(sm2PublicKey.value, captchaAndPassword)
+    } catch (error) {
+      console.error('密码加密失败:', error)
+      toast.warning(t('sm2.encryptionFailed'))
+      return
+    }
+
     // 构建登录数据
-    const loginData = { ...formData.value }
+    const loginData: LoginData = {
+      username: '',
+      password: encryptedPassword,
+      captchaId: formData.value.captchaId
+    }
 
     // 如果是手机号登录，将区号+手机号拼接到username字段
     if (loginType.value === 'mobile') {
       loginData.username = `${selectedAreaCode.value}${formData.value.mobile}`
+    } else {
+      loginData.username = formData.value.username
     }
 
     const response = await login(loginData)
