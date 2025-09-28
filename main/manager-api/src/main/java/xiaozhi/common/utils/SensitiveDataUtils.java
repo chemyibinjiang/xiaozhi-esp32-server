@@ -36,8 +36,10 @@ public class SensitiveDataUtils {
 
         int length = value.length();
         if (length <= 8) {
+            // 短字符串保留前2后2
             return value.substring(0, 2) + "****" + value.substring(length - 2);
         } else {
+            // 长字符串保留前4后4
             int maskLength = length - 8;
             StringBuilder maskBuilder = new StringBuilder();
             for (int i = 0; i < maskLength; i++) {
