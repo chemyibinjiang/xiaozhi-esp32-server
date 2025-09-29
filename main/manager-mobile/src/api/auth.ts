@@ -94,8 +94,6 @@ export function getPublicConfig() {
 export interface RegisterData {
   username: string
   password: string
-  confirmPassword: string
-  captcha: string
   captchaId: string
   areaCode: string
   mobile: string

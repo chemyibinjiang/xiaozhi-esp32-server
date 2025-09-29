@@ -16,6 +16,8 @@ import { getEnvBaseUrl } from '@/utils'
 import { toast } from '@/utils/toast'
 // 导入国际化相关功能
 import { t, initI18n } from '@/i18n'
+// 导入SM2加密工具
+import { sm2Encrypt } from '@/utils'
 
 // 获取屏幕边界到安全区域距离
 let safeAreaInsets
@@ -88,6 +90,11 @@ const enableMobileRegister = computed(() => {
 // 计算属性：区号列表
 const areaCodeList = computed(() => {
   return configStore.config.mobileAreaList || [{ name: '中国大陆', key: '+86' }]
+})
+
+// SM2公钥
+const sm2PublicKey = computed(() => {
+  return configStore.config.sm2PublicKey
 })
 
 // 切换注册方式
@@ -229,15 +236,31 @@ async function handleRegister() {
     return
   }
 
+  // 检查SM2公钥是否配置
+  if (!sm2PublicKey.value) {
+    toast.warning(t('sm2.publicKeyNotConfigured'))
+    return
+  }
+
   try {
     loading.value = true
+
+    // 加密密码
+    let encryptedPassword
+    try {
+      // 拼接验证码和密码
+      const captchaAndPassword = formData.value.captcha + formData.value.password
+      encryptedPassword = sm2Encrypt(sm2PublicKey.value, captchaAndPassword)
+    } catch (error) {
+      console.error('密码加密失败:', error)
+      toast.warning(t('sm2.encryptionFailed'))
+      return
+    }
 
     // 构建注册数据
     const registerData = {
       username: registerType.value === 'mobile' ? `${selectedAreaCode.value}${formData.value.mobile}` : formData.value.username,
-      password: formData.value.password,
-      confirmPassword: formData.value.confirmPassword,
-      captcha: formData.value.captcha,
+      password: encryptedPassword,
       captchaId: formData.value.captchaId,
       areaCode: formData.value.areaCode,
       mobile: formData.value.mobile,
