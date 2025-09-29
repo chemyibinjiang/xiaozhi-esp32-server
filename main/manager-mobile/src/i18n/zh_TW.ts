@@ -48,6 +48,7 @@ export default {
   'register.loginNow': '立即登錄',
   'register.selectCountry': '選擇國家/地區',
   'register.confirm': '確認',
+  'register.captchaSendSuccess': '驗證碼發送成功',
 
   // 首頁
   'home.pageTitle': '首頁',

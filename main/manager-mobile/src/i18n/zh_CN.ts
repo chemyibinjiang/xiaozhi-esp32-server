@@ -48,6 +48,7 @@ export default {
   'register.loginNow': '立即登录',
   'register.selectCountry': '选择国家/地区',
   'register.confirm': '确认',
+  'register.captchaSendSuccess': '验证码发送成功',
 
   // 首页
   'home.pageTitle': '首页',

@@ -48,6 +48,7 @@ export default {
   'register.loginNow': 'Login Now',
   'register.selectCountry': 'Select Country/Region',
   'register.confirm': 'Confirm',
+  'register.captchaSendSuccess': 'Verification code sent successfully',
 
   // Home page
   'home.pageTitle': 'Home',

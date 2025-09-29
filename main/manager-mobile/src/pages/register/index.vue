@@ -166,7 +166,7 @@ async function sendSmsVerification() {
       captchaId: formData.value.captchaId,
     })
 
-    toast.success(t('message.registerSuccess'))
+    toast.success(t('register.captchaSendSuccess'))
 
     // 开始倒计时
     smsCountdown.value = 60
@@ -193,13 +193,8 @@ async function sendSmsVerification() {
 // 注册
 async function handleRegister() {
   // 表单验证
-  if (registerType.value === 'username') {
-    if (!formData.value.username) {
-      toast.warning(t('register.enterUsername'))
-      return
-    }
-  }
-  else {
+  if (enableMobileRegister.value) {
+    // 手机号注册验证
     if (!formData.value.mobile) {
       toast.warning(t('register.enterPhone'))
       return
@@ -212,6 +207,13 @@ async function handleRegister() {
     }
     if (!formData.value.mobileCaptcha) {
       toast.warning(t('register.enterCode'))
+      return
+    }
+  }
+  else {
+    // 用户名注册验证
+    if (!formData.value.username) {
+      toast.warning(t('register.enterUsername'))
       return
     }
   }
@@ -259,7 +261,7 @@ async function handleRegister() {
 
     // 构建注册数据
     const registerData = {
-      username: registerType.value === 'mobile' ? `${selectedAreaCode.value}${formData.value.mobile}` : formData.value.username,
+      username: enableMobileRegister.value ? `${selectedAreaCode.value}${formData.value.mobile}` : formData.value.username,
       password: encryptedPassword,
       captchaId: formData.value.captchaId,
       areaCode: formData.value.areaCode,
@@ -272,7 +274,9 @@ async function handleRegister() {
 
     // 跳转到登录页
     setTimeout(() => {
-      uni.navigateBack()
+      uni.redirectTo({
+        url: '/pages/login/index'
+      })
     }, 1000)
   }
   catch (error: any) {
@@ -294,7 +298,9 @@ async function handleRegister() {
 
 // 返回登录
 function goBack() {
-  uni.navigateBack()
+  uni.redirectTo({
+    url: '/pages/login/index'
+  })
 }
 
 // 页面加载时获取验证码
@@ -339,7 +345,7 @@ onMounted(async () => {
     <view class="form-container">
       <view class="form">
         <!-- 手机号注册 -->
-        <template v-if="registerType === 'mobile'">
+        <template v-if="enableMobileRegister">
           <view class="input-group">
             <view class="input-wrapper mobile-wrapper">
               <view class="area-code-selector" @click="openAreaCodeSheet">
@@ -418,7 +424,7 @@ onMounted(async () => {
         </view>
 
         <!-- 手机验证码输入框 -->
-        <view v-if="registerType === 'mobile'" class="input-group">
+        <view v-if="enableMobileRegister" class="input-group">
           <view class="input-wrapper sms-wrapper">
             <wd-input
                 v-model="formData.mobileCaptcha"
@@ -457,25 +463,6 @@ onMounted(async () => {
           </text>
         </view>
 
-        <!-- 注册方式切换 -->
-        <view v-if="enableMobileRegister" class="register-type-switch">
-          <view class="switch-tabs">
-            <view
-              class="switch-tab"
-              :class="{ active: registerType === 'username' }"
-              @click="toggleRegisterType"
-            >
-              <wd-icon name="user" />
-            </view>
-            <view
-              class="switch-tab"
-              :class="{ active: registerType === 'mobile' }"
-              @click="toggleRegisterType"
-            >
-              <wd-icon name="phone" />
-            </view>
-          </view>
-        </view>
       </view>
     </view>
 
