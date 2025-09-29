@@ -66,6 +66,7 @@ export default {
   'home.createFirstAgent': 'Click the + button in the lower right corner to create your first agent',
   'home.dialogTitle': 'Create Agent',
   'home.inputPlaceholder': 'e.g. Customer Service Assistant, Voice Assistant, Knowledge Q&A',
+  'home.createError': 'Please input agent name',
   'home.createNow': 'Create Now',
   'home.justNow': 'Just now',
   'home.minutesAgo': 'minutes ago',

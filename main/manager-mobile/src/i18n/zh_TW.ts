@@ -66,6 +66,7 @@ export default {
   'home.createFirstAgent': '點擊右下角 + 號創建您的第一個智能體',
   'home.dialogTitle': '創建智能體',
   'home.inputPlaceholder': '例如：客服助手、語音助理、知識問答',
+  'home.createError': '請輸入智能體暱稱',
   'home.createNow': '立即創建',
   'home.justNow': '剛剛',
   'home.minutesAgo': '分鐘前',

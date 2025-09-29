@@ -125,6 +125,7 @@ function openCreateDialog() {
       inputPlaceholder: t('home.inputPlaceholder'),
       inputValue: '',
       inputPattern: /^[\u4E00-\u9FA5a-z0-9\s]{1,50}$/i,
+      inputError: t('home.createError'),
       confirmButtonText: t('home.createNow'),
       cancelButtonText: t('common.cancel'),
     })
