@@ -101,7 +101,7 @@
 <script>
 import Api from '@/apis/api';
 import VersionFooter from '@/components/VersionFooter.vue';
-import { getUUID, goToPage, showDanger, showSuccess, validateMobile } from '@/utils';
+import { getUUID, goToPage, showDanger, showSuccess, validateMobile, sm2Encrypt } from '@/utils';
 import { mapState } from 'vuex';
 
 // 导入语言切换功能
@@ -115,7 +115,8 @@ export default {
   computed: {
     ...mapState({
       allowUserRegister: state => state.pubConfig.allowUserRegister,
-      mobileAreaList: state => state.pubConfig.mobileAreaList
+      mobileAreaList: state => state.pubConfig.mobileAreaList,
+      sm2PublicKey: state => state.pubConfig.sm2PublicKey
     }),
     canSendMobileCaptcha() {
       return this.countdown === 0 && validateMobile(this.form.mobile, this.form.areaCode);
@@ -229,10 +230,23 @@ export default {
         return;
       }
 
+      // 加密密码
+      let encryptedPassword;
+      try {
+        // 拼接图形验证码和新密码进行加密
+        const captchaAndPassword = this.form.captcha + this.form.newPassword;
+        encryptedPassword = sm2Encrypt(this.sm2PublicKey, captchaAndPassword);
+      } catch (error) {
+        console.error("密码加密失败:", error);
+        showDanger(this.$t('sm2.encryptionFailed'));
+        return;
+      }
+
       Api.user.retrievePassword({
         phone: this.form.areaCode + this.form.mobile,
-        password: this.form.newPassword,
-        code: this.form.mobileCaptcha
+        password: encryptedPassword,
+        code: this.form.mobileCaptcha,
+        captchaId: this.form.captchaId
       }, (res) => {
         showSuccess(this.$t('retrievePassword.passwordUpdateSuccess'));
         goToPage('/login');

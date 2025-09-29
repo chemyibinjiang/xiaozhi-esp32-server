@@ -183,7 +183,8 @@ export default {
             .data({
                 phone: passwordData.phone,
                 code: passwordData.code,
-                password: passwordData.password
+                password: passwordData.password,
+                captchaId: passwordData.captchaId
             })
             .success((res) => {
                 RequestService.clearRequestTime();

@@ -257,6 +257,38 @@ public class LoginController {
             throw new RenException(ErrorCode.SMS_CODE_ERROR);
         }
 
+        String password = dto.getPassword();
+        
+        // 获取SM2私钥
+        String privateKeyStr = sysParamsService.getValue(Constant.SM2_PRIVATE_KEY, true);
+        if (StringUtils.isBlank(privateKeyStr)) {
+            throw new RenException(ErrorCode.SM2_KEY_NOT_CONFIGURED);
+        }
+        
+        String decryptedContent;
+        try {
+            // 使用SM2私钥解密密码
+            decryptedContent = SM2Utils.decrypt(privateKeyStr, password);
+        } catch (Exception e) {
+            throw new RenException(ErrorCode.SM2_DECRYPT_ERROR);
+        }
+        
+        // 分离验证码和密码：前5位是验证码，后面是密码
+        if (decryptedContent.length() > 5) {
+            String embeddedCaptcha = decryptedContent.substring(0, 5);
+            String actualPassword = decryptedContent.substring(5);
+            
+            // 验证嵌入的验证码是否正确
+            boolean embeddedCaptchaValid = captchaService.validate(dto.getCaptchaId(), embeddedCaptcha, true);
+            if (!embeddedCaptchaValid) {
+                throw new RenException(ErrorCode.SMS_CAPTCHA_ERROR);
+            }
+            
+            dto.setPassword(actualPassword);
+        } else {
+            throw new RenException(ErrorCode.SM2_DECRYPT_ERROR);
+        }
+
         sysUserService.changePasswordDirectly(userDTO.getId(), dto.getPassword());
         return new Result<>();
     }
