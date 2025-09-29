@@ -389,6 +389,7 @@ export default {
   // 忘记密码页面文本
   'retrievePassword.title': '重置密碼',
   'retrievePassword.welcome': '密碼找回',
+  'retrievePassword.subtitle': '找回密碼',
   'retrievePassword.mobile': '手機號',
   'retrievePassword.mobilePlaceholder': '請輸入手機號碼',
   'retrievePassword.captcha': '驗證碼',
@@ -400,6 +401,7 @@ export default {
   'retrievePassword.confirmNewPassword': '確認新密碼',
   'retrievePassword.confirmNewPasswordPlaceholder': '請確認新密碼',
   'retrievePassword.getMobileCaptcha': '獲取驗證碼',
+  'retrievePassword.resetButton': '重置密碼',
   'retrievePassword.updateButton': '立即修改',
   'retrievePassword.goToLogin': '返回登錄',
   'retrievePassword.inputCorrectMobile': '請輸入正確的手機號碼',
@@ -412,6 +414,7 @@ export default {
   'retrievePassword.newPasswordRequired': '新密碼不能為空',
   'retrievePassword.confirmNewPasswordRequired': '確認新密碼不能為空',
   'retrievePassword.passwordUpdateSuccess': '密碼修改成功',
+  'retrievePassword.agreeTo': '重置即同意',
 
   // 修改密码页面文本
   'changePassword.title': '修改密碼',

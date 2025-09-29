@@ -53,7 +53,7 @@
                 <el-button type="primary" class="send-captcha-btn" :disabled="!canSendMobileCaptcha"
                   @click="sendMobileCaptcha">
                   <span>
-                    {{ countdown > 0 ? `${countdown}秒后重试` : $t('retrievePassword.sendCaptcha') }}
+                    {{ countdown > 0 ? `${countdown}${$t('register.secondsLater')}` : $t('retrievePassword.getMobileCaptcha') }}
                   </span>
                 </el-button>
               </div>
@@ -67,7 +67,7 @@
               <!-- 确认新密码 -->
               <div class="input-box">
                 <img loading="lazy" alt="" class="input-icon" src="@/assets/login/password.png" />
-                <el-input v-model="form.confirmPassword" :placeholder="$t('retrievePassword.confirmPasswordPlaceholder')" type="password" show-password />
+                <el-input v-model="form.confirmPassword" :placeholder="$t('retrievePassword.confirmNewPasswordPlaceholder')" type="password" show-password />
               </div>
 
               <!-- 修改底部链接 -->
@@ -151,7 +151,7 @@ export default {
 
         } else {
           console.error('验证码加载异常:', error);
-          showDanger('验证码加载失败，点击刷新');
+          showDanger(this.$t('register.captchaLoadFailed'));
         }
       });
     },
@@ -168,12 +168,12 @@ export default {
     // 发送手机验证码
     sendMobileCaptcha() {
       if (!validateMobile(this.form.mobile, this.form.areaCode)) {
-        showDanger('请输入正确的手机号码');
+        showDanger(this.$t('retrievePassword.inputCorrectMobile'));
         return;
       }
 
       // 验证图形验证码
-      if (!this.validateInput(this.form.captcha, '请输入图形验证码')) {
+      if (!this.validateInput(this.form.captcha, this.$t('retrievePassword.captchaRequired'))) {
         this.fetchCaptcha();
         return;
       }
@@ -201,9 +201,9 @@ export default {
         captcha: this.form.captcha,
         captchaId: this.form.captchaId
       }, (res) => {
-        showSuccess('验证码发送成功');
+        showSuccess(this.$t('retrievePassword.captchaSendSuccess'));
       }, (err) => {
-        showDanger(err.data.msg || '验证码发送失败');
+        showDanger(err.data.msg || this.$t('register.captchaSendFailed'));
         this.countdown = 0;
         this.fetchCaptcha();
       });
@@ -213,19 +213,19 @@ export default {
     retrievePassword() {
       // 验证逻辑
       if (!validateMobile(this.form.mobile, this.form.areaCode)) {
-        showDanger('请输入正确的手机号码');
+        showDanger(this.$t('retrievePassword.inputCorrectMobile'));
         return;
       }
       if (!this.form.captcha) {
-        showDanger('请输入图形验证码');
+        showDanger(this.$t('retrievePassword.captchaRequired'));
         return;
       }
       if (!this.form.mobileCaptcha) {
-        showDanger('请输入短信验证码');
+        showDanger(this.$t('retrievePassword.mobileCaptchaRequired'));
         return;
       }
       if (this.form.newPassword !== this.form.confirmPassword) {
-        showDanger('两次输入的密码不一致');
+        showDanger(this.$t('retrievePassword.passwordsNotMatch'));
         return;
       }
 
@@ -234,11 +234,11 @@ export default {
         password: this.form.newPassword,
         code: this.form.mobileCaptcha
       }, (res) => {
-        showSuccess('密码重置成功');
+        showSuccess(this.$t('retrievePassword.passwordUpdateSuccess'));
         goToPage('/login');
       }, (err) => {
-        showDanger(err.data.msg || '重置失败');
-        if (err.data != null && err.data.msg != null && err.data.msg.indexOf('图形验证码') > -1) {
+        showDanger(err.data.msg || this.$t('message.error'));
+        if (err.data != null && err.data.msg != null && (err.data.msg.indexOf('图形验证码') > -1 || err.data.msg.indexOf('Captcha') > -1)) {
           this.fetchCaptcha()
         }
       });

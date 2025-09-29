@@ -389,6 +389,7 @@ export default {
   // Retrieve password page text
   'retrievePassword.title': 'Reset Password',
   'retrievePassword.welcome': 'PASSWORD RETRIEVE',
+  'retrievePassword.subtitle': 'Retrieve Password',
   'retrievePassword.mobile': 'Mobile',
   'retrievePassword.mobilePlaceholder': 'Please enter mobile number',
   'retrievePassword.captcha': 'Verification Code',
@@ -400,6 +401,7 @@ export default {
   'retrievePassword.confirmNewPassword': 'Confirm New Password',
   'retrievePassword.confirmNewPasswordPlaceholder': 'Please confirm new password',
   'retrievePassword.getMobileCaptcha': 'Get Verification Code',
+  'retrievePassword.resetButton': 'Reset Password',
   'retrievePassword.updateButton': 'Update Now',
   'retrievePassword.goToLogin': 'Back to Login',
   'retrievePassword.inputCorrectMobile': 'Please enter correct mobile number',
@@ -412,6 +414,7 @@ export default {
   'retrievePassword.newPasswordRequired': 'New password cannot be empty',
   'retrievePassword.confirmNewPasswordRequired': 'Confirm new password cannot be empty',
   'retrievePassword.passwordUpdateSuccess': 'Password updated successfully',
+  'retrievePassword.agreeTo': 'Reset means agree',
 
   // Change password page text
   'changePassword.title': 'Change Password',
