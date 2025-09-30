@@ -15,6 +15,8 @@ export default {
   'header.paramManagement': '參數管理',
   'header.dictManagement': '字典管理',
   'header.agentTemplate': '預設角色模板', // 添加这一行
+  'header.searchHistory': '搜索歷史',
+  'header.clearHistory': '清空歷史',
 
   // McpToolCallDialog组件文本
   'mcpToolCall.title': '工具調用',
