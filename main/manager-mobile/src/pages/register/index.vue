@@ -642,7 +642,7 @@ onMounted(async () => {
         &.captcha-wrapper {
           .captcha-image {
             margin-left: 20rpx;
-            width: 120rpx;
+            width: 150rpx;
             height: 60rpx;
             border-radius: 8rpx;
             overflow: hidden;

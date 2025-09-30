@@ -285,7 +285,7 @@ onMounted(async () => {
 	<view class="top-right-buttons" :style="{ top: `${safeAreaInsets?.top + 10}px` }">
 	  <!-- 语言切换按钮 -->
 	  <view class="lang-btn" @click="showLanguageSheet = true">
-	    <text class="lang-text-icon">🌐</text>
+      <text class="lang-text-icon">{{ t('login.selectLanguageTip') }}</text>
 	  </view>
 	  
 	  <!-- 服务端设置按钮 -->
@@ -571,7 +571,7 @@ onMounted(async () => {
         &.captcha-wrapper {
           .captcha-image {
             margin-left: 20rpx;
-            width: 120rpx;
+            width: 150rpx;
             height: 60rpx;
             border-radius: 8rpx;
             overflow: hidden;
@@ -892,7 +892,7 @@ onMounted(async () => {
   }
 
   .lang-text-icon {
-    font-size: 28rpx;
+    font-size: 18rpx;
     color: #FFFFFF;
   }
 
