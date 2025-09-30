@@ -15,6 +15,8 @@ export default {
   'header.paramManagement': 'Params Management',
   'header.dictManagement': 'Dict Management',
   'header.agentTemplate': 'Default Role Templates', // 添加这一行
+  'header.searchHistory': 'Search History',
+  'header.clearHistory': 'Clear History',
 
   // McpToolCallDialog component text
   'mcpToolCall.title': 'Tool Call',
