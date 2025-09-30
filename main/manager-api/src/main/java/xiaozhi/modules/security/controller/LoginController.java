@@ -32,7 +32,7 @@ import xiaozhi.modules.security.password.PasswordUtils;
 import xiaozhi.modules.security.service.CaptchaService;
 import xiaozhi.modules.security.service.SysUserTokenService;
 import xiaozhi.modules.security.user.SecurityUser;
-import xiaozhi.common.utils.SM2Utils;
+import xiaozhi.common.utils.Sm2DecryptUtil;
 import org.apache.commons.lang3.StringUtils;
 import xiaozhi.modules.sys.dto.PasswordDTO;
 import xiaozhi.modules.sys.dto.RetrievePasswordDTO;
@@ -90,35 +90,11 @@ public class LoginController {
     public Result<TokenDTO> login(@RequestBody LoginDTO login) {
         String password = login.getPassword();
         
-        // 获取SM2私钥
-        String privateKeyStr = sysParamsService.getValue(Constant.SM2_PRIVATE_KEY, true);
-        if (StringUtils.isBlank(privateKeyStr)) {
-            throw new RenException(ErrorCode.SM2_KEY_NOT_CONFIGURED);
-        }
+        // 使用工具类解密并验证验证码
+        String actualPassword = Sm2DecryptUtil.decryptAndValidateCaptcha(
+                password, login.getCaptchaId(), captchaService, sysParamsService);
         
-        // 使用SM2私钥解密密码
-        String decryptedContent;
-        try {
-            decryptedContent = SM2Utils.decrypt(privateKeyStr, password);
-        } catch (Exception e) {
-            throw new RenException(ErrorCode.SM2_DECRYPT_ERROR);
-        }
-        
-        // 分离验证码和密码：前5位是验证码，后面是密码
-        if (decryptedContent.length() > 5) {
-            String embeddedCaptcha = decryptedContent.substring(0, 5);
-            String actualPassword = decryptedContent.substring(5);
-            
-            // 验证嵌入的验证码是否正确
-            boolean embeddedCaptchaValid = captchaService.validate(login.getCaptchaId(), embeddedCaptcha, true);
-            if (!embeddedCaptchaValid) {
-                throw new RenException(ErrorCode.SMS_CAPTCHA_ERROR);
-            }
-            
-            login.setPassword(actualPassword);
-        } else {
-            throw new RenException(ErrorCode.SM2_DECRYPT_ERROR);
-        }
+        login.setPassword(actualPassword);
         
         // 按照用户名获取用户
         SysUserDTO userDTO = sysUserService.getByUsername(login.getUsername());
@@ -144,41 +120,11 @@ public class LoginController {
         
         String password = login.getPassword();
         
-        // SM2加密
-        String privateKeyStr;
-        try {
-            // 获取SM2私钥
-            privateKeyStr = sysParamsService.getValue(Constant.SM2_PRIVATE_KEY, true);
-            if (StringUtils.isBlank(privateKeyStr)) {
-                throw new RenException(ErrorCode.SM2_KEY_NOT_CONFIGURED);
-            }
-        } catch (Exception e) {
-            throw new RenException(ErrorCode.SM2_KEY_NOT_CONFIGURED);
-        }
+        // 使用工具类解密并验证验证码
+        String actualPassword = Sm2DecryptUtil.decryptAndValidateCaptcha(
+                password, login.getCaptchaId(), captchaService, sysParamsService);
         
-        String decryptedContent;
-        try {
-            // 使用SM2私钥解密密码
-            decryptedContent = SM2Utils.decrypt(privateKeyStr, password);
-        } catch (Exception e) {
-            throw new RenException(ErrorCode.SM2_DECRYPT_ERROR);
-        }
-        
-        // 分离验证码和密码：前5位是验证码，后面是密码
-        if (decryptedContent.length() > 5) {
-            String embeddedCaptcha = decryptedContent.substring(0, 5);
-            String actualPassword = decryptedContent.substring(5);
-            
-            // 验证嵌入的验证码是否正确
-            boolean embeddedCaptchaValid = captchaService.validate(login.getCaptchaId(), embeddedCaptcha, true);
-            if (!embeddedCaptchaValid) {
-                throw new RenException(ErrorCode.SMS_CAPTCHA_ERROR);
-            }
-            
-            login.setPassword(actualPassword);
-        } else {
-            throw new RenException(ErrorCode.SM2_DECRYPT_ERROR);
-        }
+        login.setPassword(actualPassword);
         
         // 是否开启手机注册
         Boolean isMobileRegister = sysParamsService
@@ -259,35 +205,11 @@ public class LoginController {
 
         String password = dto.getPassword();
         
-        // 获取SM2私钥
-        String privateKeyStr = sysParamsService.getValue(Constant.SM2_PRIVATE_KEY, true);
-        if (StringUtils.isBlank(privateKeyStr)) {
-            throw new RenException(ErrorCode.SM2_KEY_NOT_CONFIGURED);
-        }
+        // 使用工具类解密并验证验证码
+        String actualPassword = Sm2DecryptUtil.decryptAndValidateCaptcha(
+                password, dto.getCaptchaId(), captchaService, sysParamsService);
         
-        String decryptedContent;
-        try {
-            // 使用SM2私钥解密密码
-            decryptedContent = SM2Utils.decrypt(privateKeyStr, password);
-        } catch (Exception e) {
-            throw new RenException(ErrorCode.SM2_DECRYPT_ERROR);
-        }
-        
-        // 分离验证码和密码：前5位是验证码，后面是密码
-        if (decryptedContent.length() > 5) {
-            String embeddedCaptcha = decryptedContent.substring(0, 5);
-            String actualPassword = decryptedContent.substring(5);
-            
-            // 验证嵌入的验证码是否正确
-            boolean embeddedCaptchaValid = captchaService.validate(dto.getCaptchaId(), embeddedCaptcha, true);
-            if (!embeddedCaptchaValid) {
-                throw new RenException(ErrorCode.SMS_CAPTCHA_ERROR);
-            }
-            
-            dto.setPassword(actualPassword);
-        } else {
-            throw new RenException(ErrorCode.SM2_DECRYPT_ERROR);
-        }
+        dto.setPassword(actualPassword);
 
         sysUserService.changePasswordDirectly(userDTO.getId(), dto.getPassword());
         return new Result<>();
