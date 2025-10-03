@@ -10,8 +10,9 @@
 
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue";
+import { onLoad } from "@dcloudio/uni-app";
 import { useConfigStore } from "@/store";
-import { getEnvBaseUrl } from "@/utils";
+import { getEnvBaseUrl, sm2Encrypt } from "@/utils";
 import { toast } from "@/utils/toast";
 // 导入国际化相关功能
 import { t, initI18n } from "@/i18n";
@@ -47,6 +48,7 @@ interface ForgotPasswordData {
   mobileCaptcha: string;
   newPassword: string;
   confirmPassword: string;
+  areaCode: string;
 }
 
 const formData = ref<ForgotPasswordData>({
@@ -56,6 +58,7 @@ const formData = ref<ForgotPasswordData>({
   mobileCaptcha: "",
   newPassword: "",
   confirmPassword: "",
+  areaCode: "+86",
 });
 
 // 验证码图片
@@ -65,17 +68,49 @@ const loading = ref(false);
 // 获取配置store
 const configStore = useConfigStore();
 
-// 区号选择相关
+// State for area code action sheet
+const showAreaCodeSheet = ref(false);
 const selectedAreaCode = ref("+86");
+const areaCodeList = computed(() =>
+  (configStore.config.mobileAreaList || []).map((item) => {
+    return {
+      value: item.key,
+      label: `${item.name} (${item.key})`,
+    };
+  })
+);
+
+const canSendMobileCaptcha = computed(() => {
+  const mobile = formData.value.mobile;
+  const phoneRegex = /^1[3-9]\d{9}$/;
+  return phoneRegex.test(mobile) && smsCountdown.value === 0;
+});
+
+// SM2公钥
+const sm2PublicKey = computed(() => {
+  return configStore.config.sm2PublicKey;
+});
 
 // 短信验证码倒计时
 const smsCountdown = ref(0);
 const smsLoading = ref(false);
 
-// 计算属性：区号列表
-const areaCodeList = computed(() => {
-  return configStore.config.mobileAreaList || [{ name: "中国大陆", key: "+86" }];
-});
+// 打开区号选择弹窗
+function openAreaCodeSheet() {
+  showAreaCodeSheet.value = true;
+}
+
+// 选择区号
+function selectAreaCode(item: { value: string; label: string }) {
+  selectedAreaCode.value = item.value;
+  formData.value.areaCode = item.value;
+  showAreaCodeSheet.value = false;
+}
+
+// 关闭区号选择弹窗
+function closeAreaCodeSheet() {
+  showAreaCodeSheet.value = false;
+}
 
 // 生成UUID
 function generateUUID() {
@@ -181,11 +216,29 @@ async function handleResetPassword() {
   try {
     loading.value = true;
 
+    // 检查SM2公钥是否配置
+    if (!sm2PublicKey.value) {
+      toast.warning(t('sm2.publicKeyNotConfigured'));
+      return;
+    }
+
+    // 加密密码
+    let encryptedPassword;
+    try {
+      // 拼接图形验证码和新密码进行加密
+      const captchaAndPassword = formData.value.captcha + formData.value.newPassword;
+      encryptedPassword = sm2Encrypt(sm2PublicKey.value, captchaAndPassword);
+    } catch (error) {
+      console.error("密码加密失败:", error);
+      toast.warning(t('sm2.encryptionFailed'));
+      return;
+    }
+
     // TODO: 调用重置密码API
     // await resetPassword({
     //   mobile: formData.value.mobile,
     //   mobileCaptcha: formData.value.mobileCaptcha,
-    //   password: formData.value.newPassword,
+    //   password: encryptedPassword,
     //   captchaId: formData.value.captchaId
     // })
 
@@ -260,10 +313,11 @@ onMounted(async () => {
         <!-- 手机号输入 -->
         <view class="input-group">
           <view class="input-wrapper mobile-wrapper">
-            <view class="area-code-selector">
+            <view class="area-code-selector" @click="openAreaCodeSheet">
               <text class="area-code-text">
                 {{ selectedAreaCode }}
               </text>
+              <wd-icon name="arrow-down" custom-class="area-code-arrow" />
             </view>
             <view class="mobile-input-wrapper">
               <wd-input
@@ -357,6 +411,46 @@ onMounted(async () => {
         </view>
       </view>
     </view>
+
+    <!-- 区号选择弹窗 -->
+    <wd-action-sheet
+      v-model="showAreaCodeSheet"
+      :title="t('login.selectCountry')"
+      :close-on-click-modal="true"
+      @close="closeAreaCodeSheet"
+    >
+      <view class="area-code-sheet">
+        <scroll-view scroll-y class="area-code-list">
+          <view
+            v-for="item in areaCodeList"
+            :key="item.value"
+            class="area-code-item"
+            :class="{ selected: selectedAreaCode === item.value }"
+            @click="selectAreaCode(item)"
+          >
+            <view class="area-info">
+              <text class="area-name">
+                {{ item.label }}
+              </text>
+            </view>
+            <wd-icon
+              v-if="selectedAreaCode === item.value"
+              name="check"
+              custom-class="check-icon"
+            />
+          </view>
+        </scroll-view>
+        <view class="sheet-footer">
+          <wd-button
+            type="primary"
+            custom-class="confirm-btn"
+            @click="closeAreaCodeSheet"
+          >
+            {{ t('login.confirm') }}
+          </wd-button>
+        </view>
+      </view>
+    </wd-action-sheet>
   </view>
 </template>
 
@@ -487,27 +581,54 @@ onMounted(async () => {
           padding: 0;
           background: transparent;
           border: none;
+          display: flex;
+          gap: 20rpx;
 
           .area-code-selector {
-            width: 120rpx;
-            height: 60rpx;
+            flex: 0 0 160rpx;
             background: #f8f9fa;
-            border-radius: 12rpx;
+            border-radius: 16rpx;
+            padding: 20rpx 16rpx;
+            border: 2rpx solid #e9ecef;
+            height: 45rpx;
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin-right: 16rpx;
-            border: 2rpx solid #e9ecef;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.3s ease;
+
+            &:hover {
+              border-color: #667eea;
+              background: #ffffff;
+              box-shadow: 0 0 0 6rpx rgba(102, 126, 234, 0.1);
+            }
 
             .area-code-text {
               font-size: 28rpx;
               color: #333333;
               font-weight: 500;
             }
+
+            :deep(.area-code-arrow) {
+              font-size: 24rpx;
+              color: #999999;
+              transition: transform 0.3s ease;
+            }
           }
 
           .mobile-input-wrapper {
             flex: 1;
+            background: #f8f9fa;
+            border-radius: 16rpx;
+            padding: 20rpx 16rpx;
+            border: 2rpx solid #e9ecef;
+            transition: all 0.3s ease;
+
+            &:focus-within {
+              border-color: #667eea;
+              background: #ffffff;
+              box-shadow: 0 0 0 6rpx rgba(102, 126, 234, 0.1);
+            }
           }
         }
 
@@ -616,6 +737,104 @@ onMounted(async () => {
           text-decoration: underline;
         }
       }
+    }
+  }
+}
+
+// 区号选择弹窗样式
+.area-code-sheet {
+  background: #ffffff;
+  border-radius: 24rpx 24rpx 0 0;
+  overflow: hidden;
+
+  .sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 40rpx 40rpx 20rpx 40rpx;
+    border-bottom: 1rpx solid #f0f0f0;
+
+    .sheet-title {
+      font-size: 36rpx;
+      font-weight: 600;
+      color: #333333;
+    }
+
+    :deep(.close-icon) {
+      font-size: 32rpx;
+      color: #999999;
+      cursor: pointer;
+      padding: 10rpx;
+
+      &:hover {
+        color: #333333;
+      }
+    }
+  }
+
+  .area-code-list {
+    max-height: 60vh;
+    padding: 0 40rpx;
+
+    .area-code-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 32rpx 0;
+      border-bottom: 1rpx solid #f8f9fa;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+
+      &:hover {
+        background-color: #f8f9fa;
+      }
+
+      &.selected {
+        background-color: rgba(102, 126, 234, 0.05);
+
+        .area-name {
+          color: #667eea;
+          font-weight: 500;
+        }
+
+        .area-code {
+          color: #667eea;
+        }
+      }
+
+      .area-info {
+        display: flex;
+        flex-direction: column;
+        gap: 8rpx;
+
+        .area-name {
+          font-size: 32rpx;
+          color: #333333;
+        }
+
+        .area-code {
+          font-size: 28rpx;
+          color: #666666;
+        }
+      }
+
+      :deep(.check-icon) {
+        font-size: 32rpx;
+        color: #667eea;
+      }
+    }
+  }
+
+  .sheet-footer {
+    padding: 30rpx 40rpx 40rpx 40rpx;
+    border-top: 1rpx solid #f0f0f0;
+
+    :deep(.confirm-btn) {
+      width: 100%;
+      height: 88rpx;
+      border-radius: 16rpx;
+      font-size: 32rpx;
+      font-weight: 600;
     }
   }
 }
