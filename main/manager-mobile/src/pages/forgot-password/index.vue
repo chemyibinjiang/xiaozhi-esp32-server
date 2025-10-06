@@ -16,6 +16,8 @@ import { getEnvBaseUrl, sm2Encrypt } from "@/utils";
 import { toast } from "@/utils/toast";
 // 导入国际化相关功能
 import { t, initI18n } from "@/i18n";
+// 导入API接口
+import { retrievePassword, sendSmsCode } from "@/api/auth";
 
 // 获取屏幕边界到安全区域距离
 let safeAreaInsets;
@@ -129,7 +131,7 @@ async function refreshCaptcha() {
 }
 
 // 发送短信验证码
-async function sendSmsCode() {
+async function handleSendSmsCode() {
   // 手机号格式验证
   const phoneRegex = /^1[3-9]\d{9}$/;
   if (!phoneRegex.test(formData.value.mobile)) {
@@ -144,12 +146,14 @@ async function sendSmsCode() {
 
   try {
     smsLoading.value = true;
-    // TODO: 调用发送短信验证码API
-    // await sendSmsCode({
-    //   mobile: formData.value.mobile,
-    //   captcha: formData.value.captcha,
-    //   captchaId: formData.value.captchaId
-    // })
+    // 将手机号转换为国际格式
+    const internationalPhone = formData.value.areaCode + formData.value.mobile;
+    // 调用发送短信验证码API
+    await sendSmsCode({
+      phone: internationalPhone,
+      captcha: formData.value.captcha,
+      captchaId: formData.value.captchaId
+    })
 
     toast.success(t("retrievePassword.captchaSendSuccess"));
 
@@ -188,6 +192,9 @@ async function handleResetPassword() {
     return;
   }
 
+  // 将手机号转换为国际格式
+  const internationalPhone = formData.value.areaCode + formData.value.mobile;
+
   if (!formData.value.captcha) {
     toast.warning(t("retrievePassword.captchaRequired"));
     return;
@@ -218,7 +225,7 @@ async function handleResetPassword() {
 
     // 检查SM2公钥是否配置
     if (!sm2PublicKey.value) {
-      toast.warning(t('sm2.publicKeyNotConfigured'));
+      toast.warning(t("sm2.publicKeyNotConfigured"));
       return;
     }
 
@@ -230,17 +237,17 @@ async function handleResetPassword() {
       encryptedPassword = sm2Encrypt(sm2PublicKey.value, captchaAndPassword);
     } catch (error) {
       console.error("密码加密失败:", error);
-      toast.warning(t('sm2.encryptionFailed'));
+      toast.warning(t("sm2.encryptionFailed"));
       return;
     }
 
-    // TODO: 调用重置密码API
-    // await resetPassword({
-    //   mobile: formData.value.mobile,
-    //   mobileCaptcha: formData.value.mobileCaptcha,
-    //   password: encryptedPassword,
-    //   captchaId: formData.value.captchaId
-    // })
+    // 调用重置密码API
+    await retrievePassword({
+      phone: internationalPhone,
+      code: formData.value.mobileCaptcha,
+      password: encryptedPassword,
+      captchaId: formData.value.captchaId
+    })
 
     toast.success(t("retrievePassword.passwordUpdateSuccess"));
 
@@ -358,11 +365,11 @@ onMounted(async () => {
               :placeholder="t('retrievePassword.mobileCaptchaPlaceholder')"
               :maxlength="6"
             />
-            <view class="sms-button" @click="sendSmsCode">
+            <view class="sms-button" @click="handleSendSmsCode">
               <text class="sms-text">
                 {{
                   smsCountdown > 0
-                    ? `${smsCountdown}${t("register.secondsLater")}`
+                    ? `${smsCountdown}s`
                     : t("retrievePassword.getMobileCaptcha")
                 }}
               </text>
@@ -446,7 +453,7 @@ onMounted(async () => {
             custom-class="confirm-btn"
             @click="closeAreaCodeSheet"
           >
-            {{ t('login.confirm') }}
+            {{ t("login.confirm") }}
           </wd-button>
         </view>
       </view>
