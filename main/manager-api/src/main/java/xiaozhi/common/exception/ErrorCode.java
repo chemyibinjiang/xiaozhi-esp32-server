@@ -175,4 +175,17 @@ public interface ErrorCode {
     int DOWNLOAD_LINK_INVALID = 10137; // 下载链接无效
     int CHAT_ROLE_USER = 10138; // 用户角色
     int CHAT_ROLE_AGENT = 10139; // 智能体角色
+    
+    // 声音克隆相关错误码
+    int VOICE_CLONE_AUDIO_EMPTY = 10140; // 音频文件不能为空
+    int VOICE_CLONE_NOT_AUDIO_FILE = 10141; // 只支持音频文件
+    int VOICE_CLONE_AUDIO_TOO_LARGE = 10142; // 音频文件大小不能超过10MB
+    int VOICE_CLONE_UPLOAD_FAILED = 10143; // 上传失败
+    int VOICE_CLONE_RECORD_NOT_EXIST = 10144; // 声音克隆记录不存在
+    int VOICE_RESOURCE_INFO_EMPTY = 10145; // 音色资源信息不能为空
+    int VOICE_RESOURCE_PLATFORM_NAME_EMPTY = 10146; // 平台名称不能为空
+    int VOICE_RESOURCE_ID_EMPTY = 10147; // 音色ID不能为空
+    int VOICE_RESOURCE_ACCOUNT_EMPTY = 10148; // 归属账号不能为空
+    int VOICE_RESOURCE_DELETE_ID_EMPTY = 10149; // 删除的音色资源ID不能为空
+    int VOICE_RESOURCE_NO_PERMISSION = 10150; // 您没有权限操作该记录
 }
