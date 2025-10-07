@@ -516,4 +516,12 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
             }
         }
     }
+
+    /**
+     * 获取符合条件的TTS平台列表
+     */
+    @Override
+    public List<Map<String, Object>> getTtsPlatformList() {
+        return modelConfigDao.getTtsPlatformList();
+    }
 }
