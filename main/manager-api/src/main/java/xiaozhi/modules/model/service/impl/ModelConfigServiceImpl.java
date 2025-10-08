@@ -211,44 +211,15 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
     }
 
     @Override
-    public ModelConfigEntity getModelById(String id, boolean isCache) {
-        return getModelById(id, isCache, true);
-    }
-    
-    @Override
-    public ModelConfigEntity getModelById(String id, boolean isCache, boolean isMaskSensitive) {
+    public ModelConfigEntity getModelByIdFromCache(String id) {
         if (StringUtils.isBlank(id)) {
             return null;
         }
-    
-        ModelConfigEntity entity = null;
         String cacheKey = RedisKeys.getModelConfigById(id);
-        
-        if (isCache) {
-            // 从缓存获取
-            entity = (ModelConfigEntity) redisUtils.get(cacheKey);
+        ModelConfigEntity entity = (ModelConfigEntity) redisUtils.get(cacheKey);
+        if (entity == null) {
+            entity = modelConfigDao.selectById(id);
             if (entity != null) {
-                // 修改：根据isMaskSensitive参数重新处理敏感信息
-                if (!isMaskSensitive && entity.getConfigJson() != null) {
-                    // 如果需要获取原始配置，但缓存的是掩码后的配置，则从数据库重新获取
-                    ModelConfigEntity originalEntity = modelConfigDao.selectById(id);
-                    if (originalEntity != null) {
-                        entity.setConfigJson(originalEntity.getConfigJson());
-                    }
-                }
-                return entity;
-            }
-        }
-    
-        // 从数据库获取数据
-        entity = modelConfigDao.selectById(id);
-        if (entity != null) {
-            // 根据isMaskSensitive参数决定是否掩码敏感信息
-            if (isMaskSensitive && entity.getConfigJson() != null) {
-                entity.setConfigJson(maskSensitiveFields(entity.getConfigJson()));
-            }
-    
-            if (isCache) {
                 redisUtils.set(cacheKey, entity);
             }
         }
@@ -367,19 +338,19 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
         // 2. 只更新非敏感字段
         modelConfigEntity.setModelName(modelConfigBodyDTO.getModelName());
         modelConfigEntity.setSort(modelConfigBodyDTO.getSort());
-        modelConfigEntity.setIsEnabled(modelConfigBodyDTO.getIsEnabled());  
+        modelConfigEntity.setIsEnabled(modelConfigBodyDTO.getIsEnabled());
         // 3. 处理配置JSON，仅更新非敏感字段和明确修改的敏感字段
         if (modelConfigBodyDTO.getConfigJson() != null && originalEntity.getConfigJson() != null) {
             JSONObject originalJson = originalEntity.getConfigJson();
             JSONObject updatedJson = new JSONObject(originalJson); // 基于原始JSON进行修改
-    
+
             // 遍历更新的JSON，只更新非敏感字段或确实被修改的敏感字段
             for (String key : modelConfigBodyDTO.getConfigJson().keySet()) {
                 Object value = modelConfigBodyDTO.getConfigJson().get(key);
-    
+
                 // 如果是敏感字段，需要确认是否真的被修改（前端传入的可能是掩码后的值）
                 if (SensitiveDataUtils.isSensitiveField(key)) {
-                    
+
                     if (value instanceof String && !SensitiveDataUtils.isMaskedValue((String) value)) {
                         updatedJson.put(key, value);
                     }
@@ -391,10 +362,10 @@ public class ModelConfigServiceImpl extends BaseServiceImpl<ModelConfigDao, Mode
                     updatedJson.put(key, value);
                 }
             }
-    
+
             modelConfigEntity.setConfigJson(updatedJson);
         }
-    
+
         return modelConfigEntity;
     }
 
