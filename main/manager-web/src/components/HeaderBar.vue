@@ -119,7 +119,7 @@
         <img loading="lazy" alt="" src="@/assets/home/avatar.png" class="avatar-img" @click="handleAvatarClick" />
         <span class="el-dropdown-link" @click="handleAvatarClick">
           {{ userInfo.username || '加载中...' }}
-          <i class="el-icon-arrow-down el-icon--right"></i>
+          <i class="el-icon-arrow-down el-icon--right" :class="{ 'rotate-down': userMenuVisible }"></i>
         </span>
         <el-cascader :options="userMenuOptions" trigger="click" :props="cascaderProps"
           style="width: 0px;overflow: hidden;" :show-all-levels="false" @change="handleCascaderChange"
@@ -158,6 +158,7 @@ export default {
       isChangePasswordDialogVisible: false, // 控制修改密码弹窗的显示
       paramDropdownVisible: false,
       voiceCloneDropdownVisible: false,
+      userMenuVisible: false, // 添加用户菜单可见状态
       isSmallScreen: false,
       // 搜索历史相关
       searchHistory: [],
@@ -460,7 +461,21 @@ export default {
     // 点击头像触发cascader下拉菜单
     handleAvatarClick() {
       if (this.$refs.userCascader) {
-        this.$refs.userCascader.toggleDropDownVisible();
+        // 切换菜单可见状态
+        this.userMenuVisible = !this.userMenuVisible;
+        
+        // 直接设置菜单的显隐状态
+        try {
+          // 尝试使用toggleDropDownVisible方法
+          this.$refs.userCascader.toggleDropDownVisible(this.userMenuVisible);
+        } catch (error) {
+          // 如果toggle方法失败，尝试直接设置属性
+          if (this.$refs.userCascader.$refs.menu) {
+            this.$refs.userCascader.$refs.menu.showMenu(this.userMenuVisible);
+          } else {
+            console.error('Cannot access menu component');
+          }
+        }
       }
     },
 
@@ -705,5 +720,14 @@ export default {
   font-size: 14px;
   color: #606266;
   white-space: nowrap;
+}
+/* 添加倒三角旋转样式 */
+.rotate-down {
+  transform: rotate(180deg);
+  transition: transform 0.3s ease;
+}
+
+.el-icon-arrow-down {
+  transition: transform 0.3s ease;
 }
 </style>
