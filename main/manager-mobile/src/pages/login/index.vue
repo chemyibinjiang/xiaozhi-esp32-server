@@ -116,6 +116,13 @@ function goToRegister() {
   })
 }
 
+// 跳转到忘记密码页面
+function goToForgotPassword() {
+  uni.navigateTo({
+    url: '/pages/forgot-password/index',
+  })
+}
+
 // 生成UUID
 function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -369,13 +376,18 @@ onMounted(async () => {
           {{ loading ? t('login.loggingIn') : t('login.loginButton') }}
         </view>
 
-        <view class="register-hint">
-          <text class="hint-text">
-            {{ t('login.noAccount') }}
-          </text>
-          <text class="register-link" @click="goToRegister">
-            {{ t('login.registerNow') }}
-          </text>
+        <view class="hint-row">
+          <view class="register-hint">
+            <text class="register-link" @click="goToRegister">
+              {{ t('login.noAccount') }}
+            </text>
+          </view>
+
+          <view class="forgot-password">
+            <text class="forgot-text" @click="goToForgotPassword">
+              {{ t('login.forgotPassword') }}
+            </text>
+          </view>
         </view>
 
         <!-- 登录方式切换 -->
@@ -665,10 +677,14 @@ onMounted(async () => {
       }
     }
 
-    .forgot-password {
-      text-align: right;
+    .hint-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       margin-bottom: 30rpx;
+    }
 
+    .forgot-password {
       .forgot-text {
         color: #667eea;
         font-size: 26rpx;
@@ -706,14 +722,6 @@ onMounted(async () => {
     }
 
     .register-hint {
-      text-align: center;
-
-      .hint-text {
-        color: #666666;
-        font-size: 26rpx;
-        margin-right: 8rpx;
-      }
-
       .register-link {
         color: #667eea;
         font-size: 26rpx;
