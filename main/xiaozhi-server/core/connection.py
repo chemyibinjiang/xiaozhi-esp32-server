@@ -10,6 +10,8 @@ import threading
 import traceback
 import subprocess
 import websockets
+
+from core.ota_auth import AuthManager
 from core.utils.util import (
     extract_json_from_string,
     check_vad_update,
@@ -67,7 +69,17 @@ class ConnectionHandler:
         self.logger = setup_logging()
         self.server = server  # 保存server实例的引用
 
-        self.auth = AuthMiddleware(config)
+        # 认证相关
+        auth_config = self.config["server"].get("auth", {})
+        self.auth_enable = auth_config.get("enabled", False)
+        # 设备白名单
+        self.allowed_devices = set(
+            auth_config.get("allowed_devices", [])
+        )
+        secret_key = auth_config.get("signature_key", "")
+        expire_seconds = auth_config.get("expire_seconds", None)
+        self.auth = AuthManager(secret_key=secret_key, expire_seconds=expire_seconds)
+
         self.need_bind = False
         self.bind_code = None
         self.read_config_from_api = self.config.get("read_config_from_api", False)
@@ -194,12 +206,27 @@ class ConnectionHandler:
                 f"{self.client_ip} conn - Headers: {self.headers}"
             )
 
-            # 进行认证
-            await self.auth.authenticate(self.headers)
+            self.device_id = self.headers.get("device-id", None)
+
+            # 是否开启了认证，如果开启了则进行认证,否则不认证
+            if self.auth_enable:
+                # 如果启用了白名单则优先处理白名单
+                if self.allowed_devices and self.device_id not in self.allowed_devices:
+                    raise AuthenticationError("未经授权的DeviceID")
+                else:
+                    # 否则校验token
+                    token = self.headers.get("authorization", "")
+                    if token.startswith('Bearer '):
+                        token = token[7:]  # 移除'Bearer '前缀
+                    else:
+                        raise AuthenticationError("Missing or invalid Authorization header")
+                    # 进行认证
+                    auth_success = self.auth.verify_token(token, client_id=self.headers.get("client-id"), username=self.headers.get("device-id"))
+                    if not auth_success:
+                        raise AuthenticationError("Invalid token")
 
             # 认证通过,继续处理
             self.websocket = ws
-            self.device_id = self.headers.get("device-id", None)
 
             # 检查是否来自MQTT连接
             request_path = ws.request.path
