@@ -269,6 +269,7 @@
           style="width: 0px; overflow: hidden"
           :show-all-levels="false"
           @change="handleCascaderChange"
+          @visible-change="handleUserMenuVisibleChange"
           ref="userCascader"
         >
           <template slot-scope="{ data }">
@@ -678,6 +679,16 @@ export default {
             console.error("Cannot access menu component");
           }
         }
+      }
+    },
+
+    // 处理用户菜单可见性变化
+    handleUserMenuVisibleChange(visible) {
+      this.userMenuVisible = visible;
+
+      // 如果菜单关闭了，也要清空选择值
+      if (!visible) {
+        this.completeResetCascader();
       }
     },
 
