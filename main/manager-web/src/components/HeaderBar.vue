@@ -425,6 +425,7 @@ export default {
     handleVoiceCloneDropdownVisibleChange(visible) {
       this.voiceCloneDropdownVisible = visible;
     },
+    // 在data中添加一个key用于强制重新渲染组件
     // 处理 Cascader 选择变化
     handleCascaderChange(value) {
       if (!value || value.length === 0) {
@@ -436,33 +437,70 @@ export default {
       // 处理语言切换
       if (value.length === 2 && value[0] === 'language') {
         this.changeLanguage(action);
-        return;
+      } else {
+        // 处理其他操作
+        switch (action) {
+          case 'changePassword':
+            this.showChangePasswordDialog();
+            break;
+          case 'logout':
+            this.handleLogout();
+            break;
+        }
       }
-
-      // 处理其他操作
-      switch (action) {
-        case 'changePassword':
-          this.showChangePasswordDialog();
-          break;
-        case 'logout':
-          this.handleLogout();
-          break;
+      
+      // 操作完成后立即清空选择
+      setTimeout(() => {
+        this.completeResetCascader();
+      }, 300);
+    },
+    
+    // 完全重置级联选择器
+    completeResetCascader() {
+      if (this.$refs.userCascader) {
+        try {
+          // 尝试所有可能的方法来清空选择
+          // 1. 尝试使用组件提供的clearValue方法
+          if (this.$refs.userCascader.clearValue) {
+            this.$refs.userCascader.clearValue();
+          }
+          
+          // 2. 直接清空内部属性
+          if (this.$refs.userCascader.$data) {
+            this.$refs.userCascader.$data.selectedPaths = [];
+            this.$refs.userCascader.$data.displayLabels = [];
+            this.$refs.userCascader.$data.inputValue = '';
+            this.$refs.userCascader.$data.checkedValue = [];
+            this.$refs.userCascader.$data.showAllLevels = false;
+          }
+          
+          // 3. 操作DOM清除选中状态
+          const menuElement = this.$refs.userCascader.$refs.menu;
+          if (menuElement && menuElement.$el) {
+            const activeItems = menuElement.$el.querySelectorAll('.el-cascader-node.is-active');
+            activeItems.forEach(item => item.classList.remove('is-active'));
+            
+            const checkedItems = menuElement.$el.querySelectorAll('.el-cascader-node.is-checked');
+            checkedItems.forEach(item => item.classList.remove('is-checked'));
+          }
+          
+          console.log('Cascader values cleared');
+        } catch (error) {
+          console.error('清空选择值失败:', error);
+        }
       }
     },
-    // 切换语言
-    changeLanguage(lang) {
-      changeLanguage(lang);
-      this.$message.success({
-        message: this.$t('message.success'),
-        showClose: true
-      });
-    },
-
+    
     // 点击头像触发cascader下拉菜单
     handleAvatarClick() {
       if (this.$refs.userCascader) {
         // 切换菜单可见状态
         this.userMenuVisible = !this.userMenuVisible;
+        
+        // 菜单收起时清空选择值
+        if (!this.userMenuVisible) {
+          this.completeResetCascader();
+        }
         
         // 直接设置菜单的显隐状态
         try {
