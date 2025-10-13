@@ -9,15 +9,15 @@
 </route>
 
 <script lang="ts" setup>
-import type { LoginData } from '@/api/auth'
-import { computed, onMounted, ref } from 'vue'
-import { login } from '@/api/auth'
-import { useConfigStore } from '@/store'
-import { getEnvBaseUrl } from '@/utils'
-import { toast } from '@/utils/toast'
+import type { LoginData } from '@/api/auth';
+import { computed, onMounted, ref } from 'vue';
+import { login } from '@/api/auth';
+import { useConfigStore } from '@/store';
+import { getEnvBaseUrl } from '@/utils';
+import { toast } from '@/utils/toast';
 // 导入国际化相关功能
-import { t, changeLanguage, getSupportedLanguages, initI18n } from '@/i18n'
-import type { Language } from '@/store/lang'
+import { t, changeLanguage, getSupportedLanguages, initI18n } from '@/i18n';
+import type { Language } from '@/store/lang';
 // 导入SM2加密工具
 import { sm2Encrypt } from '@/utils'
 
@@ -123,15 +123,6 @@ function goToForgotPassword() {
   })
 }
 
-// 生成UUID
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0
-    const v = c === 'x' ? r : (r & 0x3 | 0x8)
-    return v.toString(16)
-  })
-}
-
 let skipReLaunch = false // 全局或组件作用域
 
 //跳转至服务端设置页面
@@ -143,9 +134,9 @@ function goToServerSetting() {
 
 // 获取验证码
 async function refreshCaptcha() {
-  const uuid = generateUUID()
-  formData.value.captchaId = uuid
-  captchaImage.value = `${getEnvBaseUrl()}/user/captcha?uuid=${uuid}&t=${Date.now()}`
+  const uuid = crypto.randomUUID();
+  formData.value.captchaId = uuid;
+  captchaImage.value = `${getEnvBaseUrl()}/user/captcha?uuid=${uuid}&t=${Date.now()}`;
 }
 
 // 登录
