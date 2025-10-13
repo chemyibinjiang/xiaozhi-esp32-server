@@ -11,7 +11,6 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
-import { v4 as uuidv4 } from 'uuid';
 import { useConfigStore } from "@/store";
 import { getEnvBaseUrl, sm2Encrypt } from "@/utils";
 import { toast } from "@/utils/toast";
@@ -117,7 +116,7 @@ function closeAreaCodeSheet() {
 
 // 获取图形验证码
 async function refreshCaptcha() {
-  const uuid = uuidv4();
+  const uuid = crypto.randomUUID();
   formData.value.captchaId = uuid;
   captchaImage.value = `${getEnvBaseUrl()}/user/captcha?uuid=${uuid}&t=${Date.now()}`;
 }

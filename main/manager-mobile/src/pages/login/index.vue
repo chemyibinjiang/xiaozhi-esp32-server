@@ -11,7 +11,6 @@
 <script lang="ts" setup>
 import type { LoginData } from '@/api/auth';
 import { computed, onMounted, ref } from 'vue';
-import { v4 as uuidv4 } from 'uuid';
 import { login } from '@/api/auth';
 import { useConfigStore } from '@/store';
 import { getEnvBaseUrl } from '@/utils';
@@ -135,9 +134,9 @@ function goToServerSetting() {
 
 // 获取验证码
 async function refreshCaptcha() {
-  const uuid = uuidv4();
-  formData.value.captchaId = uuid
-  captchaImage.value = `${getEnvBaseUrl()}/user/captcha?uuid=${uuid}&t=${Date.now()}`
+  const uuid = crypto.randomUUID();
+  formData.value.captchaId = uuid;
+  captchaImage.value = `${getEnvBaseUrl()}/user/captcha?uuid=${uuid}&t=${Date.now()}`;
 }
 
 // 登录
