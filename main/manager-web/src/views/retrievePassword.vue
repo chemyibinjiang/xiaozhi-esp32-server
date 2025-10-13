@@ -101,7 +101,7 @@
 <script>
 import Api from '@/apis/api';
 import VersionFooter from '@/components/VersionFooter.vue';
-import { getUUID, goToPage, showDanger, showSuccess, validateMobile, sm2Encrypt } from '@/utils';
+import { goToPage, showDanger, showSuccess, validateMobile, sm2Encrypt } from '@/utils';
 import { mapState } from 'vuex';
 
 // 导入语言切换功能
@@ -144,7 +144,7 @@ export default {
   methods: {
     // 复用验证码获取方法
     fetchCaptcha() {
-      this.form.captchaId = getUUID();
+      this.form.captchaId = crypto.randomUUID();
       Api.user.getCaptcha(this.form.captchaId, (res) => {
         if (res.status === 200) {
           const blob = new Blob([res.data], { type: res.data.type });
