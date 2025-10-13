@@ -321,7 +321,7 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
                 if (statusCode != null && statusCode == 0 && StringUtils.isNotBlank(speakerId)) {
                     entity.setTrainStatus(2);
                     entity.setVoiceId(speakerId);
-                    entity.setTrainError(null);
+                    entity.setTrainError("");
                     baseDao.updateById(entity);
                 } else {
                     // 失败时使用StatusMessage作为错误信息
