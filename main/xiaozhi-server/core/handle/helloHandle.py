@@ -6,7 +6,7 @@ from core.utils.dialogue import Message
 from core.utils.util import audio_to_data
 from core.providers.tts.dto.dto import SentenceType
 from core.utils.wakeup_word import WakeupWordsConfig
-from core.handle.sendAudioHandle import sendAudioMessage, send_stt_message
+from core.handle.sendAudioHandle import sendAudioMessage, send_tts_message
 from core.utils.util import remove_punctuation_and_length, opus_datas_to_wav_bytes
 from core.providers.tools.device_mcp import (
     MCPClient,
@@ -83,6 +83,7 @@ async def checkWakeupWords(conn, text):
         return False
 
     conn.just_woken_up = True
+    await send_tts_message(conn, "start")
 
     # 获取当前音色
     voice = getattr(conn.tts, "voice", "default")
