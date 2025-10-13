@@ -176,8 +176,8 @@ public class VoiceCloneController {
         String cloneId = params.get("cloneId");
         checkPermission(cloneId);
         // 调用服务层进行语音克隆训练
-        String result = voiceCloneService.cloneAudio(cloneId);
-        return new Result<String>().ok(result);
+        voiceCloneService.cloneAudio(cloneId);
+        return new Result<String>();
     }
 
     private void checkPermission(String id) {
