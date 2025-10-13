@@ -11,6 +11,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
+import { v4 as uuidv4 } from 'uuid';
 import { useConfigStore } from "@/store";
 import { getEnvBaseUrl, sm2Encrypt } from "@/utils";
 import { toast } from "@/utils/toast";
@@ -114,18 +115,9 @@ function closeAreaCodeSheet() {
   showAreaCodeSheet.value = false;
 }
 
-// 生成UUID
-function generateUUID() {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
 // 获取图形验证码
 async function refreshCaptcha() {
-  const uuid = generateUUID();
+  const uuid = uuidv4();
   formData.value.captchaId = uuid;
   captchaImage.value = `${getEnvBaseUrl()}/user/captcha?uuid=${uuid}&t=${Date.now()}`;
 }
