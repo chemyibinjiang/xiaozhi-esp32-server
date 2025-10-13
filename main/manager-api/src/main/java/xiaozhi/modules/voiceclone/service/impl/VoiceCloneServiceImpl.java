@@ -1,7 +1,14 @@
 package xiaozhi.modules.voiceclone.service.impl;
 
+import java.io.IOException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -12,14 +19,17 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import xiaozhi.common.page.PageData;
 import xiaozhi.common.service.impl.BaseServiceImpl;
 import xiaozhi.common.utils.ConvertUtils;
 import xiaozhi.common.utils.DateUtils;
 import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.exception.RenException;
+import xiaozhi.modules.model.entity.ModelConfigEntity;
 import xiaozhi.modules.model.service.ModelConfigService;
 import xiaozhi.modules.sys.service.SysUserService;
 import xiaozhi.modules.voiceclone.dao.VoiceCloneDao;
@@ -28,6 +38,7 @@ import xiaozhi.modules.voiceclone.dto.VoiceCloneResponseDTO;
 import xiaozhi.modules.voiceclone.entity.VoiceCloneEntity;
 import xiaozhi.modules.voiceclone.service.VoiceCloneService;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceCloneEntity>
@@ -35,6 +46,7 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
 
     private final ModelConfigService modelConfigService;
     private final SysUserService sysUserService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public PageData<VoiceCloneEntity> page(Map<String, Object> params) {
@@ -207,4 +219,100 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
         }
         return entity.getVoice();
     }
+
+    @Override
+@Transactional(rollbackFor = Exception.class)
+public String cloneAudio(String cloneId) {
+    VoiceCloneEntity entity = baseDao.selectById(cloneId);
+    if (entity == null) {
+        throw new RenException(ErrorCode.VOICE_CLONE_RECORD_NOT_EXIST);
+    }
+    if (entity.getVoice() == null || entity.getVoice().length == 0) {
+        throw new RenException("请先上传音频文件");
+    }
+
+    try {
+        ModelConfigEntity modelConfig =
+            modelConfigService.getModelByIdFromCache("TTS_HuoshanDoubleStreamTTS");
+        if (modelConfig == null || modelConfig.getConfigJson() == null) {
+            throw new RenException("火山引擎配置未找到");
+        }
+        Map<String, Object> config = modelConfig.getConfigJson();
+        String appid = (String) config.get("appid");
+        String accessToken = (String) config.get("access_token");
+
+        if (StringUtils.isAnyBlank(appid, accessToken)) {
+            throw new RenException("火山引擎配置不完整");
+        }
+
+        String audioBase64 = Base64.getEncoder().encodeToString(entity.getVoice());
+        Map<String, Object> reqBody = new HashMap<>();
+        reqBody.put("appid", appid);
+        reqBody.put("name", entity.getName());
+        List<Map<String, String>> audios = new ArrayList<>();
+        Map<String, String> audioMap = new HashMap<>();
+        audioMap.put("audio_bytes", audioBase64);
+        audioMap.put("audio_format", "wav");
+        audios.add(audioMap);
+        reqBody.put("audios", audios);
+        reqBody.put("source", 2);
+        reqBody.put("language", 0);
+        reqBody.put("model_type", 1);
+        reqBody.put("speaker_id", entity.getName());
+
+        String apiUrl = "https://openspeech.bytedance.com/api/v1/mega_tts/audio/upload";
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiUrl))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer;" + accessToken)
+                .header("Resource-Id", "volc.megatts.voiceclone")
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(reqBody)))
+                .build();
+                // >>> 打印调试信息
+                System.out.println(">>> 请求地址 = " + apiUrl);
+                System.out.println(">>> AppID    = " + appid);
+                System.out.println(">>> Token    = " + accessToken);
+            
+
+        /* ===== 真正发请求 ===== */
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+        System.out.println(">>> HTTP status = " + response.statusCode());
+        System.out.println(">>> response body = " + response.body());
+
+        if (response.statusCode() == 200) {
+            Map<String, Object> rsp = objectMapper.readValue(response.body(), Map.class);
+            String status = (String) rsp.get("status");
+            String spkId = (String) rsp.get("spk_id");
+            if ("success".equals(status) && StringUtils.isNotBlank(spkId)) {
+                entity.setTrainStatus(2);
+                entity.setVoiceId(spkId);
+                entity.setTrainError(null);
+                baseDao.updateById(entity);
+                return "训练成功，声音ID: " + spkId;
+            } else {
+                String msg = (String) rsp.getOrDefault("message", "训练失败");
+                throw new RenException(msg);
+            }
+        } else {
+            System.out.println(">>> 请求失败 HTTP = " + response.statusCode());
+            System.out.println(">>> 失败 body = " + response.body());
+            throw new RenException("请求失败，状态码: " + response.statusCode());
+        }
+
+    } catch (RenException re) {
+        // 自己抛的业务异常继续往外抛
+        throw re;
+    } catch (Exception e) {
+        /* ===== 任何其他异常（空指针、IO、JSON、404...）全部打印 ===== */
+        System.out.println(">>> 语音克隆异常: " + e.getMessage());
+        e.printStackTrace();          // 详细堆栈
+        entity.setTrainStatus(3);
+        entity.setTrainError(e.getMessage());
+        baseDao.updateById(entity);
+        throw new RenException("语音克隆失败: " + e.getMessage());
+    }
+  }
 }

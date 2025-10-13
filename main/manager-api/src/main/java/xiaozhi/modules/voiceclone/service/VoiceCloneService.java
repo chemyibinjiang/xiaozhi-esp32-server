@@ -65,4 +65,11 @@ public interface VoiceCloneService extends BaseService<VoiceCloneEntity> {
      * 获取音频数据
      */
     byte[] getVoiceData(String id);
+    
+    /**
+     * 克隆音频，调用火山引擎进行语音复刻训练
+     * @param cloneId 语音克隆记录ID
+     * @return 训练结果消息
+     */
+    String cloneAudio(String cloneId);
 }
