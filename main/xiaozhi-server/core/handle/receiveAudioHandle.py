@@ -21,8 +21,9 @@ async def handleAudioMessage(conn, audio):
         if not hasattr(conn, "vad_resume_task") or conn.vad_resume_task.done():
             conn.vad_resume_task = asyncio.create_task(resume_vad_detection(conn))
         return
+    # manual 模式下不打断正在播放的内容
     if have_voice:
-        if conn.client_is_speaking:
+        if conn.client_is_speaking and conn.client_listen_mode != "manual":
             await handleAbortMessage(conn)
     # 设备长时间空闲检测，用于say goodbye
     await no_voice_close_connect(conn, have_voice)
@@ -73,7 +74,8 @@ async def startToChat(conn, text):
         ):
             await max_out_size(conn)
             return
-    if conn.client_is_speaking:
+    # manual 模式下不打断正在播放的内容
+    if conn.client_is_speaking and conn.client_listen_mode != "manual":
         await handleAbortMessage(conn)
 
     # 首先进行意图分析，使用实际文本内容
