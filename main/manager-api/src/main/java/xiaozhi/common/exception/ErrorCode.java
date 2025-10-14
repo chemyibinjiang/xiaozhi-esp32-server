@@ -188,4 +188,12 @@ public interface ErrorCode {
     int VOICE_RESOURCE_ACCOUNT_EMPTY = 10148; // 归属账号不能为空
     int VOICE_RESOURCE_DELETE_ID_EMPTY = 10149; // 删除的音色资源ID不能为空
     int VOICE_RESOURCE_NO_PERMISSION = 10150; // 您没有权限操作该记录
+    int VOICE_CLONE_AUDIO_NOT_UPLOADED = 10151; // 请先上传音频文件
+    int VOICE_CLONE_MODEL_CONFIG_NOT_FOUND = 10152; // 模型配置未找到
+    int VOICE_CLONE_MODEL_TYPE_NOT_FOUND = 10153; // 模型类型未找到
+    int VOICE_CLONE_TRAINING_FAILED = 10154; // 训练失败
+    int VOICE_CLONE_HUOSHAN_CONFIG_MISSING = 10155; // 火山引擎缺少配置
+    int VOICE_CLONE_RESPONSE_FORMAT_ERROR = 10156; // 响应格式错误
+    int VOICE_CLONE_REQUEST_FAILED = 10157; // 请求失败
+    int VOICE_CLONE_PREFIX = 10158; // 复刻音色前缀
 }

@@ -47,6 +47,7 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
     private final ModelConfigService modelConfigService;
     private final SysUserService sysUserService;
     private final ObjectMapper objectMapper;
+    private final xiaozhi.modules.timbre.service.TimbreService timbreService;
 
     @Override
     public PageData<VoiceCloneEntity> page(Map<String, Object> params) {
@@ -228,19 +229,19 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
             throw new RenException(ErrorCode.VOICE_CLONE_RECORD_NOT_EXIST);
         }
         if (entity.getVoice() == null || entity.getVoice().length == 0) {
-            throw new RenException("请先上传音频文件");
+            throw new RenException(ErrorCode.VOICE_CLONE_AUDIO_NOT_UPLOADED);
         }
 
         try {
 
             ModelConfigEntity modelConfig = modelConfigService.getModelByIdFromCache(entity.getModelId());
             if (modelConfig == null || modelConfig.getConfigJson() == null) {
-                throw new RenException("模型配置未找到");
+                throw new RenException(ErrorCode.VOICE_CLONE_MODEL_CONFIG_NOT_FOUND);
             }
             Map<String, Object> config = modelConfig.getConfigJson();
             String type = (String) config.get("type");
             if (StringUtils.isBlank(type)) {
-                throw new RenException("模型类型未找到");
+                throw new RenException(ErrorCode.VOICE_CLONE_MODEL_TYPE_NOT_FOUND);
             }
             if (type.equals("huoshan_double_stream")) {
                 huoshanClone(config, entity);
@@ -252,7 +253,7 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
             entity.setTrainStatus(3);
             entity.setTrainError(e.getMessage());
             baseDao.updateById(entity);
-            throw new RenException("语音克隆失败: " + e.getMessage());
+            throw new RenException(ErrorCode.VOICE_CLONE_TRAINING_FAILED, e.getMessage());
         }
     }
 
@@ -268,7 +269,7 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
         String accessToken = (String) config.get("access_token");
 
         if (StringUtils.isAnyBlank(appid, accessToken)) {
-            throw new RenException("火山引擎缺少appid或access_token");
+            throw new RenException(ErrorCode.VOICE_CLONE_HUOSHAN_CONFIG_MISSING);
         }
 
         String audioBase64 = Base64.getEncoder().encodeToString(entity.getVoice());
@@ -323,16 +324,38 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
                     entity.setVoiceId(speakerId);
                     entity.setTrainError("");
                     baseDao.updateById(entity);
+                    
+                    try {
+                        // 检查speaker_id是否已经被使用
+                        if (timbreService.existsByTtsVoice(speakerId)) {
+                            log.info("音色编码speaker_id[{}]已存在，不重复写入数据库", speakerId);
+                        } else {
+                            xiaozhi.modules.timbre.dto.TimbreDataDTO timbreDataDTO = new xiaozhi.modules.timbre.dto.TimbreDataDTO();
+                            timbreDataDTO.setTtsModelId(entity.getModelId()); 
+                            timbreDataDTO.setName(entity.getName()); 
+                            timbreDataDTO.setTtsVoice(speakerId); 
+                            timbreDataDTO.setSort(1); 
+                            timbreDataDTO.setLanguages("zh-CN"); 
+                            timbreDataDTO.setRemark("复刻音色"); 
+                            
+                            // 保存到音色表
+                            timbreService.save(timbreDataDTO);
+                            log.info("成功将复刻音色添加到音色表，speaker_id: {}", speakerId);
+                        }
+                    } catch (Exception e) {
+                        // 记录错误但不影响主流程
+                        log.error("将复刻音色添加到音色表失败: " + e.getMessage(), e);
+                    }
                 } else {
                     // 失败时使用StatusMessage作为错误信息
                     String errorMsg = StringUtils.isNotBlank(statusMessage) ? statusMessage : "训练失败";
                     throw new RenException(errorMsg);
                 }
             } else {
-                throw new RenException("响应格式错误，缺少BaseResp字段");
+                throw new RenException(ErrorCode.VOICE_CLONE_RESPONSE_FORMAT_ERROR);
             }
         } else {
-            throw new RenException("请求失败，状态码: " + response.statusCode());
+            throw new RenException(ErrorCode.VOICE_CLONE_REQUEST_FAILED + "，状态码: " + response.statusCode());
         }
     }
 }
