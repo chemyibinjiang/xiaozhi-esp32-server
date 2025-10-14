@@ -883,6 +883,8 @@ export default {
   'ttsModel.unnamedVoice': '未命名音色',
   'ttsModel.finishEditingFirst': '請先完成目前編輯',
   'ttsModel.selectVoiceToDelete': '請選擇要刪除的音色',
+  'ttsModel.warning': '警告',
+  'ttsModel.confirmDeleteVoice': '確定要刪除{count}個音色嗎？',
   'ttsModel.operationFailed': '操作失敗',
   'ttsModel.operationClosed': '操作已關閉',
 

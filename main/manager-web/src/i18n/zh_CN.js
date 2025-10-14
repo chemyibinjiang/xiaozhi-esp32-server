@@ -885,6 +885,8 @@ export default {
   'ttsModel.unnamedVoice': '未命名音色',
   'ttsModel.finishEditingFirst': '请先完成当前编辑',
   'ttsModel.selectVoiceToDelete': '请选择要删除的音色',
+  'ttsModel.warning': '警告',
+  'ttsModel.confirmDeleteVoice': '确定要删除{count}个音色吗？',
 
   // OTA管理页面文本
   'otaManagement.firmwareManagement': '固件管理',

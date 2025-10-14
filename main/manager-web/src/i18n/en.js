@@ -885,6 +885,8 @@ export default {
   'ttsModel.unnamedVoice': 'Unnamed Voice',
   'ttsModel.finishEditingFirst': 'Please finish current editing first',
   'ttsModel.selectVoiceToDelete': 'Please select voices to delete',
+  'ttsModel.warning': 'Warning',
+  'ttsModel.confirmDeleteVoice': 'Are you sure to delete {count} voices?',
 
   // OTA Management Page Text
   'otaManagement.firmwareManagement': 'Firmware Management',
