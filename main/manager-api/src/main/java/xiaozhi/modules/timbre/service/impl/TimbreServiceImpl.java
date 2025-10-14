@@ -1,9 +1,12 @@
 package xiaozhi.modules.timbre.service.impl;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import xiaozhi.common.exception.ErrorCode;
+import xiaozhi.common.utils.MessageUtils;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -120,12 +123,39 @@ public class TimbreServiceImpl extends BaseServiceImpl<TimbreDao, TimbreEntity> 
         if (StringUtils.isNotBlank(voiceName)) {
             queryWrapper.like("name", voiceName);
         }
+        
         List<TimbreEntity> timbreEntities = timbreDao.selectList(queryWrapper);
         if (CollectionUtil.isEmpty(timbreEntities)) {
             return null;
         }
 
-        return ConvertUtils.sourceToTarget(timbreEntities, VoiceDTO.class);
+        // 自定义排序：音色编码以S_开头的排在最前面，其他按sort字段升序排序
+        timbreEntities.sort((t1, t2) -> {
+            // 先判断是否以S_开头
+            boolean isT1S_Start = StringUtils.isNotBlank(t1.getTtsVoice()) && t1.getTtsVoice().startsWith("S_");
+            boolean isT2S_Start = StringUtils.isNotBlank(t2.getTtsVoice()) && t2.getTtsVoice().startsWith("S_");
+            
+            if (isT1S_Start && !isT2S_Start) return -1;  // t1以S_开头，排在前面
+            if (!isT1S_Start && isT2S_Start) return 1;   // t2以S_开头，排在前面
+            
+            // 都以S_开头或都不以S_开头，则按sort字段升序排序
+            return Long.compare(t1.getSort(), t2.getSort());
+        });
+
+        // 排序完成后转换为DTO列表，并为复刻音色添加前缀
+        List<VoiceDTO> voiceDTOs = new ArrayList<>();
+        for (TimbreEntity entity : timbreEntities) {
+            VoiceDTO dto = new VoiceDTO();
+            dto.setId(entity.getId());
+            // 对于音色编码以S_开头的复刻音色，在名称前加上"克隆："前缀
+            String name = entity.getName();
+            if (StringUtils.isNotBlank(entity.getTtsVoice()) && entity.getTtsVoice().startsWith("S_") && !name.startsWith("克隆：")) {
+                name = MessageUtils.getMessage(ErrorCode.VOICE_CLONE_PREFIX) + name;
+            }
+            dto.setName(name);
+            voiceDTOs.add(dto);
+        }
+        return voiceDTOs;
     }
 
     /**
@@ -157,5 +187,18 @@ public class TimbreServiceImpl extends BaseServiceImpl<TimbreDao, TimbreEntity> 
         }
 
         return null;
+    }
+
+    @Override
+    public boolean existsByTtsVoice(String ttsVoice) {
+        if (StringUtils.isBlank(ttsVoice)) {
+            return false;
+        }
+        
+        QueryWrapper<TimbreEntity> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("tts_voice", ttsVoice);
+        
+        // 检查数据库中是否存在相同的ttsVoice值
+        return timbreDao.exists(queryWrapper);
     }
 }

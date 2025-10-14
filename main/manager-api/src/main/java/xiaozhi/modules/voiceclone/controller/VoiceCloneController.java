@@ -175,6 +175,8 @@ public class VoiceCloneController {
     public Result<String> cloneAudio(@RequestBody Map<String, String> params) {
         String cloneId = params.get("cloneId");
         checkPermission(cloneId);
+        // 调用服务层进行语音克隆训练
+        voiceCloneService.cloneAudio(cloneId);
         return new Result<String>();
     }
 
