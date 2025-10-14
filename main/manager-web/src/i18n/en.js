@@ -1095,6 +1095,8 @@ export default {
   'voiceClone.play': 'Play',
   'voiceClone.pause': 'Pause',
   'voiceClone.cancel': 'Cancel',
+  'voiceClone.warning': 'Warning',
+  'voiceClone.ok': 'OK',
   'voiceClone.nextStep': 'Next',
   'voiceClone.prevStep': 'Previous',
   'voiceClone.upload': 'Upload Audio',

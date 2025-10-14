@@ -1095,6 +1095,8 @@ export default {
   'voiceClone.play': '播放',
   'voiceClone.pause': '暂停',
   'voiceClone.cancel': '取消',
+  'voiceClone.warning': '警告',
+  'voiceClone.ok': '确定',
   'voiceClone.nextStep': '下一步',
   'voiceClone.prevStep': '上一步',
   'voiceClone.upload': '上传音频',
