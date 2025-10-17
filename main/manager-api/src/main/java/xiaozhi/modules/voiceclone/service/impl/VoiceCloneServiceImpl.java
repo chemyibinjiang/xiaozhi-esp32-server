@@ -257,14 +257,11 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
             if (type.equals("huoshan_double_stream")) {
                 huoshanClone(config, entity);
             }
-        } catch (RenException re) {
-            throw re;
         } catch (Exception e) {
             e.printStackTrace();
             entity.setTrainStatus(3);
             entity.setTrainError(e.getMessage());
             baseDao.updateById(entity);
-            throw new RenException(ErrorCode.VOICE_CLONE_TRAINING_FAILED, e.getMessage());
         }
     }
 

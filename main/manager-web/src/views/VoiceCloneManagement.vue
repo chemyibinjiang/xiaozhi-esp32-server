@@ -276,25 +276,22 @@ export default {
                         }
                     } catch (error) {
                         console.error('处理响应时出错:', error);
-                        // 出错时更新状态为训练失败
-                        this.updateRowStatus(row, 3);
                         this.$message.error('处理响应时出错');
                     } finally {
                         row._submitting = false;
+                        this.fetchVoiceCloneList();
                     }
                 }, (error) => {
                     console.error('API调用失败:', error);
-                    // 请求失败时更新状态为训练失败
-                    this.updateRowStatus(row, 3);
                     this.$message.error('请求失败');
                     row._submitting = false;
+                    this.fetchVoiceCloneList();
                 });
             } catch (error) {
                 console.error('调用API时出错:', error);
-                // 出错时更新状态为训练失败
-                this.updateRowStatus(row, 3);
                 this.$message.error('调用API时出错');
                 row._submitting = false;
+                this.fetchVoiceCloneList();
             }
         },
         
