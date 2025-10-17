@@ -133,8 +133,8 @@
             <div class="connection-controls">
                 <input type="text" id="otaUrl" value="http://127.0.0.1:8002/xiaozhi/ota/"
                     placeholder="OTA服务器地址，如：http://127.0.0.1:8002/xiaozhi/ota/" />
-                <input type="text" id="serverUrl" value="ws://127.0.0.1:8000/xiaozhi/v1/"
-                    placeholder="WebSocket服务器地址，如：ws://127.0.0.1:8000/xiaozhi/v1/" />
+                <input type="text" id="serverUrl" value="" readonly disabled
+                    placeholder="自动从OTA接口获取" />
                 <button id="connectButton">连接</button>
                 <button id="authTestButton">测试认证</button>
             </div>
@@ -714,7 +714,7 @@
             localStorage.setItem('wsUrl', url);
 
             try {
-                const ws = await webSocketConnect(otaUrl, url, config)
+                const ws = await webSocketConnect(otaUrl, config)
                 if (ws === undefined) {
                     return
                 }
@@ -756,7 +756,7 @@
                     messageInput.disabled = true;
                     sendTextButton.disabled = true;
                     recordButton.disabled = true;
-                    stopButton.disabled = true;
+                    // stopButton.disabled = true;
                 };
 
                 websocket.onerror = (error) => {
@@ -1047,11 +1047,6 @@
             const savedOtaUrl = localStorage.getItem('otaUrl');
             if (savedOtaUrl) {
                 document.getElementById('otaUrl').value = savedOtaUrl;
-            }
-
-            const savedWsUrl = localStorage.getItem('wsUrl');
-            if (savedWsUrl) {
-                document.getElementById('serverUrl').value = savedWsUrl;
             }
 
             // 切换面板显示
