@@ -74,6 +74,17 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void save(VoiceCloneDTO dto) {
+        // 检查Voice ID是否已经被使用
+        for (String voiceId : dto.getVoiceIds()) {
+            QueryWrapper<VoiceCloneEntity> wrapper = new QueryWrapper<>();
+            wrapper.eq("voice_id", voiceId);
+            wrapper.eq("model_id", dto.getModelId());
+            Long count = baseDao.selectCount(wrapper);
+            if (count > 0) {
+                throw new RenException(ErrorCode.VOICE_ID_ALREADY_EXISTS, "音色ID " + voiceId + " 已存在");
+            }
+        }
+        
         // 遍历选择的音色ID，为每个音色ID创建一条记录
         int index = 0;
         String namePrefix = DateUtils.format(new java.util.Date(), "MMddHHmm");

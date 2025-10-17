@@ -196,4 +196,5 @@ public interface ErrorCode {
     int VOICE_CLONE_RESPONSE_FORMAT_ERROR = 10156; // 响应格式错误
     int VOICE_CLONE_REQUEST_FAILED = 10157; // 请求失败
     int VOICE_CLONE_PREFIX = 10158; // 复刻音色前缀
+    int VOICE_ID_ALREADY_EXISTS = 10159; // 音色ID已存在
 }
