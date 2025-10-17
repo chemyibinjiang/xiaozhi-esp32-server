@@ -340,6 +340,8 @@ export default {
                         res = res.data;
                         if (res.code === 0) {
                             this.$message.success(this.$t('message.success'));
+                            // 复刻成功后刷新列表
+                            this.fetchVoiceCloneList();
                         } else {
                             // 出错时更新状态为训练失败
                             console.log('API返回错误，更新状态为训练失败');
