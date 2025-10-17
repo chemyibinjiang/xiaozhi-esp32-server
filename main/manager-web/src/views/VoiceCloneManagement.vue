@@ -41,6 +41,17 @@
                                     </div>
                                 </template>
                             </el-table-column>
+                            
+                            <el-table-column :label="$t('voiceClone.Details')" align="center" width="80">
+                                <template slot-scope="scope">
+                                    <el-tooltip :content="getTooltipContent(scope.row)" placement="top">
+                                        <el-button size="mini" type="text" icon="el-icon-info" 
+                                            @click="handleViewDetails(scope.row)">
+                                        </el-button>
+                                    </el-tooltip>
+                                </template>
+                            </el-table-column>
+                            
                             <el-table-column :label="$t('voiceClone.action')" align="center" width="180">
                                 <template slot-scope="scope">
                                     <el-button v-if="scope.row.hasVoice" size="mini" type="text"
@@ -166,6 +177,71 @@ export default {
         },
     },
     methods: {
+        getTooltipContent(row) {
+            if (!row.hasVoice) {
+                return '待上传';
+            }
+            switch (row.trainStatus) {
+                case 0:
+                    return '待复刻';
+                case 2:
+                    return '训练成功';
+                case 3:
+                    // 训练失败时，根据状态码显示详细错误信息
+                    let statusCode = null;
+                    
+                    // 优先从row.statusCode获取状态码
+                    if (row.statusCode) {
+                        statusCode = parseInt(row.statusCode); // 确保是数字类型
+                    }
+                    // 如果有trainError字段，尝试从中提取状态码
+                    else if (row.trainError && typeof row.trainError === 'string') {
+                        console.log('尝试从trainError提取状态码:', row.trainError);
+                        // 使用更宽松的正则表达式，匹配各种可能的状态码格式
+                        const statusMatch = row.trainError.match(/(?:状态码|status code):?\s*(\d+)/i);
+                        if (statusMatch && statusMatch[1]) {
+                            statusCode = parseInt(statusMatch[1]);
+                            console.log('成功提取状态码:', statusCode);
+                        }
+                    }
+                    
+                    // 如果成功获取到状态码，显示对应的错误信息
+                    if (statusCode) {
+                        console.log('使用状态码:', statusCode);
+                        // 创建完整的状态码映射表
+                        const statusMessages = {
+                            400: '关键参数缺失，例如Action, Version参数缺失等。',
+                            401: '请求的Access Key不合法或签名结果不正确。',
+                            403: '子用户拥有的权限不支持当前操作。',
+                            404: '请求的服务或接口不存在。',
+                            429: '请求过于频繁，超出了限速。',
+                            500: '内部错误。',
+                            502: '服务存在故障。',
+                            503: '处于熔断状态的服务暂时不可访问，稍后重试。',
+                            504: '服务执行超时。'
+                        };
+                        
+                        // 简化处理，直接使用对象而非数组
+                        if (statusMessages.hasOwnProperty(statusCode)) {
+                            return `训练失败 (${statusCode}): ${statusMessages[statusCode]}`;
+                        }
+                    }
+                    
+                    // 如果有trainError直接显示
+                    if (row.trainError) {
+                        console.log('直接显示trainError:', row.trainError);
+                        return `训练失败: ${row.trainError}`;
+                    }
+                    
+                    return '训练失败';
+                default:
+                    return '';
+            }
+        },
+        handleViewDetails(row) {
+            console.log('查看详情:', row);
+            // 可以在这里添加查看详情的逻辑
+        },
         handlePageSizeChange(val) {
             this.pageSize = val;
             this.currentPage = 1;
@@ -267,7 +343,16 @@ export default {
                         } else {
                             // 出错时更新状态为训练失败
                             console.log('API返回错误，更新状态为训练失败');
-                            this.updateRowStatus(row, 3);
+                            // 尝试从错误信息中提取状态码
+                            let statusCode = null;
+                            if (res.msg) {
+                                // 尝试匹配状态码格式，如"状态码: 403"
+                                const statusMatch = res.msg.match(/状态码: (\d+)/);
+                                if (statusMatch && statusMatch[1]) {
+                                    statusCode = parseInt(statusMatch[1]);
+                                }
+                            }
+                            this.updateRowStatus(row, 3, statusCode);
                             this.$message.error(res.msg || this.$t('message.error'));
                             // 检查是否包含403错误
                             if (res.msg && res.msg.includes('状态码: 403')) {
@@ -283,12 +368,30 @@ export default {
                     }
                 }, (error) => {
                     console.error('API调用失败:', error);
-                    this.$message.error('请求失败');
-                    row._submitting = false;
-                    this.fetchVoiceCloneList();
+                        // 尝试从错误信息中提取状态码
+                        let statusCode = null;
+                        if (error.message) {
+                            const statusMatch = error.message.match(/状态码: (\d+)/);
+                            if (statusMatch && statusMatch[1]) {
+                                statusCode = parseInt(statusMatch[1]);
+                            }
+                        }
+                        this.updateRowStatus(row, 3, statusCode);
+                        this.$message.error('请求失败');
+                        row._submitting = false;
+                        this.fetchVoiceCloneList();
                 });
             } catch (error) {
                 console.error('调用API时出错:', error);
+                // 尝试从错误信息中提取状态码
+                let statusCode = null;
+                if (error.message && error.message.includes('状态码: ')) {
+                    const statusMatch = error.message.match(/状态码: (\d+)/);
+                    if (statusMatch && statusMatch[1]) {
+                        statusCode = parseInt(statusMatch[1]);
+                    }
+                }
+                this.updateRowStatus(row, 3, statusCode);
                 this.$message.error('调用API时出错');
                 row._submitting = false;
                 this.fetchVoiceCloneList();
@@ -296,15 +399,23 @@ export default {
         },
         
         // 更新行状态并触发视图更新
-        updateRowStatus(row, status) {
+        updateRowStatus(row, status, statusCode = null) {
             // 在Vue中直接修改数组中的对象属性可能不会触发视图更新
-            // 找到对应行的索引
             const index = this.voiceCloneList.findIndex(item => item.id === row.id);
+            const updateData = {
+                trainStatus: status
+            };
+            
+            // 如果提供了状态码，也更新状态码信息
+            if (statusCode !== null) {
+                updateData.statusCode = statusCode;
+            }
+            
             if (index !== -1) {
                 // 使用Vue.set来确保响应式更新
                 this.$set(this.voiceCloneList, index, {
                     ...this.voiceCloneList[index],
-                    trainStatus: status
+                    ...updateData
                 });
                 // 强制表格重新渲染
                 if (this.$refs.paramsTable) {
@@ -313,10 +424,13 @@ export default {
             } else {
                 // 如果找不到索引，直接更新row对象
                 row.trainStatus = status;
+                if (statusCode !== null) {
+                    row.statusCode = statusCode;
+                }
                 // 强制整个表格重新渲染
                 this.$forceUpdate();
             }
-            console.log('更新行状态:', row.id, '状态:', status);
+            console.log('更新行状态:', row.id, '状态:', status, '状态码:', statusCode);
         },
         // 复刻成功后的回调
         handleCloneSuccess() {

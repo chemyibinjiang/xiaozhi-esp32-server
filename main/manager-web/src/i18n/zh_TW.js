@@ -1112,4 +1112,5 @@ export default {
   'voiceClone.updateNameSuccess': '名稱更新成功',
   'voiceClone.updateNameFailed': '名稱更新失敗',
   'voiceClone.playFailed': '播放失敗',
+  'voiceClone.Details': '詳情',
 }
