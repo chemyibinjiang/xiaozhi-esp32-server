@@ -10,7 +10,10 @@ export async function webSocketConnect(otaUrl, config){
 
     // 发送OTA请求并获取返回的websocket信息
     const otaResult = await sendOTA(otaUrl, config);
-    if (!otaResult) return;
+    if (!otaResult) {
+        log('无法从OTA服务器获取信息', 'error');
+        return;
+    }
 
     // 从OTA响应中提取websocket信息
     const { websocket } = otaResult;
