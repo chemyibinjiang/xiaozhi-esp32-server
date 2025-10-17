@@ -343,62 +343,32 @@ export default {
                             // 复刻成功后刷新列表
                             this.fetchVoiceCloneList();
                         } else {
-                            // 出错时更新状态为训练失败
-                            console.log('API返回错误，更新状态为训练失败');
-                            // 尝试从错误信息中提取状态码
-                            let statusCode = null;
-                            if (res.msg) {
-                                // 尝试匹配状态码格式，如"状态码: 403"
-                                const statusMatch = res.msg.match(/状态码: (\d+)/);
-                                if (statusMatch && statusMatch[1]) {
-                                    statusCode = parseInt(statusMatch[1]);
-                                }
-                            }
-                            this.updateRowStatus(row, 3, statusCode);
+                            // 复刻失败时刷新列表以获取完整的错误信息
+                            console.log('API返回错误，刷新列表获取详细错误信息');
                             this.$message.error(res.msg || this.$t('message.error'));
-                            // 检查是否包含403错误
-                            if (res.msg && res.msg.includes('状态码: 403')) {
-                                console.error('权限错误: 403');
-                            }
+                            // 刷新列表以获取后端保存的完整错误详情
+                            this.fetchVoiceCloneList();
                         }
                     } catch (error) {
-                        // 出错时更新状态为训练失败
-                        this.updateRowStatus(row, 3);
+                        // 处理响应时出错，刷新列表
                         console.error('处理响应时出错:', error);
                         this.$message.error('处理响应时出错');
+                        this.fetchVoiceCloneList();
                     } finally {
                         row._submitting = false;
                     }
                 }, (error) => {
-                    // 出错时更新状态为训练失败
-                    this.updateRowStatus(row, 3);
+                    // API调用失败，刷新列表以获取最新状态
                     console.error('API调用失败:', error);
-                        // 尝试从错误信息中提取状态码
-                        let statusCode = null;
-                        if (error.message) {
-                            const statusMatch = error.message.match(/状态码: (\d+)/);
-                            if (statusMatch && statusMatch[1]) {
-                                statusCode = parseInt(statusMatch[1]);
-                            }
-                        }
-                        this.updateRowStatus(row, 3, statusCode);
-                        this.$message.error('请求失败');
-                        row._submitting = false;
+                    this.$message.error('请求失败');
+                    this.fetchVoiceCloneList();
+                    row._submitting = false;
                 });
             } catch (error) {
-                // 出错时更新状态为训练失败
-                this.updateRowStatus(row, 3);
+                // 调用API时出错，刷新列表
                 console.error('调用API时出错:', error);
-                // 尝试从错误信息中提取状态码
-                let statusCode = null;
-                if (error.message && error.message.includes('状态码: ')) {
-                    const statusMatch = error.message.match(/状态码: (\d+)/);
-                    if (statusMatch && statusMatch[1]) {
-                        statusCode = parseInt(statusMatch[1]);
-                    }
-                }
-                this.updateRowStatus(row, 3, statusCode);
                 this.$message.error('调用API时出错');
+                this.fetchVoiceCloneList();
                 row._submitting = false;
             }
         },
