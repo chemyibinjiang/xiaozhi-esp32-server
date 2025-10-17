@@ -233,7 +233,7 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    // @Transactional(rollbackFor = Exception.class)
     public void cloneAudio(String cloneId) {
         VoiceCloneEntity entity = baseDao.selectById(cloneId);
         if (entity == null) {

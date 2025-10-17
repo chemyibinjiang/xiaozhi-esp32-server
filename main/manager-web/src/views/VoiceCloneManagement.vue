@@ -360,13 +360,16 @@ export default {
                             }
                         }
                     } catch (error) {
+                        // 出错时更新状态为训练失败
+                        this.updateRowStatus(row, 3);
                         console.error('处理响应时出错:', error);
                         this.$message.error('处理响应时出错');
                     } finally {
                         row._submitting = false;
-                        this.fetchVoiceCloneList();
                     }
                 }, (error) => {
+                    // 出错时更新状态为训练失败
+                    this.updateRowStatus(row, 3);
                     console.error('API调用失败:', error);
                         // 尝试从错误信息中提取状态码
                         let statusCode = null;
@@ -379,9 +382,10 @@ export default {
                         this.updateRowStatus(row, 3, statusCode);
                         this.$message.error('请求失败');
                         row._submitting = false;
-                        this.fetchVoiceCloneList();
                 });
             } catch (error) {
+                // 出错时更新状态为训练失败
+                this.updateRowStatus(row, 3);
                 console.error('调用API时出错:', error);
                 // 尝试从错误信息中提取状态码
                 let statusCode = null;
@@ -394,7 +398,6 @@ export default {
                 this.updateRowStatus(row, 3, statusCode);
                 this.$message.error('调用API时出错');
                 row._submitting = false;
-                this.fetchVoiceCloneList();
             }
         },
         
