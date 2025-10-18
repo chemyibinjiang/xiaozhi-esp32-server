@@ -84,7 +84,7 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
                 throw new RenException(ErrorCode.VOICE_ID_ALREADY_EXISTS, "音色ID " + voiceId + " 已存在");
             }
         }
-        
+
         // 遍历选择的音色ID，为每个音色ID创建一条记录
         int index = 0;
         String namePrefix = DateUtils.format(new java.util.Date(), "MMddHHmm");
@@ -315,61 +315,63 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
         System.out.println(">>> HTTP status = " + response.statusCode());
         System.out.println(">>> response body = " + response.body());
 
-        if (response.statusCode() == 200) {
-            Map<String, Object> rsp = objectMapper.readValue(response.body(),
-                    new TypeReference<Map<String, Object>>() {
-                    });
+        Map<String, Object> rsp = objectMapper.readValue(response.body(),
+                new TypeReference<Map<String, Object>>() {
+                });
 
-            // 获取BaseResp对象
-            Map<String, Object> baseResp = objectMapper.convertValue(rsp.get("BaseResp"),
-                    new TypeReference<Map<String, Object>>() {
-                    });
-            if (baseResp != null) {
-                Integer statusCode = objectMapper.convertValue(baseResp.get("StatusCode"), Integer.class);
-                String statusMessage = objectMapper.convertValue(baseResp.getOrDefault("StatusMessage", ""),
-                        String.class);
+        // 获取BaseResp对象
+        Map<String, Object> baseResp = objectMapper.convertValue(rsp.get("BaseResp"),
+                new TypeReference<Map<String, Object>>() {
+                });
+        if (baseResp != null) {
+            Integer statusCode = objectMapper.convertValue(baseResp.get("StatusCode"), Integer.class);
+            String statusMessage = objectMapper.convertValue(baseResp.getOrDefault("StatusMessage", ""),
+                    String.class);
 
-                // 获取speaker_id
-                String speakerId = objectMapper.convertValue(rsp.get("speaker_id"), String.class);
+            // 获取speaker_id
+            String speakerId = objectMapper.convertValue(rsp.get("speaker_id"), String.class);
 
-                // StatusCode == 0 表示成功
-                if (statusCode != null && statusCode == 0 && StringUtils.isNotBlank(speakerId)) {
-                    entity.setTrainStatus(2);
-                    entity.setVoiceId(speakerId);
-                    entity.setTrainError("");
-                    baseDao.updateById(entity);
-                    
-                    try {
-                        // 检查speaker_id是否已经被使用
-                        if (timbreService.existsByTtsVoice(speakerId)) {
-                            log.info("音色编码speaker_id[{}]已存在，不重复写入数据库", speakerId);
-                        } else {
-                            xiaozhi.modules.timbre.dto.TimbreDataDTO timbreDataDTO = new xiaozhi.modules.timbre.dto.TimbreDataDTO();
-                            timbreDataDTO.setTtsModelId(entity.getModelId()); 
-                            timbreDataDTO.setName(entity.getName()); 
-                            timbreDataDTO.setTtsVoice(speakerId); 
-                            timbreDataDTO.setSort(1); 
-                            timbreDataDTO.setLanguages("zh-CN"); 
-                            timbreDataDTO.setRemark("复刻音色"); 
-                            
-                            // 保存到音色表
-                            timbreService.save(timbreDataDTO);
-                            log.info("成功将复刻音色添加到音色表，speaker_id: {}", speakerId);
-                        }
-                    } catch (Exception e) {
-                        // 记录错误但不影响主流程
-                        log.error("将复刻音色添加到音色表失败: " + e.getMessage(), e);
+            // StatusCode == 0 表示成功
+            if (statusCode != null && statusCode == 0 && StringUtils.isNotBlank(speakerId)) {
+                entity.setTrainStatus(2);
+                entity.setVoiceId(speakerId);
+                entity.setTrainError("");
+                baseDao.updateById(entity);
+
+                try {
+                    // 检查speaker_id是否已经被使用
+                    if (timbreService.existsByTtsVoice(speakerId)) {
+                        log.info("音色编码speaker_id[{}]已存在，不重复写入数据库", speakerId);
+                    } else {
+                        xiaozhi.modules.timbre.dto.TimbreDataDTO timbreDataDTO = new xiaozhi.modules.timbre.dto.TimbreDataDTO();
+                        timbreDataDTO.setTtsModelId(entity.getModelId());
+                        timbreDataDTO.setName(entity.getName());
+                        timbreDataDTO.setTtsVoice(speakerId);
+                        timbreDataDTO.setSort(1);
+                        timbreDataDTO.setLanguages("zh-CN");
+                        timbreDataDTO.setRemark("复刻音色");
+
+                        // 保存到音色表
+                        timbreService.save(timbreDataDTO);
+                        log.info("成功将复刻音色添加到音色表，speaker_id: {}", speakerId);
                     }
-                } else {
-                    // 失败时使用StatusMessage作为错误信息
-                    String errorMsg = StringUtils.isNotBlank(statusMessage) ? statusMessage : "训练失败";
-                    throw new RenException(errorMsg);
+                } catch (Exception e) {
+                    // 记录错误但不影响主流程
+                    log.error("将复刻音色添加到音色表失败: " + e.getMessage(), e);
                 }
             } else {
-                throw new RenException(ErrorCode.VOICE_CLONE_RESPONSE_FORMAT_ERROR);
+                // 失败时使用StatusMessage作为错误信息
+                String errorMsg = StringUtils.isNotBlank(statusMessage) ? statusMessage : "训练失败";
+                throw new RenException(errorMsg);
             }
         } else {
-            throw new RenException(ErrorCode.VOICE_CLONE_REQUEST_FAILED + "，状态码: " + response.statusCode());
+            String errorMsg = objectMapper.convertValue(rsp.get("message"),
+                    new TypeReference<String>() {
+                    });
+            if (StringUtils.isNotBlank(errorMsg)) {
+                throw new RenException(errorMsg);
+            }
+            throw new RenException(ErrorCode.VOICE_CLONE_RESPONSE_FORMAT_ERROR);
         }
     }
 }

@@ -466,7 +466,7 @@ export default {
   'chatHistory.downloadCurrentSession': '下载本会话聊天记录',
   'chatHistory.downloadCurrentWithPreviousSessions': '下载本会话及前20条会话聊天记录',
   'chatHistory.downloadLinkFailed': '获取下载链接失败',
-  
+
   'cache.status': '缓存状态',
   'cache.cdnEnabled': 'CDN模式已启用',
   'cache.cdnDisabled': 'CDN模式已禁用',
@@ -1021,7 +1021,7 @@ export default {
   'warning': '警告',
   'info': '提示',
   'common.networkError': '网络请求失败',
-  
+
   // SM2加密相关错误消息
   'sm2.publicKeyNotConfigured': 'SM2公钥未配置，请联系管理员',
   'sm2.encryptionFailed': '密码加密失败',
@@ -1112,5 +1112,5 @@ export default {
   'voiceClone.updateNameSuccess': '名称更新成功',
   'voiceClone.updateNameFailed': '名称更新失败',
   'voiceClone.playFailed': '播放失败',
-  'voiceClone.Details': '详情',
+  'voiceClone.Details': '错误详情',
 }

@@ -392,6 +392,15 @@ public class ConfigServiceImpl implements ConfigService {
                         ((Map<String, Object>) model.getConfigJson()).put("ref_audio", referenceAudio);
                     if (referenceText != null)
                         ((Map<String, Object>) model.getConfigJson()).put("ref_text", referenceText);
+
+                    // 火山引擎声音克隆需要替换resource_id
+                    Map<String, Object> map = (Map<String, Object>) model.getConfigJson();
+                    if ("huoshan_double_stream".equals(map.get("type"))) {
+                        // 如果voice是”S_“开头的，使用seed-icl-1.0
+                        if (voice != null && voice.startsWith("S_")) {
+                            map.put("resource_id", "seed-icl-1.0");
+                        }
+                    }
                 }
                 // 如果是Intent类型，且type=intent_llm，则给他添加附加模型
                 if ("Intent".equals(modelTypes[i])) {

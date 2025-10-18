@@ -1021,7 +1021,7 @@ export default {
   'warning': 'Warning',
   'info': 'Info',
   'common.networkError': 'Network request failed',
-  
+
   // SM2 Encryption
   'sm2.publicKeyNotConfigured': 'SM2 public key not configured, please contact administrator',
   'sm2.encryptionFailed': 'Password encryption failed',
@@ -1112,5 +1112,5 @@ export default {
   'voiceClone.updateNameSuccess': 'Name updated successfully',
   'voiceClone.updateNameFailed': 'Failed to update name',
   'voiceClone.playFailed': 'Play failed',
-  'voiceClone.Details': 'Details',
+  'voiceClone.Details': 'Error Details',
 }

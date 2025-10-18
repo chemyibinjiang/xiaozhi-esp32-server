@@ -16,7 +16,7 @@ export default {
   'header.paramDictionary': '參數字典',
   'header.paramManagement': '參數管理',
   'header.dictManagement': '字典管理',
-  'header.agentTemplate': '預設角色模板', 
+  'header.agentTemplate': '預設角色模板',
   'header.searchHistory': '搜索歷史',
   'header.clearHistory': '清空歷史',
   'header.providerManagement': '字段管理',
@@ -1112,5 +1112,5 @@ export default {
   'voiceClone.updateNameSuccess': '名稱更新成功',
   'voiceClone.updateNameFailed': '名稱更新失敗',
   'voiceClone.playFailed': '播放失敗',
-  'voiceClone.Details': '詳情',
+  'voiceClone.Details': '錯誤詳情',
 }

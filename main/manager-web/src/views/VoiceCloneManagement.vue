@@ -41,17 +41,17 @@
                                     </div>
                                 </template>
                             </el-table-column>
-                            
+
                             <el-table-column :label="$t('voiceClone.Details')" align="center" width="80">
                                 <template slot-scope="scope">
                                     <el-tooltip :content="getTooltipContent(scope.row)" placement="top">
-                                        <el-button size="mini" type="text" icon="el-icon-info" 
+                                        <el-button size="mini" type="text" icon="el-icon-info"
                                             @click="handleViewDetails(scope.row)">
                                         </el-button>
                                     </el-tooltip>
                                 </template>
                             </el-table-column>
-                            
+
                             <el-table-column :label="$t('voiceClone.action')" align="center" width="180">
                                 <template slot-scope="scope">
                                     <el-button v-if="scope.row.hasVoice" size="mini" type="text"
@@ -189,73 +189,7 @@ export default {
                 case 3:
                     // 训练失败时，根据错误信息智能展示
                     if (row.trainError) {
-                        const errorMsg = row.trainError;
-
-                        // 火山引擎语音复刻业务错误码映射表
-                        const voiceCloneErrorMap = {
-                            '1001': '请求参数有误',
-                            '1101': '音频上传失败',
-                            '1102': 'ASR（语音识别成文字）转写失败',
-                            '1103': 'SID声纹检测失败',
-                            '1104': '声纹检测未通过，声纹跟名人相似度过高',
-                            '1105': '获取音频数据失败',
-                            '1106': 'SpeakerID重复',
-                            '1107': 'SpeakerID未找到',
-                            '1108': '音频转码失败',
-                            '1109': 'WER检测错误，上传音频与请求携带文本对比字错率过高',
-                            '1111': 'AED检测错误，通常由于音频不包含说话声',
-                            '1112': 'SNR检测错误，通常由于信噪比过高',
-                            '1113': '降噪处理失败',
-                            '1114': '音频质量低，降噪失败',
-                            '1122': '未检测到人声',
-                            '1123': '已达上传次数限制（同一个音色支持10次上传）'
-                        };
-
-                        // HTTP 公共错误码映射表
-                        const httpErrorMap = {
-                            '400': '请求参数错误',
-                            '401': 'Access Key不合法或签名错误',
-                            '403': '权限不足',
-                            '404': '接口不存在',
-                            '429': '请求过于频繁',
-                            '500': '服务器内部错误',
-                            '502': '服务故障',
-                            '503': '服务暂时不可用',
-                            '504': '服务超时'
-                        };
-
-                        // 匹配业务错误码
-                        const businessErrorMatch = errorMsg.match(/业务错误\s*(\d+):/);
-                        if (businessErrorMatch) {
-                            const code = businessErrorMatch[1];
-                            const desc = voiceCloneErrorMap[code] || errorMsg.split(':')[1]?.trim() || '未知错误';
-                            return `训练失败：${desc}\n（业务错误码 ${code}）`;
-                        }
-
-                        // 匹配旧格式的业务错误码
-                        for (const [code, desc] of Object.entries(voiceCloneErrorMap)) {
-                            if (errorMsg.includes(code)) {
-                                return `训练失败：${desc}\n（业务错误码 ${code}）`;
-                            }
-                        }
-
-                        // 匹配HTTP状态码
-                        const httpErrorMatch = errorMsg.match(/HTTP\s*(\d+)/);
-                        if (httpErrorMatch) {
-                            const code = httpErrorMatch[1];
-                            const desc = httpErrorMap[code] || '请求失败';
-                            // 提取完整的错误信息
-                            return `训练失败：${desc}\n（HTTP ${code}）\n${errorMsg}`;
-                        }
-
-                        // 匹配旧格式的HTTP状态码
-                        for (const [code, desc] of Object.entries(httpErrorMap)) {
-                            if (errorMsg.includes(`状态码: ${code}`) || errorMsg.includes(`状态码:${code}`)) {
-                                return `训练失败：${desc}\n（HTTP ${code}）`;
-                            }
-                        }
-
-                        return `训练失败：${errorMsg}`;
+                        return `训练失败：${row.trainError}`;
                     }
                     return '训练失败';
                 default:
@@ -354,7 +288,7 @@ export default {
                 return;
             }
             row._submitting = true;
-            
+
             const params = {
                 cloneId: row.id
             };
@@ -384,7 +318,7 @@ export default {
                 }, (error) => {
                     // API调用失败，刷新列表以获取最新状态
                     console.error('API调用失败:', error);
-                    this.$message.error('请求失败');
+                    this.$message.error('克隆失败，请将鼠标悬停在错误提示上，查看错误详情');
                     this.fetchVoiceCloneList();
                     row._submitting = false;
                 });
@@ -396,7 +330,7 @@ export default {
                 row._submitting = false;
             }
         },
-        
+
         // 更新行状态并触发视图更新
         updateRowStatus(row, status, statusCode = null) {
             // 在Vue中直接修改数组中的对象属性可能不会触发视图更新
@@ -404,12 +338,12 @@ export default {
             const updateData = {
                 trainStatus: status
             };
-            
+
             // 如果提供了状态码，也更新状态码信息
             if (statusCode !== null) {
                 updateData.statusCode = statusCode;
             }
-            
+
             if (index !== -1) {
                 // 使用Vue.set来确保响应式更新
                 this.$set(this.voiceCloneList, index, {
