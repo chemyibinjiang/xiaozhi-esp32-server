@@ -187,52 +187,76 @@ export default {
                 case 2:
                     return '训练成功';
                 case 3:
-                    // 训练失败时，根据状态码显示详细错误信息
-                    let statusCode = null;
-                    
-                    // 优先从row.statusCode获取状态码
-                    if (row.statusCode) {
-                        statusCode = parseInt(row.statusCode); // 确保是数字类型
-                    }
-                    // 如果有trainError字段，尝试从中提取状态码
-                    else if (row.trainError && typeof row.trainError === 'string') {
-                        console.log('尝试从trainError提取状态码:', row.trainError);
-                        // 使用更宽松的正则表达式，匹配各种可能的状态码格式
-                        const statusMatch = row.trainError.match(/(?:状态码|status code):?\s*(\d+)/i);
-                        if (statusMatch && statusMatch[1]) {
-                            statusCode = parseInt(statusMatch[1]);
-                            console.log('成功提取状态码:', statusCode);
-                        }
-                    }
-                    
-                    // 如果成功获取到状态码，显示对应的错误信息
-                    if (statusCode) {
-                        console.log('使用状态码:', statusCode);
-                        // 创建完整的状态码映射表
-                        const statusMessages = {
-                            400: '关键参数缺失，例如Action, Version参数缺失等。',
-                            401: '请求的Access Key不合法或签名结果不正确。',
-                            403: '子用户拥有的权限不支持当前操作。',
-                            404: '请求的服务或接口不存在。',
-                            429: '请求过于频繁，超出了限速。',
-                            500: '内部错误。',
-                            502: '服务存在故障。',
-                            503: '处于熔断状态的服务暂时不可访问，稍后重试。',
-                            504: '服务执行超时。'
-                        };
-                        
-                        // 简化处理，直接使用对象而非数组
-                        if (statusMessages.hasOwnProperty(statusCode)) {
-                            return `训练失败 (${statusCode}): ${statusMessages[statusCode]}`;
-                        }
-                    }
-                    
-                    // 如果有trainError直接显示
+                    // 训练失败时，根据错误信息智能展示
                     if (row.trainError) {
-                        console.log('直接显示trainError:', row.trainError);
-                        return `训练失败: ${row.trainError}`;
+                        const errorMsg = row.trainError;
+
+                        // 火山引擎语音复刻业务错误码映射表
+                        const voiceCloneErrorMap = {
+                            '1001': '请求参数有误',
+                            '1101': '音频上传失败',
+                            '1102': 'ASR（语音识别成文字）转写失败',
+                            '1103': 'SID声纹检测失败',
+                            '1104': '声纹检测未通过，声纹跟名人相似度过高',
+                            '1105': '获取音频数据失败',
+                            '1106': 'SpeakerID重复',
+                            '1107': 'SpeakerID未找到',
+                            '1108': '音频转码失败',
+                            '1109': 'WER检测错误，上传音频与请求携带文本对比字错率过高',
+                            '1111': 'AED检测错误，通常由于音频不包含说话声',
+                            '1112': 'SNR检测错误，通常由于信噪比过高',
+                            '1113': '降噪处理失败',
+                            '1114': '音频质量低，降噪失败',
+                            '1122': '未检测到人声',
+                            '1123': '已达上传次数限制（同一个音色支持10次上传）'
+                        };
+
+                        // HTTP 公共错误码映射表
+                        const httpErrorMap = {
+                            '400': '请求参数错误',
+                            '401': 'Access Key不合法或签名错误',
+                            '403': '权限不足',
+                            '404': '接口不存在',
+                            '429': '请求过于频繁',
+                            '500': '服务器内部错误',
+                            '502': '服务故障',
+                            '503': '服务暂时不可用',
+                            '504': '服务超时'
+                        };
+
+                        // 匹配业务错误码
+                        const businessErrorMatch = errorMsg.match(/业务错误\s*(\d+):/);
+                        if (businessErrorMatch) {
+                            const code = businessErrorMatch[1];
+                            const desc = voiceCloneErrorMap[code] || errorMsg.split(':')[1]?.trim() || '未知错误';
+                            return `训练失败：${desc}\n（业务错误码 ${code}）`;
+                        }
+
+                        // 匹配旧格式的业务错误码
+                        for (const [code, desc] of Object.entries(voiceCloneErrorMap)) {
+                            if (errorMsg.includes(code)) {
+                                return `训练失败：${desc}\n（业务错误码 ${code}）`;
+                            }
+                        }
+
+                        // 匹配HTTP状态码
+                        const httpErrorMatch = errorMsg.match(/HTTP\s*(\d+)/);
+                        if (httpErrorMatch) {
+                            const code = httpErrorMatch[1];
+                            const desc = httpErrorMap[code] || '请求失败';
+                            // 提取完整的错误信息
+                            return `训练失败：${desc}\n（HTTP ${code}）\n${errorMsg}`;
+                        }
+
+                        // 匹配旧格式的HTTP状态码
+                        for (const [code, desc] of Object.entries(httpErrorMap)) {
+                            if (errorMsg.includes(`状态码: ${code}`) || errorMsg.includes(`状态码:${code}`)) {
+                                return `训练失败：${desc}\n（HTTP ${code}）`;
+                            }
+                        }
+
+                        return `训练失败：${errorMsg}`;
                     }
-                    
                     return '训练失败';
                 default:
                     return '';
