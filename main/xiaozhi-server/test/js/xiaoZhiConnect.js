@@ -1,8 +1,8 @@
+import { otaStatusStyle } from './document.js';
 import { log } from './utils/logger.js';
-import { otaStatusStyle } from './document.js'
 
 // WebSocket 连接
-export async function webSocketConnect(otaUrl, config){
+export async function webSocketConnect(otaUrl, config) {
 
     if (!validateConfig(config)) {
         return;
@@ -17,7 +17,7 @@ export async function webSocketConnect(otaUrl, config){
 
     // 从OTA响应中提取websocket信息
     const { websocket } = otaResult;
-    if (!websocket || !websocket.url || !websocket.token) {
+    if (!websocket || !websocket.url) {
         log('OTA响应中缺少websocket信息', 'error');
         return;
     }
@@ -27,10 +27,10 @@ export async function webSocketConnect(otaUrl, config){
 
     // 添加token参数（从OTA响应中获取）
     if (websocket.token) {
-        if(websocket.token.startsWith("Bearer ")){
+        if (websocket.token.startsWith("Bearer ")) {
             connUrl.searchParams.append('authorization', websocket.token);
         } else {
-            connUrl.searchParams.append('authorization','Bearer ' + websocket.token);
+            connUrl.searchParams.append('authorization', 'Bearer ' + websocket.token);
         }
     }
 
@@ -63,7 +63,7 @@ function validateConfig(config) {
 }
 
 // 判断wsUrl路径是否存在错误
-function validateWsUrl(wsUrl){
+function validateWsUrl(wsUrl) {
     if (wsUrl === '') return false;
     // 检查URL格式
     if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {

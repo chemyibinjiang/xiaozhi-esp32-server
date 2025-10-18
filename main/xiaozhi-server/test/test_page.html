@@ -133,10 +133,8 @@
             <div class="connection-controls">
                 <input type="text" id="otaUrl" value="http://127.0.0.1:8002/xiaozhi/ota/"
                     placeholder="OTA服务器地址，如：http://127.0.0.1:8002/xiaozhi/ota/" />
-                <input type="text" id="serverUrl" value="" readonly disabled
-                    placeholder="自动从OTA接口获取" />
+                <input type="text" id="serverUrl" value="" readonly disabled placeholder="点击连接按钮后，自动从OTA接口获取" />
                 <button id="connectButton">连接</button>
-                <button id="authTestButton">测试认证</button>
             </div>
         </div>
 
@@ -1009,7 +1007,6 @@
         // 初始化事件监听器
         function initEventListeners() {
             connectButton.addEventListener('click', connectToServer);
-            document.getElementById('authTestButton').addEventListener('click', testAuthentication);
 
             // 设备配置面板折叠/展开
             const toggleButton = document.getElementById('toggleConfig');
@@ -1084,52 +1081,6 @@
             });
 
             window.addEventListener('resize', initVisualizer);
-        }
-
-        // 测试认证
-        async function testAuthentication() {
-            log('开始测试认证...', 'info');
-
-            const config = getConfig();
-
-            const otaUrl = document.getElementById('otaUrl').value.trim();
-
-
-            // 显示服务器配置
-            log('-------- 服务器认证配置检查 --------', 'info');
-            log('请确认config.yaml中的auth配置：', 'info');
-            log('1. server.auth.enabled 为 false 或服务器已正确配置认证', 'info');
-            log('2. 如果启用了认证，请确认使用了正确的token', 'info');
-            log(`3. 或者在allowed_devices中添加了测试设备MAC：${config.deviceMac}`, 'info');
-
-            try {
-                log('尝试连接...', 'info');
-                const ws = await webSocketConnect(otaUrl, config)
-
-                if (ws) {
-                    ws.onopen = () => {
-                        log('测试成功: 可连接，服务器可能没有启用认证', 'success');
-                        ws.close();
-                    };
-
-                    ws.onerror = (error) => {
-                        log('测试失败: 连接被拒绝，服务器可能启用了认证', 'error');
-                    };
-
-                    // 5秒后关闭测试连接
-                    setTimeout(() => {
-                        if (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN) {
-                            ws.close();
-                        }
-                    }, 5000);
-                } else {
-                    log(`测试失败: 连接被拒绝，服务器可能启用了认证`, 'error');
-                }
-            } catch (error) {
-                log(`测试出错: ${error.message}`, 'error');
-            }
-
-            log('认证测试已启动，请查看测试结果...', 'info');
         }
 
         // 帮助函数：ArrayBuffer转Base64
