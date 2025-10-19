@@ -1098,6 +1098,7 @@ export default {
   'voiceClone.reset': '重置',
   'voiceClone.play': '播放',
   'voiceClone.pause': '暫停',
+  'voiceClone.stop': '停止',
   'voiceClone.cancel': '取消',
   'voiceClone.warning': '警告',
   'voiceClone.ok': '確定',

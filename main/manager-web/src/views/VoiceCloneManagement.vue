@@ -52,17 +52,17 @@
                                 </template>
                             </el-table-column>
 
-                            <el-table-column :label="$t('voiceClone.action')" align="center" width="180">
+                            <el-table-column :label="$t('voiceClone.action')" align="center" width="230">
                                 <template slot-scope="scope">
                                     <el-button v-if="scope.row.hasVoice" size="mini" type="text"
                                         @click="handlePlay(scope.row)">
-                                        {{ $t('voiceClone.play') }}
+                                        {{ playingRowId === scope.row.id ? $t('voiceClone.stop') : $t('voiceClone.play') }}
                                     </el-button>
                                     <el-button size="mini" type="text" @click="handleUpload(scope.row)">
                                         {{ $t('voiceClone.upload') }}
                                     </el-button>
                                     <el-button v-if="scope.row.hasVoice" size="mini" type="text"
-                                        @click="handleClone(scope.row)">
+                                        @click="handleClone(scope.row)" :loading="scope.row._cloning">
                                         {{ $t('voiceClone.clone') }}
                                     </el-button>
                                 </template>
@@ -149,7 +149,10 @@ export default {
                 modelId: "",
                 voiceIds: [],
                 userId: null
-            }
+            },
+            // 音频播放相关
+            currentAudio: null, // 当前正在播放的音频对象
+            playingRowId: null  // 当前正在播放的行 ID
         };
     },
     created() {
@@ -284,10 +287,10 @@ export default {
         // 处理复刻操作
         handleClone(row) {
             // 防止重复提交
-            if (row._submitting) {
+            if (row._cloning) {
                 return;
             }
-            row._submitting = true;
+            this.$set(row, '_cloning', true);
 
             const params = {
                 cloneId: row.id
@@ -313,21 +316,21 @@ export default {
                         this.$message.error('处理响应时出错');
                         this.fetchVoiceCloneList();
                     } finally {
-                        row._submitting = false;
+                        this.$set(row, '_cloning', false);
                     }
                 }, (error) => {
                     // API调用失败，刷新列表以获取最新状态
                     console.error('API调用失败:', error);
                     this.$message.error('克隆失败，请将鼠标悬停在错误提示上，查看错误详情');
                     this.fetchVoiceCloneList();
-                    row._submitting = false;
+                    this.$set(row, '_cloning', false);
                 });
             } catch (error) {
                 // 调用API时出错，刷新列表
                 console.error('调用API时出错:', error);
                 this.$message.error('调用API时出错');
                 this.fetchVoiceCloneList();
-                row._submitting = false;
+                this.$set(row, '_cloning', false);
             }
         },
 
@@ -427,6 +430,15 @@ export default {
         },
         // 播放音频
         handlePlay(row) {
+            // 如果点击的是正在播放的行,则停止播放
+            if (this.playingRowId === row.id && this.currentAudio) {
+                this.stopCurrentAudio();
+                return;
+            }
+
+            // 停止当前正在播放的音频(如果有)
+            this.stopCurrentAudio();
+
             // 先获取音频下载ID
             Api.voiceClone.getAudioId(row.id, (res) => {
                 res = res.data;
@@ -435,14 +447,42 @@ export default {
                     // 使用获取到的uuid播放音频
                     const audioUrl = Api.voiceClone.getPlayVoiceUrl(uuid);
                     const audio = new Audio(audioUrl);
+
+                    // 设置当前播放状态
+                    this.currentAudio = audio;
+                    this.playingRowId = row.id;
+
+                    // 播放结束时清除状态
+                    audio.addEventListener('ended', () => {
+                        this.playingRowId = null;
+                        this.currentAudio = null;
+                    });
+
+                    // 播放出错时清除状态
+                    audio.addEventListener('error', () => {
+                        this.playingRowId = null;
+                        this.currentAudio = null;
+                    });
+
                     audio.play().catch(err => {
                         console.error('播放失败:', err);
                         this.$message.error(this.$t('voiceClone.playFailed') || '播放失败');
+                        this.playingRowId = null;
+                        this.currentAudio = null;
                     });
                 } else {
                     this.$message.error(res.msg || this.$t('voiceClone.audioNotExist') || '音频不存在');
                 }
             });
+        },
+        // 停止当前音频播放
+        stopCurrentAudio() {
+            if (this.currentAudio) {
+                this.currentAudio.pause();
+                this.currentAudio.currentTime = 0;
+                this.currentAudio = null;
+            }
+            this.playingRowId = null;
         },
         // 上传音频
         handleUpload(row) {
