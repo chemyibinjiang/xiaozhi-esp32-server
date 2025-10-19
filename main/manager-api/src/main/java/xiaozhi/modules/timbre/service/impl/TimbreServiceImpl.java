@@ -5,8 +5,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import xiaozhi.common.exception.ErrorCode;
-import xiaozhi.common.utils.MessageUtils;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -18,18 +17,23 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import cn.hutool.core.collection.CollectionUtil;
 import lombok.AllArgsConstructor;
 import xiaozhi.common.constant.Constant;
+import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.page.PageData;
 import xiaozhi.common.redis.RedisKeys;
 import xiaozhi.common.redis.RedisUtils;
 import xiaozhi.common.service.impl.BaseServiceImpl;
 import xiaozhi.common.utils.ConvertUtils;
+import xiaozhi.common.utils.MessageUtils;
 import xiaozhi.modules.model.dto.VoiceDTO;
+import xiaozhi.modules.security.user.SecurityUser;
 import xiaozhi.modules.timbre.dao.TimbreDao;
 import xiaozhi.modules.timbre.dto.TimbreDataDTO;
 import xiaozhi.modules.timbre.dto.TimbrePageDTO;
 import xiaozhi.modules.timbre.entity.TimbreEntity;
 import xiaozhi.modules.timbre.service.TimbreService;
 import xiaozhi.modules.timbre.vo.TimbreDetailsVO;
+import xiaozhi.modules.voiceclone.dao.VoiceCloneDao;
+import xiaozhi.modules.voiceclone.entity.VoiceCloneEntity;
 
 /**
  * 音色的业务层的实现
@@ -42,6 +46,7 @@ import xiaozhi.modules.timbre.vo.TimbreDetailsVO;
 public class TimbreServiceImpl extends BaseServiceImpl<TimbreDao, TimbreEntity> implements TimbreService {
 
     private final TimbreDao timbreDao;
+    private final VoiceCloneDao voiceCloneDao;
     private final RedisUtils redisUtils;
 
     @Override
@@ -123,39 +128,31 @@ public class TimbreServiceImpl extends BaseServiceImpl<TimbreDao, TimbreEntity> 
         if (StringUtils.isNotBlank(voiceName)) {
             queryWrapper.like("name", voiceName);
         }
-        
         List<TimbreEntity> timbreEntities = timbreDao.selectList(queryWrapper);
-        if (CollectionUtil.isEmpty(timbreEntities)) {
-            return null;
+        if (timbreEntities == null) {
+            timbreEntities = new ArrayList<>();
         }
+        List<VoiceDTO> voiceDTOs = timbreEntities.stream()
+                .map(entity -> new VoiceDTO(entity.getId(), entity.getName()))
+                .collect(Collectors.toList());
 
-        // 自定义排序：音色编码以S_开头的排在最前面，其他按sort字段升序排序
-        timbreEntities.sort((t1, t2) -> {
-            // 先判断是否以S_开头
-            boolean isT1S_Start = StringUtils.isNotBlank(t1.getTtsVoice()) && t1.getTtsVoice().startsWith("S_");
-            boolean isT2S_Start = StringUtils.isNotBlank(t2.getTtsVoice()) && t2.getTtsVoice().startsWith("S_");
-            
-            if (isT1S_Start && !isT2S_Start) return -1;  // t1以S_开头，排在前面
-            if (!isT1S_Start && isT2S_Start) return 1;   // t2以S_开头，排在前面
-            
-            // 都以S_开头或都不以S_开头，则按sort字段升序排序
-            return Long.compare(t1.getSort(), t2.getSort());
-        });
-
-        // 排序完成后转换为DTO列表，并为复刻音色添加前缀
-        List<VoiceDTO> voiceDTOs = new ArrayList<>();
-        for (TimbreEntity entity : timbreEntities) {
-            VoiceDTO dto = new VoiceDTO();
-            dto.setId(entity.getId());
-            // 对于音色编码以S_开头的复刻音色，在名称前加上"克隆："前缀
-            String name = entity.getName();
-            if (StringUtils.isNotBlank(entity.getTtsVoice()) && entity.getTtsVoice().startsWith("S_") && !name.startsWith("克隆：")) {
-                name = MessageUtils.getMessage(ErrorCode.VOICE_CLONE_PREFIX) + name;
+        // 获取当前登录用户ID
+        Long currentUserId = SecurityUser.getUser().getId();
+        if (currentUserId != null) {
+            // 查询用户的所有克隆音色记录
+            List<VoiceDTO> cloneEntities = voiceCloneDao.getTrainSuccess(ttsModelId, currentUserId);
+            for (VoiceDTO entity : cloneEntities) {
+                // 只添加训练成功的克隆音色，且模型ID匹配
+                VoiceDTO voiceDTO = new VoiceDTO();
+                voiceDTO.setId(entity.getId());
+                voiceDTO.setName(MessageUtils.getMessage(ErrorCode.VOICE_CLONE_PREFIX) + entity.getName());
+                redisUtils.set(RedisKeys.getTimbreNameById(voiceDTO.getId()), voiceDTO.getName(),
+                        RedisUtils.NOT_EXPIRE);
+                voiceDTOs.add(0, voiceDTO);
             }
-            dto.setName(name);
-            voiceDTOs.add(dto);
         }
-        return voiceDTOs;
+
+        return CollectionUtil.isEmpty(voiceDTOs) ? null : voiceDTOs;
     }
 
     /**
@@ -184,21 +181,30 @@ public class TimbreServiceImpl extends BaseServiceImpl<TimbreDao, TimbreEntity> 
                 redisUtils.set(RedisKeys.getTimbreNameById(id), name);
             }
             return name;
+        } else {
+            VoiceCloneEntity cloneEntity = voiceCloneDao.selectById(id);
+            if (cloneEntity != null) {
+                String name = MessageUtils.getMessage(ErrorCode.VOICE_CLONE_PREFIX) + cloneEntity.getName();
+                redisUtils.set(RedisKeys.getTimbreNameById(id), name);
+                return name;
+            }
         }
 
         return null;
     }
 
     @Override
-    public boolean existsByTtsVoice(String ttsVoice) {
-        if (StringUtils.isBlank(ttsVoice)) {
-            return false;
+    public VoiceDTO getByVoiceCode(String ttsModelId, String voiceCode) {
+        if (StringUtils.isBlank(voiceCode)) {
+            return null;
         }
-        
         QueryWrapper<TimbreEntity> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("tts_voice", ttsVoice);
-        
-        // 检查数据库中是否存在相同的ttsVoice值
-        return timbreDao.exists(queryWrapper);
+        queryWrapper.eq("tts_model_id", ttsModelId);
+        queryWrapper.eq("tts_voice", voiceCode);
+        List<TimbreEntity> list = timbreDao.selectList(queryWrapper);
+        if (list.isEmpty()) {
+            return null;
+        }
+        return new VoiceDTO(list.get(0).getId(), list.get(0).getName());
     }
 }

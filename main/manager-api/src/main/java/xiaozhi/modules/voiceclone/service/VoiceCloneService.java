@@ -33,6 +33,9 @@ public interface VoiceCloneService extends BaseService<VoiceCloneEntity> {
 
     /**
      * 根据用户ID查询声音克隆列表
+     * 
+     * @param userId 用户ID
+     * @return 声音克隆列表
      */
     List<VoiceCloneEntity> getByUserId(Long userId);
 

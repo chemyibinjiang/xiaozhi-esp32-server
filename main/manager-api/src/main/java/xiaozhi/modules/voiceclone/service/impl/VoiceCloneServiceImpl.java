@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import xiaozhi.common.constant.Constant;
 import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.exception.RenException;
 import xiaozhi.common.page.PageData;
@@ -47,7 +48,6 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
     private final ModelConfigService modelConfigService;
     private final SysUserService sysUserService;
     private final ObjectMapper objectMapper;
-    private final xiaozhi.modules.timbre.service.TimbreService timbreService;
 
     @Override
     public PageData<VoiceCloneEntity> page(Map<String, Object> params) {
@@ -74,8 +74,27 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void save(VoiceCloneDTO dto) {
+        ModelConfigEntity modelConfig = modelConfigService.getModelByIdFromCache(dto.getModelId());
+        if (modelConfig == null || modelConfig.getConfigJson() == null) {
+            throw new RenException(ErrorCode.VOICE_CLONE_MODEL_CONFIG_NOT_FOUND);
+        }
+        Map<String, Object> config = modelConfig.getConfigJson();
+        String type = (String) config.get("type");
+        if (StringUtils.isBlank(type)) {
+            throw new RenException(ErrorCode.VOICE_CLONE_MODEL_TYPE_NOT_FOUND);
+        }
+
         // 检查Voice ID是否已经被使用
         for (String voiceId : dto.getVoiceIds()) {
+            if (StringUtils.isBlank(voiceId)) {
+                continue;
+            }
+            if (Constant.VOICE_CLONE_HUOSHAN_DOUBLE_STREAM.equals(type)) {
+                if (voiceId.indexOf("S_") == -1) {
+                    throw new RenException(ErrorCode.VOICE_CLONE_HUOSHAN_VOICE_ID_ERROR);
+                }
+            }
+
             QueryWrapper<VoiceCloneEntity> wrapper = new QueryWrapper<>();
             wrapper.eq("voice_id", voiceId);
             wrapper.eq("model_id", dto.getModelId());
@@ -254,7 +273,7 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
             if (StringUtils.isBlank(type)) {
                 throw new RenException(ErrorCode.VOICE_CLONE_MODEL_TYPE_NOT_FOUND);
             }
-            if (type.equals("huoshan_double_stream")) {
+            if (Constant.VOICE_CLONE_HUOSHAN_DOUBLE_STREAM.equals(type)) {
                 huoshanClone(config, entity);
             }
         } catch (RenException re) {
@@ -337,28 +356,6 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
                 entity.setVoiceId(speakerId);
                 entity.setTrainError("");
                 baseDao.updateById(entity);
-
-                try {
-                    // 检查speaker_id是否已经被使用
-                    if (timbreService.existsByTtsVoice(speakerId)) {
-                        log.info("音色编码speaker_id[{}]已存在，不重复写入数据库", speakerId);
-                    } else {
-                        xiaozhi.modules.timbre.dto.TimbreDataDTO timbreDataDTO = new xiaozhi.modules.timbre.dto.TimbreDataDTO();
-                        timbreDataDTO.setTtsModelId(entity.getModelId());
-                        timbreDataDTO.setName(entity.getName());
-                        timbreDataDTO.setTtsVoice(speakerId);
-                        timbreDataDTO.setSort(1);
-                        timbreDataDTO.setLanguages("zh-CN");
-                        timbreDataDTO.setRemark("复刻音色");
-
-                        // 保存到音色表
-                        timbreService.save(timbreDataDTO);
-                        log.info("成功将复刻音色添加到音色表，speaker_id: {}", speakerId);
-                    }
-                } catch (Exception e) {
-                    // 记录错误但不影响主流程
-                    log.error("将复刻音色添加到音色表失败: " + e.getMessage(), e);
-                }
             } else {
                 // 失败时使用StatusMessage作为错误信息
                 String errorMsg = StringUtils.isNotBlank(statusMessage) ? statusMessage : "训练失败";

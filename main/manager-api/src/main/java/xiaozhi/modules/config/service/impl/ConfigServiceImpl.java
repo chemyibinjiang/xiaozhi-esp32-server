@@ -38,6 +38,8 @@ import xiaozhi.modules.sys.dto.SysParamsDTO;
 import xiaozhi.modules.sys.service.SysParamsService;
 import xiaozhi.modules.timbre.service.TimbreService;
 import xiaozhi.modules.timbre.vo.TimbreDetailsVO;
+import xiaozhi.modules.voiceclone.entity.VoiceCloneEntity;
+import xiaozhi.modules.voiceclone.service.VoiceCloneService;
 
 @Service
 @AllArgsConstructor
@@ -51,6 +53,7 @@ public class ConfigServiceImpl implements ConfigService {
     private final TimbreService timbreService;
     private final AgentPluginMappingService agentPluginMappingService;
     private final AgentMcpAccessPointService agentMcpAccessPointService;
+    private final VoiceCloneService cloneVoiceService;
     private final AgentVoicePrintDao agentVoicePrintDao;
 
     @Override
@@ -124,6 +127,11 @@ public class ConfigServiceImpl implements ConfigService {
             voice = timbre.getTtsVoice();
             referenceAudio = timbre.getReferenceAudio();
             referenceText = timbre.getReferenceText();
+        } else {
+            VoiceCloneEntity voice_print = cloneVoiceService.selectById(agent.getTtsVoiceId());
+            if (voice_print != null) {
+                voice = voice_print.getVoiceId();
+            }
         }
         // 构建返回数据
         Map<String, Object> result = new HashMap<>();
@@ -395,7 +403,7 @@ public class ConfigServiceImpl implements ConfigService {
 
                     // 火山引擎声音克隆需要替换resource_id
                     Map<String, Object> map = (Map<String, Object>) model.getConfigJson();
-                    if ("huoshan_double_stream".equals(map.get("type"))) {
+                    if (Constant.VOICE_CLONE_HUOSHAN_DOUBLE_STREAM.equals(map.get("type"))) {
                         // 如果voice是”S_“开头的，使用seed-icl-1.0
                         if (voice != null && voice.startsWith("S_")) {
                             map.put("resource_id", "seed-icl-1.0");

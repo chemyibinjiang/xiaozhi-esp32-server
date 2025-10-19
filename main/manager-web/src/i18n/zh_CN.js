@@ -876,6 +876,8 @@ export default {
   'ttsModel.operationClosed': '操作已关闭',
   'ttsModel.edit': '编辑',
   'ttsModel.delete': '删除',
+  'ttsModel.deleteVoiceSuccess': '成功删除{count}个音色',
+  'ttsModel.deleteFailed': '删除音色失败',
   'ttsModel.save': '保存',
   'ttsModel.deselectAll': '取消全选',
   'ttsModel.selectAll': '全选',

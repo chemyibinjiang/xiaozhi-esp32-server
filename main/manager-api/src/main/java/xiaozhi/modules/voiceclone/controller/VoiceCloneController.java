@@ -116,6 +116,7 @@ public class VoiceCloneController {
             checkPermission(id);
 
             voiceCloneService.updateName(id, name);
+            redisUtils.delete(RedisKeys.getTimbreNameById(id));
             return new Result<String>();
         } catch (Exception e) {
             return new Result<String>().error(ErrorCode.UPDATE_DATA_FAILED, "更新失败: " + e.getMessage());

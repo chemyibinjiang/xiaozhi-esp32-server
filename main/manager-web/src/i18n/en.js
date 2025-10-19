@@ -876,6 +876,8 @@ export default {
   'ttsModel.operationClosed': 'Operation closed',
   'ttsModel.edit': 'Edit',
   'ttsModel.delete': 'Delete',
+  'ttsModel.deleteVoiceSuccess': 'Successfully deleted {count} voices',
+  'ttsModel.deleteFailed': 'Failed to delete voices',
   'ttsModel.save': 'Save',
   'ttsModel.deselectAll': 'Deselect All',
   'ttsModel.selectAll': 'Select All',
