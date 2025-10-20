@@ -82,14 +82,6 @@ public interface ErrorCode {
     int DEVICE_ALREADY_ACTIVATED = 10063;
     // 默认模型删除错误
     int DEFAULT_MODEL_DELETE_ERROR = 10064;
-    // 设备相关错误码
-    int MAC_ADDRESS_ALREADY_EXISTS = 10090; // Mac地址已存在
-    // 模型相关错误码
-    int MODEL_PROVIDER_NOT_EXIST = 10091; // 供应器不存在
-    int LLM_NOT_EXIST = 10092; // 设置的LLM不存在
-    int MODEL_REFERENCED_BY_AGENT = 10093; // 该模型配置已被智能体引用，无法删除
-    int LLM_REFERENCED_BY_INTENT = 10094; // 该LLM模型已被意图识别配置引用，无法删除
-
     // 登录相关错误码
     int ADD_DATA_FAILED = 10065; // 新增数据失败
     int UPDATE_DATA_FAILED = 10066; // 修改数据失败
@@ -126,6 +118,14 @@ public interface ErrorCode {
     int VOICEPRINT_UNREGISTER_REQUEST_ERROR = 10089; // 声纹注销请求失败
     int VOICEPRINT_UNREGISTER_PROCESS_ERROR = 10090; // 声纹注销处理失败
     int VOICEPRINT_IDENTIFY_REQUEST_ERROR = 10091; // 声纹识别请求失败
+
+    // 设备相关错误码
+    int MAC_ADDRESS_ALREADY_EXISTS = 10161; // Mac地址已存在
+    // 模型相关错误码
+    int MODEL_PROVIDER_NOT_EXIST = 10162; // 供应器不存在
+    int LLM_NOT_EXIST = 10092; // 设置的LLM不存在
+    int MODEL_REFERENCED_BY_AGENT = 10093; // 该模型配置已被智能体引用，无法删除
+    int LLM_REFERENCED_BY_INTENT = 10094; // 该LLM模型已被意图识别配置引用，无法删除
 
     // 服务端管理相关错误码
     int INVALID_SERVER_ACTION = 10095; // 无效服务端操作
