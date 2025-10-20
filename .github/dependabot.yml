@@ -3,4 +3,5 @@ updates:
   - package-ecosystem: pip
     directory: /main/xiaozhi-server
     schedule:
-      interval: daily
+      interval: monthly
+      day: 7
