@@ -140,7 +140,7 @@ class OTAHandler(BaseHandler):
                     self.logger.bind(tag=TAG).warning("缺少MQTT签名密钥，密码留空")
 
                 # 构建MQTT配置（直接使用 mqtt_gateway 字符串）
-                return_json["mqtt_gateway"] = {
+                return_json["mqtt"] = {
                     "endpoint": mqtt_gateway_endpoint,
                     "client_id": mqtt_client_id,
                     "username": username,
