@@ -18,7 +18,7 @@ ruamel.yaml==0.18.15
 loguru==0.7.3
 requests==2.32.5
 cozepy==0.19.0
-mem0ai==0.1.62
+mem0ai==1.0.0
 bs4==0.0.2
 modelscope==1.23.2
 sherpa_onnx==1.12.11
