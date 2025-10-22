@@ -66,7 +66,7 @@ class PromptManager:
     def _load_base_template(self):
         """加载基础提示词模板"""
         try:
-            template_path = "agent-base-prompt.txt"
+            template_path = self.config.get("prompt_template", "agent-base-prompt.txt")
             cache_key = f"prompt_template:{template_path}"
 
             # 先从缓存获取
@@ -88,7 +88,7 @@ class PromptManager:
                 self.base_prompt_template = template_content
                 self.logger.bind(tag=TAG).debug("成功加载基础提示词模板并缓存")
             else:
-                self.logger.bind(tag=TAG).warning("未找到agent-base-prompt.txt文件")
+                self.logger.bind(tag=TAG).warning(f"未找到{template_path}文件")
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"加载提示词模板失败: {e}")
 
