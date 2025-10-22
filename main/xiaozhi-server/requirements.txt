@@ -6,7 +6,7 @@ opuslib_next==1.1.2
 numpy==1.26.4
 pydub==0.25.1
 funasr==1.2.3
-torchaudio==2.9.0
+torchaudio==2.2.2
 openai==2.5.0
 google-generativeai==0.8.5
 edge_tts==7.0.0
@@ -35,4 +35,4 @@ PyJWT==2.8.0
 psutil==7.0.0
 portalocker==3.2.0
 Jinja2==3.1.6
-vosk==0.3.45
+vosk==0.3.44
