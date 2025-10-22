@@ -90,6 +90,9 @@ async def sendAudio(conn, audios, frame_duration=60):
     if audios is None or len(audios) == 0:
         return
 
+    # 获取发送延迟配置
+    send_delay = conn.config.get("tts_audio_send_delay", -1) / 1000.0
+
     if isinstance(audios, bytes):
         if conn.client_abort:
             return
@@ -107,16 +110,21 @@ async def sendAudio(conn, audios, frame_duration=60):
 
         flow_control = conn.audio_flow_control
         current_time = time.perf_counter()
-        # 计算预期发送时间
-        expected_time = flow_control["start_time"] + (
-            flow_control["packet_count"] * frame_duration / 1000
-        )
-        delay = expected_time - current_time
-        if delay > 0:
-            await asyncio.sleep(delay)
+        
+        if send_delay > 0:
+            # 使用固定延迟
+            await asyncio.sleep(send_delay)
         else:
-            # 纠正误差
-            flow_control["start_time"] += abs(delay)
+            # 计算预期发送时间
+            expected_time = flow_control["start_time"] + (
+                flow_control["packet_count"] * frame_duration / 1000
+            )
+            delay = expected_time - current_time
+            if delay > 0:
+                await asyncio.sleep(delay)
+            else:
+                # 纠正误差
+                flow_control["start_time"] += abs(delay)
 
         if conn.conn_from_mqtt_gateway:
             # 计算时间戳和序列号
@@ -164,12 +172,16 @@ async def sendAudio(conn, audios, frame_duration=60):
             # 重置没有声音的状态
             conn.last_activity_time = time.time() * 1000
 
-            # 计算预期发送时间
-            expected_time = start_time + (play_position / 1000)
-            current_time = time.perf_counter()
-            delay = expected_time - current_time
-            if delay > 0:
-                await asyncio.sleep(delay)
+            if send_delay > 0:
+                # 固定延迟模式
+                await asyncio.sleep(send_delay)
+            else:
+                 # 计算预期发送时间
+                expected_time = start_time + (play_position / 1000)
+                current_time = time.perf_counter()
+                delay = expected_time - current_time
+                if delay > 0:
+                    await asyncio.sleep(delay)
 
             if conn.conn_from_mqtt_gateway:
                 # 计算时间戳和序列号（使用当前的数据包索引确保连续性）

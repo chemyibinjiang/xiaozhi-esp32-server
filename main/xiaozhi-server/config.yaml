@@ -70,6 +70,12 @@ enable_stop_tts_notify: false
 # 说完话是否开启提示音，音效地址
 stop_tts_notify_voice: "config/assets/tts_notify.mp3"
 
+# TTS音频发送延迟配置
+# tts_audio_send_delay: 控制音频包发送间隔
+#   0: 使用精确时间控制，严格匹配音频帧率（默认，运行时按音频帧率计算）
+#   > 0: 使用固定延迟（毫秒）发送，例如: 60
+tts_audio_send_delay: 0
+
 exit_commands:
   - "退出"
   - "关闭"
