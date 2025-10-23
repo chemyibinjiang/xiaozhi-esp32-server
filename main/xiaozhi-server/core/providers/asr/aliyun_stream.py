@@ -96,6 +96,8 @@ class ASRProvider(ASRProviderBase):
         self.delete_audio_file = delete_audio_file
         self.expire_time = None
 
+        self.task_id = uuid.uuid4().hex
+
         # Token管理
         if self.access_key_id and self.access_key_secret:
             self._refresh_token()
@@ -169,19 +171,23 @@ class ASRProvider(ASRProviderBase):
             ping_timeout=None,
             close_timeout=5,
         )
-        
+
+        self.task_id = uuid.uuid4().hex
+
+        logger.bind(tag=TAG).info(f"WebSocket连接建立成功, task_id: {self.task_id}")
+
         self.is_processing = True
         self.server_ready = False  # 重置服务器准备状态
         self.forward_task = asyncio.create_task(self._forward_results(conn))
-        
+
         # 发送开始请求
         start_request = {
             "header": {
                 "namespace": "SpeechTranscriber",
                 "name": "StartTranscription",
                 "status": 20000000,
-                "message_id": ''.join(random.choices('0123456789abcdef', k=32)),
-                "task_id": ''.join(random.choices('0123456789abcdef', k=32)),
+                "message_id": uuid.uuid4().hex,
+                "task_id": self.task_id,
                 "status_text": "Gateway:SUCCESS:Success.",
                 "appkey": self.appkey
             },
@@ -292,7 +298,8 @@ class ASRProvider(ASRProviderBase):
                         "namespace": "SpeechTranscriber",
                         "name": "StopTranscription",
                         "status": 20000000,
-                        "message_id": ''.join(random.choices('0123456789abcdef', k=32)),
+                        "message_id": uuid.uuid4().hex,
+                        "task_id": self.task_id,
                         "status_text": "Client:Stop",
                         "appkey": self.appkey
                     }
