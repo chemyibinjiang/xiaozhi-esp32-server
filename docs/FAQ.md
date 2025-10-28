@@ -76,8 +76,9 @@ VAD:
 3、[如何开启视觉模型实现拍照识物](./mcp-vision-integration.md)<br/>
 4、[如何部署MCP接入点](./mcp-endpoint-enable.md)<br/>
 5、[如何接入MCP接入点](./mcp-endpoint-integration.md)<br/>
-6、[如何开启声纹识别](./voiceprint-integration.md)<br/>
-10、[新闻插件源配置指南](./newsnow_plugin_config.md)<br/>
+6、[MCP方法如何获取设备信息](./mcp-get-device-info.md)<br/>
+7、[如何开启声纹识别](./voiceprint-integration.md)<br/>
+8、[新闻插件源配置指南](./newsnow_plugin_config.md)<br/>
 
 ### 11、语音克隆、本地语音部署相关教程
 1、[如何在智控台克隆音色](./huoshan-streamTTS-voice-cloning.md)<br/>
