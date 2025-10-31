@@ -225,6 +225,7 @@ class PromptManager:
                 weather_info=weather_info,
                 emojiList=EMOJI_List,
                 device_id=device_id,
+                client_ip=client_ip,
                 *args, **kwargs
             )
             device_cache_key = f"device_prompt:{device_id}"
