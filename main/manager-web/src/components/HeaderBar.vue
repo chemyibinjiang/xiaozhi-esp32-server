@@ -169,11 +169,11 @@
             ></i>
           </span>
           <el-dropdown-menu slot="dropdown">
-            <el-dropdown-item @click.native="goOtaManagement">
-              {{ $t("header.otaManagement") }}
-            </el-dropdown-item>
             <el-dropdown-item @click.native="goParamManagement">
               {{ $t("header.paramManagement") }}
+            </el-dropdown-item>
+            <el-dropdown-item @click.native="goOtaManagement">
+              {{ $t("header.otaManagement") }}
             </el-dropdown-item>
             <el-dropdown-item @click.native="goDictManagement">
               {{ $t("header.dictManagement") }}

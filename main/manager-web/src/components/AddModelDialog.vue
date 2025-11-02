@@ -29,9 +29,11 @@
       <el-form :model="formData" label-width="100px" label-position="left" class="custom-form">
         <div style="display: flex; gap: 20px; margin-bottom: 0;">
           <el-form-item :label="$t('modelConfigDialog.modelId')" prop="id" style="flex: 1;">
-            <el-input v-model="formData.id" :placeholder="$t('modelConfigDialog.enterModelId')"
-              class="custom-input-bg"></el-input>
+            <el-input v-model="formData.id" :placeholder="$t('modelConfigDialog.enterModelId')" class="custom-input-bg"
+              maxlength="32"></el-input>
           </el-form-item>
+        </div>
+        <div style="display: flex; gap: 20px; margin-bottom: 0;">
           <el-form-item :label="$t('modelConfigDialog.modelName')" prop="modelName" style="flex: 1;">
             <el-input v-model="formData.modelName" :placeholder="$t('modelConfigDialog.enterModelName')"
               class="custom-input-bg"></el-input>
@@ -73,16 +75,14 @@
       <div style="height: 2px; background: #e9e9e9; margin-bottom: 22px;"></div>
 
       <el-form :model="formData.configJson" label-width="auto" label-position="left" class="custom-form">
-        <template v-for="(row, rowIndex) in chunkedCallInfoFields">
-          <div :key="rowIndex" style="display: flex; gap: 20px; margin-bottom: 0;">
-            <el-form-item v-for="field in row" :key="field.prop" :label="field.label" :prop="field.prop"
-              style="flex: 1;">
-              <el-input v-model="formData.configJson[field.prop]" :placeholder="field.placeholder"
-                :type="field.type || 'text'" class="custom-input-bg" :show-password="field.type === 'password'">
-              </el-input>
-            </el-form-item>
-          </div>
-        </template>
+        <div v-for="(row, rowIndex) in chunkedCallInfoFields" :key="rowIndex"
+          style="display: flex; gap: 20px; margin-bottom: 0;">
+          <el-form-item v-for="field in row" :key="field.prop" :label="field.label" :prop="field.prop" style="flex: 1;">
+            <el-input v-model="formData.configJson[field.prop]" :placeholder="field.placeholder"
+              :type="field.type || 'text'" class="custom-input-bg" :show-password="field.type === 'password'">
+            </el-input>
+          </el-form-item>
+        </div>
       </el-form>
     </div>
 
