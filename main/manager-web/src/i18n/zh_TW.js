@@ -629,6 +629,7 @@ export default {
   'common.deleteFailure': '刪除失敗，請重試',
   'common.deleteCancelled': '已取消刪除',
   'common.warning': '警告',
+  'common.tip': '提示',
   'common.confirm': '確定',
   'common.cancel': '取消',
   'common.sensitive': '敏感',
