@@ -116,19 +116,19 @@
         <div
           v-if="isSuperAdmin"
           class="equipment-management"
-          :class="{ 'active-tab': $route.path === '/user-management' }"
-          @click="goUserManagement"
+          :class="{ 'active-tab': $route.path === '/knowledge-base-management' || $route.path === '/knowledge-file-upload' }"
+          @click="goKnowledgeBaseManagement"
         >
           <img
             loading="lazy"
             alt=""
-            src="@/assets/header/user_management.png"
+            src="@/assets/header/knowledge_base.png"
             :style="{
               filter:
-                $route.path === '/user-management' ? 'brightness(0) invert(1)' : 'None',
+                $route.path === '/knowledge-base-management' || $route.path === '/knowledge-file-upload' ? 'brightness(0) invert(1)' : 'None',
             }"
           />
-          <span class="nav-text">{{ $t("header.userManagement") }}</span>
+          <span class="nav-text">{{ $t("header.knowledgeBase") }}</span>
         </div>
         <el-dropdown
           v-if="isSuperAdmin"
@@ -141,7 +141,8 @@
               $route.path === '/provider-management' ||
               $route.path === '/server-side-management' ||
               $route.path === '/agent-template-management' ||
-              $route.path === '/ota-management',
+              $route.path === '/ota-management' ||
+              $route.path === '/user-management',
           }"
           @visible-change="handleParamDropdownVisibleChange"
         >
@@ -157,7 +158,8 @@
                   $route.path === '/provider-management' ||
                   $route.path === '/server-side-management' ||
                   $route.path === '/agent-template-management' ||
-                  $route.path === '/ota-management'
+                  $route.path === '/ota-management' ||
+                  $route.path === '/user-management'
                     ? 'brightness(0) invert(1)'
                     : 'None',
               }"
@@ -186,6 +188,9 @@
             </el-dropdown-item>
             <el-dropdown-item @click.native="goServerSideManagement">
               {{ $t("header.serverSideManagement") }}
+            </el-dropdown-item>
+            <el-dropdown-item @click.native="goUserManagement">
+              {{ $t("header.userManagement") }}
             </el-dropdown-item>
           </el-dropdown-menu>
         </el-dropdown>
@@ -398,6 +403,9 @@ export default {
     },
     goModelConfig() {
       this.$router.push("/model-config");
+    },
+    goKnowledgeBaseManagement() {
+      this.$router.push("/knowledge-base-management");
     },
     goVoiceCloneManagement() {
       this.$router.push("/voice-clone-management");
