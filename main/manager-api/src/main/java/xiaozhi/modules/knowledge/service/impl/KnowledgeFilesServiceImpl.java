@@ -1,10 +1,9 @@
 package xiaozhi.modules.knowledge.service.impl;
 
 import java.io.IOException;
-import java.util.*;
 import java.io.InputStream;
-import java.util.Arrays;
-import java.text.SimpleDateFormat; 
+import java.text.SimpleDateFormat;
+import java.util.*; 
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -55,7 +54,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                     page, limit);
 
             // 获取RAG配置
-            Map<String, Object> ragConfig = getRAGConfig();
+            Map<String, Object> ragConfig = getDefaultRAGConfig();
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
 
@@ -338,14 +337,6 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
     }
 
     /**
-     * 从Map中获取字符串值
-     */
-    private String getStringValue(Map<String, Object> map, String key) {
-        Object value = map.get(key);
-        return value != null ? value.toString() : null;
-    }
-
-    /**
      * 从多个可能的字段名中获取字符串值
      */
     private String getStringValueFromMultipleKeys(Map<String, Object> map, String... keys) {
@@ -372,34 +363,6 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
     }
 
     @Override
-    public KnowledgeFilesDTO getById(String id) {
-        if (StringUtils.isBlank(id)) {
-            throw new RenException(ErrorCode.IDENTIFIER_NOT_NULL);
-        }
-
-        log.info("=== 开始根据ID获取文档 ===");
-        log.info("文档ID: {}", id);
-
-        try {
-            KnowledgeFilesDTO queryDTO = new KnowledgeFilesDTO();
-            
-            throw new RenException(ErrorCode.PARAMS_GET_ERROR, "请使用getByDocumentId方法，并提供datasetId");
-
-        } catch (Exception e) {
-            log.error("根据ID获取文档失败: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_QUERY_FAILED, "获取文档失败: " + e.getMessage());
-        } finally {
-            log.info("=== 根据ID获取文档操作结束 ===");
-        }
-    }
-
-    @Override
-    public KnowledgeFilesDTO getByDocumentId(String documentId) {
-        // 重载方法，保持向后兼容，但实际需要datasetId
-        throw new RenException(ErrorCode.PARAMS_GET_ERROR, "请使用getByDocumentId(documentId, datasetId)方法，并提供datasetId");
-    }
-
-    @Override
     public KnowledgeFilesDTO getByDocumentId(String documentId, String datasetId) {
         if (StringUtils.isBlank(documentId) || StringUtils.isBlank(datasetId)) {
             throw new RenException(ErrorCode.PARAMS_GET_ERROR, "documentId和datasetId不能为空");
@@ -410,7 +373,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getRAGConfig();
+            Map<String, Object> ragConfig = getDefaultRAGConfig();
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
 
@@ -546,56 +509,6 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
         }
     }
 
-    @Override
-    public KnowledgeFilesDTO update(KnowledgeFilesDTO knowledgeFilesDTO) {
-        if (knowledgeFilesDTO == null || StringUtils.isBlank(knowledgeFilesDTO.getDocumentId())) {
-            throw new RenException(ErrorCode.IDENTIFIER_NOT_NULL);
-        }
-
-        log.info("=== 开始更新文档操作 ===");
-        log.info("更新文档documentId: {}", knowledgeFilesDTO.getDocumentId());
-
-        try {
-            // 调用RAGFlow API更新文档配置
-            log.info("开始调用RAGFlow API更新文档配置");
-            updateDocumentInRAGFlow(
-                knowledgeFilesDTO.getDocumentId(),
-                knowledgeFilesDTO.getName(),
-                knowledgeFilesDTO.getMetaFields(),
-                knowledgeFilesDTO.getChunkMethod(),
-                knowledgeFilesDTO.getParserConfig()
-            );
-            log.info("RAGFlow API更新调用完成");
-
-            // 返回更新后的文档信息（通过查询获取最新状态）
-            // 需要datasetId，这里假设knowledgeFilesDTO中包含datasetId
-            if (StringUtils.isBlank(knowledgeFilesDTO.getDatasetId())) {
-                throw new RenException(ErrorCode.PARAMS_GET_ERROR, "更新文档需要datasetId");
-            }
-            return getByDocumentId(knowledgeFilesDTO.getDocumentId(), knowledgeFilesDTO.getDatasetId());
-
-        } catch (Exception e) {
-            log.error("更新文档失败: {}", e.getMessage(), e);
-            if (e instanceof RenException) {
-                throw (RenException) e;
-            }
-            throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED, "更新文档失败: " + e.getMessage());
-        } finally {
-            log.info("=== 更新文档操作结束 ===");
-        }
-    }
-
-    @Override
-    public void delete(String documentId) {
-        // 重载方法，保持向后兼容，但实际需要datasetId
-        throw new RenException(ErrorCode.PARAMS_GET_ERROR, "请使用deleteByDocumentId(documentId, datasetId)方法，并提供datasetId");
-    }
-
-    @Override
-    public void deleteByDocumentId(String documentId) {
-        // 重载方法，保持向后兼容，但实际需要datasetId
-        throw new RenException(ErrorCode.PARAMS_GET_ERROR, "请使用deleteByDocumentId(documentId, datasetId)方法，并提供datasetId");
-    }
 
     @Override
     public void deleteByDocumentId(String documentId, String datasetId) {
@@ -620,21 +533,6 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
             log.info("=== 根据documentId删除文档操作结束 ===");
         }
     }
-
-    @Override
-    public void deleteBatch(List<String> ids) {
-        if (ids == null || ids.isEmpty()) {
-            throw new RenException(ErrorCode.PARAMS_GET_ERROR);
-        }
-
-        log.info("=== 开始批量删除文档操作 ===");
-        log.info("批量删除文档数量: {}", ids.size());
-
-        // 由于批量删除需要datasetId，这里无法处理
-        throw new RenException(ErrorCode.PARAMS_GET_ERROR, "批量删除需要datasetId，请使用单个删除接口");
-    }
-
-    
 
     /**
      * 获取文件类型 - 支持RAGFlow四种文档格式类型
@@ -765,13 +663,6 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
     }
 
     /**
-     * 获取默认RAG配置
-     */
-    private Map<String, Object> getRAGConfig() {
-        return getDefaultRAGConfig();
-    }
-
-    /**
      * 调用RAGFlow API上传文档 - 流式上传版本
      */
     private String uploadDocumentToRAGFlow(String datasetId, MultipartFile file, String name, 
@@ -779,7 +670,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                                           Map<String, Object> parserConfig) {
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getRAGConfig();
+            Map<String, Object> ragConfig = getDefaultRAGConfig();
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
             
@@ -971,7 +862,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                                          String chunkMethod, Map<String, Object> parserConfig) {
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getRAGConfig();
+            Map<String, Object> ragConfig = getDefaultRAGConfig();
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
             
@@ -1045,7 +936,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
     private void deleteDocumentInRAGFlow(String documentId, String datasetId) {
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getRAGConfig();
+            Map<String, Object> ragConfig = getDefaultRAGConfig();
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
             
@@ -1172,7 +1063,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getRAGConfig();
+            Map<String, Object> ragConfig = getDefaultRAGConfig();
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
 
@@ -1253,7 +1144,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getRAGConfig();
+            Map<String, Object> ragConfig = getDefaultRAGConfig();
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
 
@@ -1344,7 +1235,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getRAGConfig();
+            Map<String, Object> ragConfig = getDefaultRAGConfig();
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
 
@@ -1745,7 +1636,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getRAGConfig();
+            Map<String, Object> ragConfig = getDefaultRAGConfig();
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
 

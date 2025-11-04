@@ -44,7 +44,7 @@ public class KnowledgeFilesDTO implements Serializable {
     @Schema(description = "解析器配置")
     private Map<String, Object> parserConfig;
 
-    @Schema(description = "状态(0:待解析 1:解析中 2:解析成功 3：解析失败)")
+    @Schema(description = "状态")
     private Integer status;
 
     @Schema(description = "创建者")

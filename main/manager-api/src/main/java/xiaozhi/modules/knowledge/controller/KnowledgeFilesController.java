@@ -43,15 +43,6 @@ public class KnowledgeFilesController {
         return new Result<PageData<KnowledgeFilesDTO>>().ok(pageData);
     }
 
-    @GetMapping("/documents/{document_id}")
-    @Operation(summary = "根据文档ID获取文档详情")
-    @RequiresPermissions("sys:role:normal")
-    public Result<KnowledgeFilesDTO> getByDocumentId(@PathVariable("dataset_id") String datasetId,
-                                                   @PathVariable("document_id") String documentId) {
-        KnowledgeFilesDTO knowledgeFilesDTO = knowledgeFilesService.getByDocumentId(documentId);
-        return new Result<KnowledgeFilesDTO>().ok(knowledgeFilesDTO);
-    }
-
     @PostMapping("/documents")
     @Operation(summary = "上传文档到知识库")
     @RequiresPermissions("sys:role:normal")
@@ -70,18 +61,6 @@ public class KnowledgeFilesController {
         return new Result<KnowledgeFilesDTO>().ok(resp);
     }
 
-    @PutMapping("/documents/{document_id}")
-    @Operation(summary = "更新文档配置")
-    @RequiresPermissions("sys:role:normal")
-    public Result<KnowledgeFilesDTO> update(@PathVariable("dataset_id") String datasetId,
-                                          @PathVariable("document_id") String documentId,
-                                          @RequestBody @Validated KnowledgeFilesDTO knowledgeFilesDTO) {
-        knowledgeFilesDTO.setDatasetId(datasetId);
-        knowledgeFilesDTO.setDocumentId(documentId);
-        KnowledgeFilesDTO resp = knowledgeFilesService.update(knowledgeFilesDTO);
-        return new Result<KnowledgeFilesDTO>().ok(resp);
-    }
-
     @DeleteMapping("/documents/{document_id}")
     @Operation(summary = "删除单个文档")
     @Parameter(name = "document_id", description = "文档ID", required = true)
@@ -89,18 +68,6 @@ public class KnowledgeFilesController {
     public Result<Void> delete(@PathVariable("dataset_id") String datasetId,
                               @PathVariable("document_id") String documentId) {
         knowledgeFilesService.deleteByDocumentId(documentId, datasetId);
-        return new Result<>();
-    }
-    
-    @DeleteMapping("/documents")
-    @Operation(summary = "批量删除文档")
-    @RequiresPermissions("sys:role:normal")
-    public Result<Void> deleteBatch(@PathVariable("dataset_id") String datasetId,
-                                   @RequestBody Map<String, List<String>> requestBody) {
-        List<String> ids = requestBody.get("ids");
-        if (ids != null && !ids.isEmpty()) {
-            knowledgeFilesService.deleteBatch(ids);
-        }
         return new Result<>();
     }
     

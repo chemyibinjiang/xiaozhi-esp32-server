@@ -65,9 +65,6 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
 
         IPage<KnowledgeBaseEntity> knowledgeBaseEntityIPage = knowledgeBaseDao.selectPage(pageInfo, queryWrapper);
 
-        // 同步RAGFlow API的数据集状态（可选功能，可根据需要开启）
-        syncRAGFlowDatasetStatus(knowledgeBaseEntityIPage.getRecords());
-
         // 获取分页数据
         PageData<KnowledgeBaseDTO> pageData = getPageData(knowledgeBaseEntityIPage, KnowledgeBaseDTO.class);
         
@@ -214,8 +211,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         if (StringUtils.isNotBlank(entity.getDatasetId()) && StringUtils.isNotBlank(entity.getRagModelId())) {
             try {
                 log.info("开始调用RAGFlow API删除数据集");
-                Map<String, Object> ragConfig = getRAGConfig(entity.getRagModelId());
-                validateRagConfig(ragConfig);
+                Map<String, Object> ragConfig = getValidatedRAGConfig(entity.getRagModelId());
                 deleteDatasetInRAGFlow(entity.getDatasetId(), ragConfig);
                 log.info("RAGFlow API删除调用完成");
                 apiDeleteSuccess = true;
@@ -597,16 +593,11 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
      * 获取RAG配置并验证
      */
     private Map<String, Object> getValidatedRAGConfig(String ragModelId) {
-        Map<String, Object> ragConfig;
         if (StringUtils.isNotBlank(ragModelId)) {
-            ragConfig = getRAGConfig(ragModelId);
+            return getRAGConfig(ragModelId);
         } else {
-            ragConfig = getDefaultRAGConfig();
+            return getDefaultRAGConfig();
         }
-        
-        // 验证配置
-        validateRagConfig(ragConfig);
-        return ragConfig;
     }
     
     /**
@@ -692,80 +683,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         return 0;
     }
 
-    /**
-     * 同步RAGFlow API的数据集状态（可选功能）
-     */
-    private void syncRAGFlowDatasetStatus(List<KnowledgeBaseEntity> entities) {
-        if (entities == null || entities.isEmpty()) {
-            log.debug("没有需要同步状态的数据集");
-            return;
-        }
-        
-        log.info("开始同步RAGFlow数据集状态，共{}个数据集", entities.size());
-        
-        for (KnowledgeBaseEntity entity : entities) {
-            if (StringUtils.isNotBlank(entity.getDatasetId()) && StringUtils.isNotBlank(entity.getRagModelId())) {
-                try {
-                    log.debug("开始同步数据集 {} 的状态", entity.getDatasetId());
-                    
-                    Map<String, Object> ragConfig = getValidatedRAGConfig(entity.getRagModelId());
-                    String baseUrl = (String) ragConfig.get("base_url");
-                    String apiKey = (String) ragConfig.get("api_key");
-                    
-                    // 使用正确的API端点获取数据集列表，然后过滤
-                    String url = baseUrl + "/api/v1/datasets";
-                    log.debug("请求URL: {}", url);
-                    
-                    HttpHeaders headers = new HttpHeaders();
-                    headers.set("Authorization", "Bearer " + apiKey);
-                    
-                    HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
-                    
-                    // 发送GET请求获取所有数据集
-                    ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, requestEntity, Map.class);
-                    
-                    if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                        Map<String, Object> responseBody = response.getBody();
-                        // 根据响应结构判断数据集是否存在
-                        boolean exists = checkDatasetExists(responseBody, entity.getDatasetId());
-                        
-                        if (exists) {
-                            log.info("数据集 {} 在RAGFlow中状态正常", entity.getDatasetId());
-                        } else {
-                            log.warn("数据集 {} 在RAGFlow中不存在", entity.getDatasetId());
-                        }
-                    } else {
-                        log.warn("获取数据集列表失败，状态码: {}", response.getStatusCode());
-                    }
-                    
-                } catch (Exception e) {
-                    log.error("同步数据集 {} 状态失败: {}", entity.getDatasetId(), e.getMessage());
-                }
-            }
-        }
-        
-        log.info("RAGFlow数据集状态同步完成");
-    }
+
     
-    /**
-     * 检查数据集是否存在
-     */
-    private boolean checkDatasetExists(Map<String, Object> responseBody, String datasetId) {
-        try {
-            // 根据RAGFlow API的实际响应结构来解析
-            if (responseBody.containsKey("data")) {
-                Object data = responseBody.get("data");
-                if (data instanceof List) {
-                    List<Map<String, Object>> datasets = (List<Map<String, Object>>) data;
-                    return datasets.stream()
-                        .anyMatch(dataset -> datasetId.equals(dataset.get("id")) || 
-                                           datasetId.equals(dataset.get("dataset_id")));
-                }
-            }
-            return false;
-        } catch (Exception e) {
-            log.error("检查数据集存在性失败: {}", e.getMessage());
-            return false;
-        }
-    }
+
 }

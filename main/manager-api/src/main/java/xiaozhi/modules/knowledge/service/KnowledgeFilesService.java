@@ -24,22 +24,6 @@ public interface KnowledgeFilesService {
     PageData<KnowledgeFilesDTO> getPageList(KnowledgeFilesDTO knowledgeFilesDTO, Integer page, Integer limit);
 
     /**
-     * 根据ID获取文档详情
-     * 
-     * @param id 文档ID
-     * @return 文档详情
-     */
-    KnowledgeFilesDTO getById(String id);
-
-    /**
-     * 根据文档ID获取文档详情
-     * 
-     * @param documentId 文档ID
-     * @return 文档详情
-     */
-    KnowledgeFilesDTO getByDocumentId(String documentId);
-
-    /**
      * 根据文档ID和知识库ID获取文档详情
      * 
      * @param documentId 文档ID
@@ -64,41 +48,12 @@ public interface KnowledgeFilesService {
                                      Map<String, Object> parserConfig);
 
     /**
-     * 更新文档配置
-     * 
-     * @param knowledgeFilesDTO 文档信息
-     * @return 更新的文档信息
-     */
-    KnowledgeFilesDTO update(KnowledgeFilesDTO knowledgeFilesDTO);
-
-    /**
-     * 根据ID删除文档
-     * 
-     * @param id 文档ID
-     */
-    void delete(String id);
-
-    /**
-     * 根据文档ID删除文档
-     * 
-     * @param documentId 文档ID
-     */
-    void deleteByDocumentId(String documentId);
-
-    /**
      * 根据文档ID和知识库ID删除文档
      * 
      * @param documentId 文档ID
      * @param datasetId 知识库ID
      */
     void deleteByDocumentId(String documentId, String datasetId);
-
-    /**
-     * 批量删除文档
-     * 
-     * @param ids 文档ID列表
-     */
-    void deleteBatch(List<String> ids);
 
 
     /**
