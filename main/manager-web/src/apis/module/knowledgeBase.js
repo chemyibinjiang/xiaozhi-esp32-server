@@ -9,6 +9,54 @@ function getAuthToken() {
 }
 
 /**
+ * 通用API请求包装器
+ * @param {Object} config - 请求配置
+ * @param {string} config.url - 请求URL
+ * @param {string} config.method - 请求方法
+ * @param {Object} [config.data] - 请求数据
+ * @param {Object} [config.headers] - 额外请求头
+ * @param {Function} config.callback - 成功回调
+ * @param {Function} [config.errorCallback] - 错误回调
+ * @param {string} [config.errorMessage] - 错误消息
+ * @param {Function} [config.retryFunction] - 重试函数
+ */
+function makeApiRequest(config) {
+  const token = getAuthToken();
+  const { url, method, data, headers, callback, errorCallback, errorMessage, retryFunction } = config;
+
+  const requestBuilder = RequestService.sendRequest()
+    .url(url)
+    .method(method)
+    .header({
+      'Authorization': `Bearer ${token}`,
+      ...headers
+    });
+
+  if (data) {
+    requestBuilder.data(data);
+  }
+
+  requestBuilder
+    .success((res) => {
+      RequestService.clearRequestTime();
+      callback(res);
+    })
+    .fail((err) => {
+      console.error(errorMessage || '操作失败', err);
+      if (errorCallback) {
+        errorCallback(err);
+      }
+    })
+    .networkFail(() => {
+      if (retryFunction) {
+        RequestService.reAjaxFun(() => {
+          retryFunction();
+        });
+      }
+    }).send();
+}
+
+/**
  * 知识库管理相关API
  */
 export default {
@@ -19,33 +67,20 @@ export default {
    * @param {Function} errorCallback - 错误回调
    */
   getKnowledgeBaseList(params, callback, errorCallback) {
-    const token = getAuthToken();
     const queryParams = new URLSearchParams({
       page: params.page,
       page_size: params.page_size,
       name: params.name || ''
     }).toString();
 
-    RequestService.sendRequest()
-      .url(`${getServiceUrl()}/api/v1/datasets?${queryParams}`)
-      .method('GET')
-      .header({ 'Authorization': `Bearer ${token}` })
-      .success((res) => {
-        RequestService.clearRequestTime();
-        callback(res);
-      })
-      .fail((err) => {
-        console.error('获取知识库列表失败:', err);
-        if (errorCallback) {
-          errorCallback(err);
-        }
-      })
-      .networkFail(() => {
-        const self = this;
-        RequestService.reAjaxFun(() => {
-          self.getKnowledgeBaseList(params, callback, errorCallback);
-        });
-      }).send();
+    makeApiRequest({
+      url: `${getServiceUrl()}/api/v1/datasets?${queryParams}`,
+      method: 'GET',
+      callback: callback,
+      errorCallback: errorCallback,
+      errorMessage: '获取知识库列表失败',
+      retryFunction: () => this.getKnowledgeBaseList(params, callback, errorCallback)
+    });
   },
 
   /**
@@ -56,20 +91,18 @@ export default {
    */
   createKnowledgeBase(data, callback, errorCallback) {
     console.log('createKnowledgeBase called with data:', data);
-    const token = getAuthToken();
-    console.log('Token exists:', !!token);
     console.log('API URL:', `${getServiceUrl()}/api/v1/datasets`);
-    RequestService.sendRequest()
-      .url(`${getServiceUrl()}/api/v1/datasets`)
-      .method('POST')
-      .data(data)
-      .header({ 'Authorization': `Bearer ${token}` })
-      .success((res) => {
+
+    makeApiRequest({
+      url: `${getServiceUrl()}/api/v1/datasets`,
+      method: 'POST',
+      data: data,
+      headers: { 'Content-Type': 'application/json' },
+      callback: (res) => {
         console.log('createKnowledgeBase success response:', res);
-        RequestService.clearRequestTime();
         callback(res);
-      })
-      .fail((err) => {
+      },
+      errorCallback: (err) => {
         console.error('创建知识库失败:', err);
         if (err.response) {
           console.error('Error response data:', err.response.data);
@@ -78,14 +111,10 @@ export default {
         if (errorCallback) {
           errorCallback(err);
         }
-      })
-      .networkFail(() => {
-        console.log('Network failure, retrying...');
-        const self = this;
-        RequestService.reAjaxFun(() => {
-          self.createKnowledgeBase(data, callback, errorCallback);
-        });
-      }).send();
+      },
+      errorMessage: '创建知识库失败',
+      retryFunction: () => this.createKnowledgeBase(data, callback, errorCallback)
+    });
   },
 
   /**
@@ -97,30 +126,18 @@ export default {
    */
   updateKnowledgeBase(datasetId, data, callback, errorCallback) {
     console.log('updateKnowledgeBase called with datasetId:', datasetId, 'data:', data);
-    const token = getAuthToken();
-    console.log('Token exists:', !!token);
     console.log('API URL:', `${getServiceUrl()}/api/v1/datasets/${datasetId}`);
-    RequestService.sendRequest()
-      .url(`${getServiceUrl()}/api/v1/datasets/${datasetId}`)
-      .method('PUT')
-      .data(data)
-      .header({ 'Authorization': `Bearer ${token}` })
-      .success((res) => {
-        RequestService.clearRequestTime();
-        callback(res);
-      })
-      .fail((err) => {
-        console.error('更新知识库失败:', err);
-        if (errorCallback) {
-          errorCallback(err);
-        }
-      })
-      .networkFail(() => {
-        const self = this;
-        RequestService.reAjaxFun(() => {
-          self.updateKnowledgeBase(datasetId, data, callback, errorCallback);
-        });
-      }).send();
+
+    makeApiRequest({
+      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}`,
+      method: 'PUT',
+      data: data,
+      headers: { 'Content-Type': 'application/json' },
+      callback: callback,
+      errorCallback: errorCallback,
+      errorMessage: '更新知识库失败',
+      retryFunction: () => this.updateKnowledgeBase(datasetId, data, callback, errorCallback)
+    });
   },
 
   /**
@@ -131,29 +148,16 @@ export default {
    */
   deleteKnowledgeBase(datasetId, callback, errorCallback) {
     console.log('deleteKnowledgeBase called with datasetId:', datasetId);
-    const token = getAuthToken();
-    console.log('Token exists:', !!token);
     console.log('API URL:', `${getServiceUrl()}/api/v1/datasets/${datasetId}`);
-    RequestService.sendRequest()
-      .url(`${getServiceUrl()}/api/v1/datasets/${datasetId}`)
-      .method('DELETE')
-      .header({ 'Authorization': `Bearer ${token}` })
-      .success((res) => {
-        RequestService.clearRequestTime();
-        callback(res);
-      })
-      .fail((err) => {
-        console.error('删除知识库失败:', err);
-        if (errorCallback) {
-          errorCallback(err);
-        }
-      })
-      .networkFail(() => {
-        const self = this;
-        RequestService.reAjaxFun(() => {
-          self.deleteKnowledgeBase(datasetId, callback, errorCallback);
-        });
-      }).send();
+
+    makeApiRequest({
+      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}`,
+      method: 'DELETE',
+      callback: callback,
+      errorCallback: errorCallback,
+      errorMessage: '删除知识库失败',
+      retryFunction: () => this.deleteKnowledgeBase(datasetId, callback, errorCallback)
+    });
   },
 
   /**
@@ -163,29 +167,17 @@ export default {
    * @param {Function} errorCallback - 错误回调
    */
   deleteKnowledgeBases(ids, callback, errorCallback) {
-    const token = getAuthToken();
     // 确保ids是正确格式的字符串
     const idsStr = Array.isArray(ids) ? ids.join(',') : ids;
-    RequestService.sendRequest()
-      .url(`${getServiceUrl()}/api/v1/datasets/batch?ids=${idsStr}`)
-      .method('DELETE')
-      .header({ 'Authorization': `Bearer ${token}` })
-      .success((res) => {
-        RequestService.clearRequestTime();
-        callback(res);
-      })
-      .fail((err) => {
-        console.error('批量删除知识库失败:', err);
-        if (errorCallback) {
-          errorCallback(err);
-        }
-      })
-      .networkFail(() => {
-        const self = this;
-        RequestService.reAjaxFun(() => {
-          self.deleteKnowledgeBases(ids, callback, errorCallback);
-        });
-      }).send();
+
+    makeApiRequest({
+      url: `${getServiceUrl()}/api/v1/datasets/batch?ids=${idsStr}`,
+      method: 'DELETE',
+      callback: callback,
+      errorCallback: errorCallback,
+      errorMessage: '批量删除知识库失败',
+      retryFunction: () => this.deleteKnowledgeBases(ids, callback, errorCallback)
+    });
   },
 
   /**
@@ -196,33 +188,20 @@ export default {
    * @param {Function} errorCallback - 错误回调
    */
   getDocumentList(datasetId, params, callback, errorCallback) {
-    const token = getAuthToken();
     const queryParams = new URLSearchParams({
       page: params.page,
       page_size: params.page_size,
       name: params.name || ''
     }).toString();
 
-    RequestService.sendRequest()
-      .url(`${getServiceUrl()}/api/v1/datasets/${datasetId}/documents?${queryParams}`)
-      .method('GET')
-      .header({ 'Authorization': `Bearer ${token}` })
-      .success((res) => {
-        RequestService.clearRequestTime();
-        callback(res);
-      })
-      .fail((err) => {
-        console.error('获取文档列表失败:', err);
-        if (errorCallback) {
-          errorCallback(err);
-        }
-      })
-      .networkFail(() => {
-        const self = this;
-        RequestService.reAjaxFun(() => {
-          self.getDocumentList(datasetId, params, callback, errorCallback);
-        });
-      }).send();
+    makeApiRequest({
+      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}/documents?${queryParams}`,
+      method: 'GET',
+      callback: callback,
+      errorCallback: errorCallback,
+      errorMessage: '获取文档列表失败',
+      retryFunction: () => this.getDocumentList(datasetId, params, callback, errorCallback)
+    });
   },
 
   /**
@@ -233,31 +212,16 @@ export default {
    * @param {Function} errorCallback - 错误回调
    */
   uploadDocument(datasetId, formData, callback, errorCallback) {
-    const token = getAuthToken();
-    RequestService.sendRequest()
-      .url(`${getServiceUrl()}/api/v1/datasets/${datasetId}/documents`)
-      .method('POST')
-      .data(formData)
-      .header({ 
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data'
-      })
-      .success((res) => {
-        RequestService.clearRequestTime();
-        callback(res);
-      })
-      .fail((err) => {
-        console.error('上传文档失败:', err);
-        if (errorCallback) {
-          errorCallback(err);
-        }
-      })
-      .networkFail(() => {
-        const self = this;
-        RequestService.reAjaxFun(() => {
-          self.uploadDocument(datasetId, formData, callback, errorCallback);
-        });
-      }).send();
+    makeApiRequest({
+      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}/documents`,
+      method: 'POST',
+      data: formData,
+      headers: { 'Content-Type': 'multipart/form-data' },
+      callback: callback,
+      errorCallback: errorCallback,
+      errorMessage: '上传文档失败',
+      retryFunction: () => this.uploadDocument(datasetId, formData, callback, errorCallback)
+    });
   },
 
   /**
@@ -268,35 +232,20 @@ export default {
    * @param {Function} errorCallback - 错误回调
    */
   parseDocument(datasetId, documentId, callback, errorCallback) {
-    const token = getAuthToken();
     const requestBody = {
       document_ids: [documentId]
     };
-    
-    RequestService.sendRequest()
-      .url(`${getServiceUrl()}/api/v1/datasets/${datasetId}/chunks`)
-      .method('POST')
-      .data(requestBody)
-      .header({ 
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      })
-      .success((res) => {
-        RequestService.clearRequestTime();
-        callback(res);
-      })
-      .fail((err) => {
-        console.error('解析文档失败:', err);
-        if (errorCallback) {
-          errorCallback(err);
-        }
-      })
-      .networkFail(() => {
-        const self = this;
-        RequestService.reAjaxFun(() => {
-          self.parseDocument(datasetId, documentId, callback, errorCallback);
-        });
-      }).send();
+
+    makeApiRequest({
+      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}/chunks`,
+      method: 'POST',
+      data: requestBody,
+      headers: { 'Content-Type': 'application/json' },
+      callback: callback,
+      errorCallback: errorCallback,
+      errorMessage: '解析文档失败',
+      retryFunction: () => this.parseDocument(datasetId, documentId, callback, errorCallback)
+    });
   },
 
   /**
@@ -307,27 +256,14 @@ export default {
    * @param {Function} errorCallback - 错误回调
    */
   deleteDocument(datasetId, documentId, callback, errorCallback) {
-    const token = getAuthToken();
-    RequestService.sendRequest()
-      .url(`${getServiceUrl()}/api/v1/datasets/${datasetId}/documents/${documentId}`)
-      .method('DELETE')
-      .header({ 'Authorization': `Bearer ${token}` })
-      .success((res) => {
-        RequestService.clearRequestTime();
-        callback(res);
-      })
-      .fail((err) => {
-        console.error('删除文档失败:', err);
-        if (errorCallback) {
-          errorCallback(err);
-        }
-      })
-      .networkFail(() => {
-        const self = this;
-        RequestService.reAjaxFun(() => {
-          self.deleteDocument(datasetId, documentId, callback, errorCallback);
-        });
-      }).send();
+    makeApiRequest({
+      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}/documents/${documentId}`,
+      method: 'DELETE',
+      callback: callback,
+      errorCallback: errorCallback,
+      errorMessage: '删除文档失败',
+      retryFunction: () => this.deleteDocument(datasetId, documentId, callback, errorCallback)
+    });
   },
 
   /**
@@ -339,8 +275,7 @@ export default {
    * @param {Function} errorCallback - 错误回调
    */
   listChunks(datasetId, documentId, params, callback, errorCallback) {
-    const token = getAuthToken();
-    const queryParams = new URLSearchParams({
+    let queryParams = new URLSearchParams({
       page: params.page || 1,
       page_size: params.page_size || 10
     }).toString();
@@ -350,26 +285,14 @@ export default {
       queryParams += `&keywords=${encodeURIComponent(params.keywords)}`;
     }
 
-    RequestService.sendRequest()
-      .url(`${getServiceUrl()}/api/v1/datasets/${datasetId}/documents/${documentId}/chunks?${queryParams}`)
-      .method('GET')
-      .header({ 'Authorization': `Bearer ${token}` })
-      .success((res) => {
-        RequestService.clearRequestTime();
-        callback(res);
-      })
-      .fail((err) => {
-        console.error('获取切片列表失败:', err);
-        if (errorCallback) {
-          errorCallback(err);
-        }
-      })
-      .networkFail(() => {
-        const self = this;
-        RequestService.reAjaxFun(() => {
-          self.listChunks(datasetId, documentId, params, callback, errorCallback);
-        });
-      }).send();
+    makeApiRequest({
+      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}/documents/${documentId}/chunks?${queryParams}`,
+      method: 'GET',
+      callback: callback,
+      errorCallback: errorCallback,
+      errorMessage: '获取切片列表失败',
+      retryFunction: () => this.listChunks(datasetId, documentId, params, callback, errorCallback)
+    });
   },
 
   /**
@@ -381,28 +304,16 @@ export default {
    * @param {Function} errorCallback - 错误回调
    */
   addChunk(datasetId, documentId, data, callback, errorCallback) {
-    const token = getAuthToken();
-    RequestService.sendRequest()
-      .url(`${getServiceUrl()}/api/v1/datasets/${datasetId}/documents/${documentId}/chunks`)
-      .method('POST')
-      .data(data)
-      .header({ 'Authorization': `Bearer ${token}` })
-      .success((res) => {
-        RequestService.clearRequestTime();
-        callback(res);
-      })
-      .fail((err) => {
-        console.error('添加切片失败:', err);
-        if (errorCallback) {
-          errorCallback(err);
-        }
-      })
-      .networkFail(() => {
-        const self = this;
-        RequestService.reAjaxFun(() => {
-          self.addChunk(datasetId, documentId, data, callback, errorCallback);
-        });
-      }).send();
+    makeApiRequest({
+      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}/documents/${documentId}/chunks`,
+      method: 'POST',
+      data: data,
+      headers: { 'Content-Type': 'application/json' },
+      callback: callback,
+      errorCallback: errorCallback,
+      errorMessage: '添加切片失败',
+      retryFunction: () => this.addChunk(datasetId, documentId, data, callback, errorCallback)
+    });
   },
 
   /**
@@ -413,28 +324,16 @@ export default {
    * @param {Function} errorCallback - 错误回调
    */
   retrievalTest(datasetId, data, callback, errorCallback) {
-    const token = getAuthToken();
-    RequestService.sendRequest()
-      .url(`${getServiceUrl()}/api/v1/datasets/${datasetId}/retrieval-test`)
-      .method('POST')
-      .data(data)
-      .header({ 'Authorization': `Bearer ${token}` })
-      .success((res) => {
-        RequestService.clearRequestTime();
-        callback(res);
-      })
-      .fail((err) => {
-        console.error('召回测试失败:', err);
-        if (errorCallback) {
-          errorCallback(err);
-        }
-      })
-      .networkFail(() => {
-        const self = this;
-        RequestService.reAjaxFun(() => {
-          self.retrievalTest(datasetId, data, callback, errorCallback);
-        });
-      }).send();
+    makeApiRequest({
+      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}/retrieval-test`,
+      method: 'POST',
+      data: data,
+      headers: { 'Content-Type': 'application/json' },
+      callback: callback,
+      errorCallback: errorCallback,
+      errorMessage: '召回测试失败',
+      retryFunction: () => this.retrievalTest(datasetId, data, callback, errorCallback)
+    });
   }
 
 };

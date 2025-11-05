@@ -310,7 +310,6 @@ export default {
       uploadDialogVisible: false,
       uploading: false,
       uploadForm: {
-        name: '',
         file: null
       },
       uploadUrl: '',
@@ -323,7 +322,6 @@ export default {
       currentDocumentName: '',
       sliceList: [],
       sliceLoading: false,
-      sliceSearchKeyword: '',
       sliceCurrentPage: 1,
       slicePageSize: 10,
       sliceTotal: 0,
@@ -977,17 +975,6 @@ export default {
       this.fetchSlices();
     },
     
-    handleSliceDialogClose: function(done) {
-      this.sliceDialogVisible = false;
-      this.currentDocumentId = null;
-      this.currentDocumentName = '';
-      this.sliceList = [];
-      this.sliceTotal = 0;
-      if (done) {
-        done();
-      }
-    },
-    
     // 跳转到切片管理第一页
     goToSliceFirstPage: function() {
       if (this.sliceCurrentPage !== 1) {
@@ -1433,9 +1420,9 @@ export default {
 /* 拖拽上传区域样式 */
 .document-uploader {
     :deep(.el-upload-dragger) {
-        width: 100%;
-        height: 200px;
-        min-height: 200px;
+        width: 600px;
+        height: 300px;
+        min-height: 300px;
         border: 2px dashed #c0c4cc;
         border-radius: 16px;
         cursor: pointer;
@@ -1993,10 +1980,6 @@ export default {
     gap: 10px;
   }
   
-  .slice-table {
-    margin-bottom: 20px;
-  }
-  
   .slice-pagination {
     text-align: right;
     margin-top: 20px;
@@ -2007,172 +1990,6 @@ export default {
       justify-content: flex-end;
       gap: 5px;
     }
-    
-    :deep(.el-pagination) {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-      
-      .el-pagination__sizes {
-        margin-right: 8px;
-        
-        .el-input__inner {
-          height: 32px;
-          line-height: 32px;
-          border-radius: 4px;
-          border: 1px solid #e4e7ed;
-          background: #dee7ff;
-          color: #606266;
-          font-size: 14px;
-        }
-        
-        .el-input__suffix {
-          right: 6px;
-          width: 15px;
-          height: 20px;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          top: 6px;
-          border-radius: 4px;
-        }
-        
-        .el-input__suffix-inner {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-        }
-        
-        .el-icon-arrow-up:before {
-          content: "";
-          display: inline-block;
-          border-left: 6px solid transparent;
-          border-right: 6px solid transparent;
-          border-top: 9px solid #606266;
-          position: relative;
-          transform: rotate(0deg);
-          transition: transform 0.3s;
-        }
-      }
-      
-      .btn-prev, .btn-next {
-        min-width: 60px;
-        height: 32px;
-        padding: 0 12px;
-        border-radius: 4px;
-        border: 1px solid #e4e7ed;
-        background: #dee7ff;
-        color: #606266;
-        font-size: 14px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        
-        &:hover {
-          background: #d7dce6;
-        }
-        
-        &:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-      }
-      
-      .el-pager {
-        display: flex;
-        gap: 4px;
-        
-        .number {
-          min-width: 28px;
-          height: 32px;
-          padding: 0;
-          border-radius: 4px;
-          border: 1px solid transparent;
-          background: transparent;
-          color: #606266;
-          font-size: 14px;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          
-          &:hover {
-            background: rgba(245, 247, 250, 0.3);
-          }
-          
-          &.active {
-            background: #5f70f3 !important;
-            color: #ffffff !important;
-            border-color: #5f70f3 !important;
-            
-            &:hover {
-              background: #6d7cf5 !important;
-            }
-          }
-        }
-      }
-      
-      .el-pagination__jump {
-        margin-left: 8px;
-        color: #606266;
-        font-size: 14px;
-        
-        .el-pagination__editor {
-          width: 50px;
-          margin: 0 8px;
-          
-          .el-input__inner {
-            height: 32px;
-            line-height: 32px;
-            border-radius: 4px;
-            border: 1px solid #e4e7ed;
-            background: #dee7ff;
-            color: #606266;
-            font-size: 14px;
-          }
-        }
-      }
-      
-      .el-pagination__total {
-        margin-right: 8px;
-        color: #606266;
-        font-size: 14px;
-      }
-    }
-  }
-  
-  .slice-content {
-    max-height: 300px;
-    min-height: 60px;
-    overflow-y: auto;
-    word-break: break-all;
-    line-height: 1.4;
-    padding: 8px 12px;
-    border: 1px solid #e4e7ed;
-    border-radius: 4px;
-    background-color: #f8f9fa;
-    white-space: pre-wrap;
-  }
-  
-  .slice-keywords, .slice-questions {
-    max-height: 60px;
-    overflow-y: auto;
-  }
-  
-  .slice-tag {
-    margin: 2px;
-  }
-  
-  .add-slice-form {
-    padding: 20px 0;
-  }
-  
-  .form-item {
-    margin-bottom: 20px;
-  }
-  
-  .form-actions {
-    text-align: right;
-    margin-top: 20px;
   }
 
 @media (min-width: 1144px) {

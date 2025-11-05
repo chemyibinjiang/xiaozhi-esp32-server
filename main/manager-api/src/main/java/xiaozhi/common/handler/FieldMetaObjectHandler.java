@@ -57,7 +57,7 @@ public class FieldMetaObjectHandler implements MetaObjectHandler {
     @Override
     public void updateFill(MetaObject metaObject) {
         Date date = new Date();
-        
+
         // 更新者
         strictUpdateFill(metaObject, UPDATER, Long.class, SecurityUser.getUserId());
         // 更新时间 - 支持updateDate和updatedAt两种字段名

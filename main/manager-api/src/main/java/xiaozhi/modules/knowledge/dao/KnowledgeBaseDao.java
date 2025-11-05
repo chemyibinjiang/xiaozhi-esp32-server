@@ -10,5 +10,5 @@ import xiaozhi.modules.knowledge.entity.KnowledgeBaseEntity;
  */
 @Mapper
 public interface KnowledgeBaseDao extends BaseDao<KnowledgeBaseEntity> {
-    
+
 }

@@ -16,8 +16,8 @@ public interface KnowledgeBaseService extends BaseService<KnowledgeBaseEntity> {
      * 分页查询知识库列表
      * 
      * @param knowledgeBaseDTO 查询条件
-     * @param page 页码
-     * @param limit 每页数量
+     * @param page             页码
+     * @param limit            每页数量
      * @return 分页数据
      */
     PageData<KnowledgeBaseDTO> getPageList(KnowledgeBaseDTO knowledgeBaseDTO, String page, String limit);
@@ -67,7 +67,7 @@ public interface KnowledgeBaseService extends BaseService<KnowledgeBaseEntity> {
      * @param datasetId 知识库ID
      */
     void deleteByDatasetId(String datasetId);
-    
+
     /**
      * 获取RAG配置信息
      * 
@@ -75,7 +75,7 @@ public interface KnowledgeBaseService extends BaseService<KnowledgeBaseEntity> {
      * @return RAG配置信息
      */
     Map<String, Object> getRAGConfig(String ragModelId);
-    
+
     /**
      * 获取默认RAG配置信息
      * 

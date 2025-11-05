@@ -53,11 +53,11 @@ public class KnowledgeFilesController {
             @RequestParam(required = false) String chunkMethod,
             @RequestParam(required = false) String metaFields,
             @RequestParam(required = false) String parserConfig) {
-        
-        KnowledgeFilesDTO resp = knowledgeFilesService.uploadDocument(datasetId, file, name, 
-            metaFields != null ? parseJsonMap(metaFields) : null, 
-            chunkMethod, 
-            parserConfig != null ? parseJsonMap(parserConfig) : null);
+
+        KnowledgeFilesDTO resp = knowledgeFilesService.uploadDocument(datasetId, file, name,
+                metaFields != null ? parseJsonMap(metaFields) : null,
+                chunkMethod,
+                parserConfig != null ? parseJsonMap(parserConfig) : null);
         return new Result<KnowledgeFilesDTO>().ok(resp);
     }
 
@@ -66,21 +66,21 @@ public class KnowledgeFilesController {
     @Parameter(name = "document_id", description = "文档ID", required = true)
     @RequiresPermissions("sys:role:normal")
     public Result<Void> delete(@PathVariable("dataset_id") String datasetId,
-                              @PathVariable("document_id") String documentId) {
+            @PathVariable("document_id") String documentId) {
         knowledgeFilesService.deleteByDocumentId(documentId, datasetId);
         return new Result<>();
     }
-    
+
     @PostMapping("/chunks")
     @Operation(summary = "批量解析文档（切块）")
     @RequiresPermissions("sys:role:normal")
     public Result<Void> parseDocuments(@PathVariable("dataset_id") String datasetId,
-                                      @RequestBody Map<String, List<String>> requestBody) {
+            @RequestBody Map<String, List<String>> requestBody) {
         List<String> documentIds = requestBody.get("document_ids");
         if (documentIds == null || documentIds.isEmpty()) {
             return new Result<Void>().error("document_ids参数不能为空");
         }
-        
+
         boolean success = knowledgeFilesService.parseDocuments(datasetId, documentIds);
         if (success) {
             return new Result<Void>();
@@ -88,14 +88,14 @@ public class KnowledgeFilesController {
             return new Result<Void>().error("文档解析失败，文档可能正在处理中");
         }
     }
-    
+
     @PostMapping("/documents/{document_id}/parse")
     @Operation(summary = "解析单个文档（切块）")
     @RequiresPermissions("sys:role:normal")
     public Result<Void> parseDocument(@PathVariable("dataset_id") String datasetId,
-                                     @PathVariable("document_id") String documentId) {
+            @PathVariable("document_id") String documentId) {
         List<String> documentIds = java.util.Arrays.asList(documentId);
-        
+
         boolean success = knowledgeFilesService.parseDocuments(datasetId, documentIds);
         if (success) {
             return new Result<Void>();
@@ -108,13 +108,14 @@ public class KnowledgeFilesController {
     @Operation(summary = "添加切片到指定文档")
     @RequiresPermissions("sys:role:normal")
     public Result<Map<String, Object>> addChunk(@PathVariable("dataset_id") String datasetId,
-                                               @PathVariable("document_id") String documentId,
-                                               @RequestBody Map<String, Object> requestBody) {
+            @PathVariable("document_id") String documentId,
+            @RequestBody Map<String, Object> requestBody) {
         String content = (String) requestBody.get("content");
         List<String> importantKeywords = (List<String>) requestBody.get("important_keywords");
         List<String> questions = (List<String>) requestBody.get("questions");
-        
-        Map<String, Object> result = knowledgeFilesService.addChunk(datasetId, documentId, content, importantKeywords, questions);
+
+        Map<String, Object> result = knowledgeFilesService.addChunk(datasetId, documentId, content, importantKeywords,
+                questions);
         return new Result<Map<String, Object>>().ok(result);
     }
 
@@ -122,12 +123,13 @@ public class KnowledgeFilesController {
     @Operation(summary = "列出指定文档的切片")
     @RequiresPermissions("sys:role:normal")
     public Result<Map<String, Object>> listChunks(@PathVariable("dataset_id") String datasetId,
-                                                @PathVariable("document_id") String documentId,
-                                                @RequestParam(required = false) String keywords,
-                                                @RequestParam(required = false, defaultValue = "1") Integer page,
-                                                @RequestParam(required = false, defaultValue = "1024") Integer page_size,
-                                                @RequestParam(required = false) String id) {
-        Map<String, Object> result = knowledgeFilesService.listChunks(datasetId, documentId, keywords, page, page_size, id);
+            @PathVariable("document_id") String documentId,
+            @RequestParam(required = false) String keywords,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "1024") Integer page_size,
+            @RequestParam(required = false) String id) {
+        Map<String, Object> result = knowledgeFilesService.listChunks(datasetId, documentId, keywords, page, page_size,
+                id);
         return new Result<Map<String, Object>>().ok(result);
     }
 
@@ -138,7 +140,7 @@ public class KnowledgeFilesController {
     @Operation(summary = "召回测试")
     @RequiresPermissions("sys:role:normal")
     public Result<Map<String, Object>> retrievalTest(@PathVariable("dataset_id") String datasetId,
-                                                   @RequestBody Map<String, Object> params) {
+            @RequestBody Map<String, Object> params) {
         try {
             // 提取参数
             String question = (String) params.get("question");
@@ -165,23 +167,23 @@ public class KnowledgeFilesController {
             }
 
             Map<String, Object> result = knowledgeFilesService.retrievalTest(
-                question, datasetIds, documentIds, page, pageSize, similarityThreshold,
-                vectorSimilarityWeight, topK, rerankId, keyword, highlight, crossLanguages, metadataCondition
-            );
-            
+                    question, datasetIds, documentIds, page, pageSize, similarityThreshold,
+                    vectorSimilarityWeight, topK, rerankId, keyword, highlight, crossLanguages, metadataCondition);
+
             return new Result<Map<String, Object>>().ok(result);
         } catch (Exception e) {
             return new Result<Map<String, Object>>().error("召回测试失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 解析JSON字符串为Map对象
      */
     private Map<String, Object> parseJsonMap(String jsonString) {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
-            return objectMapper.readValue(jsonString, new TypeReference<Map<String, Object>>() {});
+            return objectMapper.readValue(jsonString, new TypeReference<Map<String, Object>>() {
+            });
         } catch (Exception e) {
             throw new RuntimeException("解析JSON字符串失败: " + jsonString, e);
         }

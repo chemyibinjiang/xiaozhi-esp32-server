@@ -202,13 +202,13 @@ public interface ErrorCode {
 
     // 知识库数据集相关错误码
     int Knowledge_Base_RECORD_NOT_EXISTS = 10163; // 知识库记录不存在
-    
+
     // RAG配置相关错误码
     int RAG_CONFIG_NOT_FOUND = 10164; // RAG配置未找到
     int RAG_CONFIG_TYPE_ERROR = 10165; // RAG配置类型错误
     int RAG_DEFAULT_CONFIG_NOT_FOUND = 10166; // 默认RAG配置未找到
     int RAG_CONFIG_MISSING_PARAMS = 10167; // RAG配置缺少必要参数
-    
+
     // RAG API调用相关错误码
     int RAG_API_CREATE_FAILED = 10168; // RAG API创建数据集失败
     int RAG_API_UPDATE_FAILED = 10169; // RAG API更新数据集失败

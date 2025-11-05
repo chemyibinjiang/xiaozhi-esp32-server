@@ -1206,7 +1206,7 @@ export default {
   'knowledgeFileUpload.documentNamePlaceholder': '请输入文档名称',
   'knowledgeFileUpload.file': '文件',
   'knowledgeFileUpload.clickToUpload': '点击上传',
-  'knowledgeFileUpload.uploadTip': '只能上传pdf、doc、docx、txt文件，且不超过10MB',
+  'knowledgeFileUpload.uploadTip': '支持的文档类型：PDF、DOC、DOCX、TXT、MD、CSV、XLS、XLSX、PPT、PPTX，单次批量上传文件数不超过 32 个',
   'knowledgeFileUpload.dragOrClick': '将文件拖到此处，或点击上传',
   'knowledgeFileUpload.cancel': '取消',
   'knowledgeFileUpload.confirm': '确定',

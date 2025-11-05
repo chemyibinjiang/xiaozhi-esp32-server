@@ -15,7 +15,7 @@
       <div class="content-panel">
         <div class="content-area">
           <el-card class="params-card" shadow="never">
-            <div class="table-wrapper">
+            <div>
               <el-table ref="paramsTable" :data="knowledgeBaseList" class="transparent-table" v-loading="loading"
                 :element-loading-text="$t('common.loading')" element-loading-spinner="el-icon-loading"
                 element-loading-background="rgba(255, 255, 255, 0.7)"

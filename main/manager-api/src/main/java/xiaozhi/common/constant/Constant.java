@@ -150,12 +150,12 @@ public interface Constant {
      * 火山引擎双声道语音克隆
      */
     String VOICE_CLONE_HUOSHAN_DOUBLE_STREAM = "huoshan_double_stream";
-    
+
     /**
      * RAG配置类型
      */
     String RAG_CONFIG_TYPE = "RAG";
-    
+
     /**
      * 默认RAG模型配置ID
      */

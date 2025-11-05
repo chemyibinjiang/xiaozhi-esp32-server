@@ -37,14 +37,13 @@ import xiaozhi.modules.model.service.ModelConfigService;
 @Service
 @AllArgsConstructor
 @Slf4j
-public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, KnowledgeBaseEntity> implements KnowledgeBaseService {
+public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, KnowledgeBaseEntity>
+        implements KnowledgeBaseService {
 
     private final KnowledgeBaseDao knowledgeBaseDao;
     private final ModelConfigService modelConfigService;
     private final ModelConfigDao modelConfigDao;
     private RestTemplate restTemplate = new RestTemplate();
-
-
 
     @Override
     public PageData<KnowledgeBaseDTO> getPageList(KnowledgeBaseDTO knowledgeBaseDTO, String page, String limit) {
@@ -53,11 +52,11 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         Page<KnowledgeBaseEntity> pageInfo = new Page<>(curPage, pageSize);
 
         QueryWrapper<KnowledgeBaseEntity> queryWrapper = new QueryWrapper<>();
-        
+
         // 添加查询条件
         if (knowledgeBaseDTO != null) {
             queryWrapper.like(StringUtils.isNotBlank(knowledgeBaseDTO.getName()), "name", knowledgeBaseDTO.getName())
-                       .eq(knowledgeBaseDTO.getStatus() != null, "status", knowledgeBaseDTO.getStatus());
+                    .eq(knowledgeBaseDTO.getStatus() != null, "status", knowledgeBaseDTO.getStatus());
         }
 
         // 添加排序规则：按创建时间降序
@@ -67,12 +66,13 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
 
         // 获取分页数据
         PageData<KnowledgeBaseDTO> pageData = getPageData(knowledgeBaseEntityIPage, KnowledgeBaseDTO.class);
-        
+
         // 为每个知识库获取文档数量
         if (pageData != null && pageData.getList() != null) {
             for (KnowledgeBaseDTO knowledgeBase : pageData.getList()) {
                 try {
-                    Integer documentCount = getDocumentCountFromRAGFlow(knowledgeBase.getDatasetId(), knowledgeBase.getRagModelId());
+                    Integer documentCount = getDocumentCountFromRAGFlow(knowledgeBase.getDatasetId(),
+                            knowledgeBase.getRagModelId());
                     knowledgeBase.setDocumentCount(documentCount);
                 } catch (Exception e) {
                     log.warn("获取知识库 {} 的文档数量失败: {}", knowledgeBase.getDatasetId(), e.getMessage());
@@ -109,19 +109,17 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         try {
             Map<String, Object> ragConfig = getValidatedRAGConfig(knowledgeBaseDTO.getRagModelId());
             datasetId = createDatasetInRAGFlow(
-                knowledgeBaseDTO.getName(),
-                knowledgeBaseDTO.getDescription(),
-                ragConfig
-            );
+                    knowledgeBaseDTO.getName(),
+                    knowledgeBaseDTO.getDescription(),
+                    ragConfig);
         } catch (Exception e) {
             // 如果RAG API调用失败，直接抛出异常，无需回滚（因为还没有插入本地数据库）
             throw e;
         }
-        
+
         // 验证数据集ID是否已存在
         KnowledgeBaseEntity existingEntity = knowledgeBaseDao.selectOne(
-            new QueryWrapper<KnowledgeBaseEntity>().eq("dataset_id", datasetId)
-        );
+                new QueryWrapper<KnowledgeBaseEntity>().eq("dataset_id", datasetId));
         if (existingEntity != null) {
             // 如果datasetId已存在，删除RAGFlow中的数据集并抛出异常
             try {
@@ -132,7 +130,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
             }
             throw new RenException(ErrorCode.DB_RECORD_EXISTS);
         }
-        
+
         // 创建本地实体并保存
         KnowledgeBaseEntity entity = ConvertUtils.sourceToTarget(knowledgeBaseDTO, KnowledgeBaseEntity.class);
         entity.setDatasetId(datasetId);
@@ -156,10 +154,9 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         // 验证数据集ID是否与其他记录冲突
         if (StringUtils.isNotBlank(knowledgeBaseDTO.getDatasetId())) {
             KnowledgeBaseEntity conflictEntity = knowledgeBaseDao.selectOne(
-                new QueryWrapper<KnowledgeBaseEntity>()
-                    .eq("dataset_id", knowledgeBaseDTO.getDatasetId())
-                    .ne("id", knowledgeBaseDTO.getId())
-            );
+                    new QueryWrapper<KnowledgeBaseEntity>()
+                            .eq("dataset_id", knowledgeBaseDTO.getDatasetId())
+                            .ne("id", knowledgeBaseDTO.getId()));
             if (conflictEntity != null) {
                 throw new RenException(ErrorCode.DB_RECORD_EXISTS);
             }
@@ -173,11 +170,10 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
             try {
                 Map<String, Object> ragConfig = getValidatedRAGConfig(knowledgeBaseDTO.getRagModelId());
                 updateDatasetInRAGFlow(
-                    knowledgeBaseDTO.getDatasetId(),
-                    knowledgeBaseDTO.getName(),
-                    knowledgeBaseDTO.getDescription(),
-                    ragConfig
-                );
+                        knowledgeBaseDTO.getDatasetId(),
+                        knowledgeBaseDTO.getName(),
+                        knowledgeBaseDTO.getDescription(),
+                        ragConfig);
             } catch (Exception e) {
                 // 如果RAG API调用失败，回滚本地数据库操作
                 knowledgeBaseDao.updateById(existingEntity);
@@ -203,8 +199,8 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
             throw new RenException(ErrorCode.Knowledge_Base_RECORD_NOT_EXISTS);
         }
 
-        log.info("找到记录: ID={}, datasetId={}, ragModelId={}", 
-            entity.getId(), entity.getDatasetId(), entity.getRagModelId());
+        log.info("找到记录: ID={}, datasetId={}, ragModelId={}",
+                entity.getId(), entity.getDatasetId(), entity.getRagModelId());
 
         // 先调用RAGFlow API删除数据集
         boolean apiDeleteSuccess = false;
@@ -229,7 +225,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
             int deleteCount = knowledgeBaseDao.deleteById(id);
             log.info("本地数据库删除结果: {}", deleteCount > 0 ? "成功" : "失败");
         }
-        
+
         log.info("=== 删除操作结束 ===");
     }
 
@@ -240,8 +236,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         }
 
         KnowledgeBaseEntity entity = knowledgeBaseDao.selectOne(
-            new QueryWrapper<KnowledgeBaseEntity>().eq("dataset_id", datasetId)
-        );
+                new QueryWrapper<KnowledgeBaseEntity>().eq("dataset_id", datasetId));
 
         if (entity == null) {
             throw new RenException(ErrorCode.Knowledge_Base_RECORD_NOT_EXISTS);
@@ -260,16 +255,15 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         log.info("删除datasetId: {}", datasetId);
 
         KnowledgeBaseEntity entity = knowledgeBaseDao.selectOne(
-            new QueryWrapper<KnowledgeBaseEntity>().eq("dataset_id", datasetId)
-        );
+                new QueryWrapper<KnowledgeBaseEntity>().eq("dataset_id", datasetId));
 
         if (entity == null) {
             log.warn("记录不存在，datasetId: {}", datasetId);
             throw new RenException(ErrorCode.Knowledge_Base_RECORD_NOT_EXISTS);
         }
 
-        log.info("找到记录: ID={}, datasetId={}, ragModelId={}", 
-            entity.getId(), entity.getDatasetId(), entity.getRagModelId());
+        log.info("找到记录: ID={}, datasetId={}, ragModelId={}",
+                entity.getId(), entity.getDatasetId(), entity.getRagModelId());
 
         // 先删除本地数据库记录
         int deleteCount = knowledgeBaseDao.deleteById(entity.getId());
@@ -288,62 +282,62 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         } else {
             log.warn("datasetId或ragModelId为空，跳过RAGFlow删除");
         }
-        
+
         log.info("=== 通过datasetId删除操作结束 ===");
     }
-    
+
     @Override
     public Map<String, Object> getRAGConfig(String ragModelId) {
         if (StringUtils.isBlank(ragModelId)) {
             throw new RenException(ErrorCode.PARAMS_GET_ERROR);
         }
-        
+
         // 从缓存获取模型配置
         ModelConfigEntity modelConfig = modelConfigService.getModelByIdFromCache(ragModelId);
         if (modelConfig == null || modelConfig.getConfigJson() == null) {
             throw new RenException(ErrorCode.RAG_CONFIG_NOT_FOUND);
         }
-        
+
         // 验证是否为RAG类型配置
         if (!Constant.RAG_CONFIG_TYPE.equals(modelConfig.getModelType().toUpperCase())) {
             throw new RenException(ErrorCode.RAG_CONFIG_TYPE_ERROR);
         }
-        
+
         Map<String, Object> config = modelConfig.getConfigJson();
-        
+
         // 验证必要的配置参数
         validateRagConfig(config);
-        
+
         // 返回配置信息
         return config;
     }
-    
+
     @Override
     public Map<String, Object> getDefaultRAGConfig() {
         // 获取默认RAG模型配置
         QueryWrapper<ModelConfigEntity> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("model_type", Constant.RAG_CONFIG_TYPE)
-                   .eq("is_default", 1)
-                   .eq("is_enabled", 1);
+                .eq("is_default", 1)
+                .eq("is_enabled", 1);
 
         List<ModelConfigEntity> modelConfigs = modelConfigDao.selectList(queryWrapper);
         if (modelConfigs == null || modelConfigs.isEmpty()) {
             throw new RenException(ErrorCode.RAG_DEFAULT_CONFIG_NOT_FOUND);
         }
-        
+
         ModelConfigEntity defaultConfig = modelConfigs.get(0);
         if (defaultConfig.getConfigJson() == null) {
             throw new RenException(ErrorCode.RAG_CONFIG_NOT_FOUND);
         }
-        
+
         Map<String, Object> config = defaultConfig.getConfigJson();
-        
+
         // 验证必要的配置参数
         validateRagConfig(config);
-        
+
         return config;
     }
-    
+
     /**
      * 验证RAG配置中是否包含必要的参数
      */
@@ -351,17 +345,17 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         if (config == null) {
             throw new RenException(ErrorCode.RAG_CONFIG_NOT_FOUND);
         }
-        
+
         // 从配置中提取必要的参数
         String baseUrl = (String) config.get("base_url");
         String apiKey = (String) config.get("api_key");
-        
+
         // 验证base_url是否存在且非空
         if (StringUtils.isBlank(baseUrl)) {
             throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS);
         }
     }
-    
+
     /**
      * 调用RAGFlow API创建数据集
      */
@@ -370,14 +364,14 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         try {
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
-            
+
             log.info("开始调用RAGFlow API创建数据集, name: {}", name);
             log.debug("RAGFlow配置 - baseUrl: {}, apiKey: {}", baseUrl, StringUtils.isBlank(apiKey) ? "未配置" : "已配置");
-            
+
             // 构建请求URL
             String url = baseUrl + "/api/v1/datasets";
             log.debug("请求URL: {}", url);
-            
+
             // 构建请求体
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("name", name);
@@ -385,26 +379,26 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                 requestBody.put("description", description);
             }
             log.debug("请求体: {}", requestBody);
-            
+
             // 设置请求头
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("Authorization", "Bearer " + apiKey);
-            
+
             HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
-            
+
             // 发送POST请求
             log.info("发送POST请求到RAGFlow API...");
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
-            
+
             log.info("RAGFlow API响应状态码: {}", response.getStatusCode());
             log.debug("RAGFlow API响应内容: {}", response.getBody());
-            
+
             if (!response.getStatusCode().is2xxSuccessful()) {
                 log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
                 throw new RenException(ErrorCode.RAG_API_CREATE_FAILED);
             }
-            
+
             // 解析响应体，提取datasetId
             String responseBody = response.getBody();
             if (StringUtils.isNotBlank(responseBody)) {
@@ -412,9 +406,9 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                     // 解析RAGFlow API响应，支持多种可能的字段名
                     ObjectMapper objectMapper = new ObjectMapper();
                     Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
-                    
+
                     log.debug("RAGFlow API响应解析结果: {}", responseMap);
-                    
+
                     // 首先检查响应码
                     Integer code = (Integer) responseMap.get("code");
                     if (code != null && code == 0) {
@@ -423,7 +417,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                         if (dataObj instanceof Map) {
                             Map<String, Object> dataMap = (Map<String, Object>) dataObj;
                             datasetId = (String) dataMap.get("id");
-                            
+
                             if (StringUtils.isBlank(datasetId)) {
                                 // 如果id字段为空，尝试其他可能的字段名
                                 datasetId = (String) dataMap.get("dataset_id");
@@ -435,7 +429,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                         log.error("RAGFlow API调用失败，响应码: {}, 响应内容: {}", code, responseBody);
                         throw new RenException(ErrorCode.RAG_API_CREATE_FAILED, "RAGFlow API调用失败，响应码: " + code);
                     }
-                    
+
                     log.info("从RAGFlow API响应中解析出datasetId: {}", datasetId);
                     log.debug("完整响应内容: {}", responseBody);
                 } catch (Exception e) {
@@ -443,22 +437,24 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                     throw new RenException(ErrorCode.RAG_API_CREATE_FAILED, "解析RAGFlow响应失败: " + e.getMessage());
                 }
             }
-            
+
             if (StringUtils.isBlank(datasetId)) {
                 log.error("无法从RAGFlow API响应中获取datasetId，响应内容: {}", responseBody);
                 throw new RenException(ErrorCode.RAG_API_CREATE_FAILED, "RAGFlow API响应中未包含datasetId");
             }
-            
+
             log.info("RAGFlow数据集创建成功，datasetId: {}", datasetId);
-            
+
         } catch (HttpClientErrorException e) {
-            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}", 
-                e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_CREATE_FAILED, "创建RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
+            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}",
+                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new RenException(ErrorCode.RAG_API_CREATE_FAILED,
+                    "创建RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
         } catch (HttpServerErrorException e) {
-            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}", 
-                e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_CREATE_FAILED, "创建RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
+            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}",
+                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new RenException(ErrorCode.RAG_API_CREATE_FAILED,
+                    "创建RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
         } catch (ResourceAccessException e) {
             log.error("RAGFlow API调用失败 - 网络连接错误: {}", e.getMessage(), e);
             throw new RenException(ErrorCode.RAG_API_CREATE_FAILED, "创建RAGFlow数据集失败: 网络连接错误 - " + e.getMessage());
@@ -468,22 +464,23 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         }
         return datasetId;
     }
-    
+
     /**
      * 调用RAGFlow API更新数据集
      */
-    private void updateDatasetInRAGFlow(String datasetId, String name, String description, Map<String, Object> ragConfig) {
+    private void updateDatasetInRAGFlow(String datasetId, String name, String description,
+            Map<String, Object> ragConfig) {
         try {
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
-            
+
             log.info("开始调用RAGFlow API更新数据集，datasetId: {}, name: {}", datasetId, name);
             log.debug("RAGFlow配置 - baseUrl: {}, apiKey: {}", baseUrl, StringUtils.isBlank(apiKey) ? "未配置" : "已配置");
-            
+
             // 构建请求URL
             String url = baseUrl + "/api/v1/datasets/" + datasetId;
             log.debug("请求URL: {}", url);
-            
+
             // 构建请求体
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("dataset_id", datasetId);
@@ -492,36 +489,38 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                 requestBody.put("description", description);
             }
             log.debug("请求体: {}", requestBody);
-            
+
             // 设置请求头
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("Authorization", "Bearer " + apiKey);
-            
+
             HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
-            
+
             // 发送PUT请求
             log.info("发送PUT请求到RAGFlow API...");
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.PUT, requestEntity, String.class);
-            
+
             log.info("RAGFlow API响应状态码: {}", response.getStatusCode());
             log.debug("RAGFlow API响应内容: {}", response.getBody());
-            
+
             if (!response.getStatusCode().is2xxSuccessful()) {
                 log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
                 throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED);
             }
-            
+
             log.info("RAGFlow数据集更新成功，datasetId: {}", datasetId);
-            
+
         } catch (HttpClientErrorException e) {
-            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}", 
-                e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED, "更新RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
+            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}",
+                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED,
+                    "更新RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
         } catch (HttpServerErrorException e) {
-            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}", 
-                e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED, "更新RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
+            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}",
+                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED,
+                    "更新RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
         } catch (ResourceAccessException e) {
             log.error("RAGFlow API调用失败 - 网络连接错误: {}", e.getMessage(), e);
             throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED, "更新RAGFlow数据集失败: 网络连接错误 - " + e.getMessage());
@@ -530,7 +529,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
             throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED, "更新RAGFlow数据集失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 调用RAGFlow API删除数据集
      */
@@ -538,48 +537,51 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         try {
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
-            
+
             log.info("开始调用RAGFlow API删除数据集，datasetId: {}", datasetId);
             log.debug("RAGFlow配置 - baseUrl: {}, apiKey: {}", baseUrl, StringUtils.isBlank(apiKey) ? "未配置" : "已配置");
-            
+
             // 构建请求URL
             String url = baseUrl + "/api/v1/datasets";
             log.debug("请求URL: {}", url);
-            
+
             // 构建请求体
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("ids", List.of(datasetId));
             log.debug("请求体: {}", requestBody);
-            
+
             // 设置请求头
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.set("Authorization", "Bearer " + apiKey);
-            
+
             HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
-            
+
             // 发送DELETE请求
             log.info("发送DELETE请求到RAGFlow API...");
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.DELETE, requestEntity, String.class);
-            
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.DELETE, requestEntity,
+                    String.class);
+
             log.info("RAGFlow API响应状态码: {}", response.getStatusCode());
             log.debug("RAGFlow API响应内容: {}", response.getBody());
-            
+
             if (!response.getStatusCode().is2xxSuccessful()) {
                 log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
                 throw new RenException(ErrorCode.RAG_API_DELETE_FAILED);
             }
-            
+
             log.info("RAGFlow数据集删除成功，datasetId: {}", datasetId);
-            
+
         } catch (HttpClientErrorException e) {
-            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}", 
-                e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_DELETE_FAILED, "删除RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
+            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}",
+                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new RenException(ErrorCode.RAG_API_DELETE_FAILED,
+                    "删除RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
         } catch (HttpServerErrorException e) {
-            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}", 
-                e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_DELETE_FAILED, "删除RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
+            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}",
+                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
+            throw new RenException(ErrorCode.RAG_API_DELETE_FAILED,
+                    "删除RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
         } catch (ResourceAccessException e) {
             log.error("RAGFlow API调用失败 - 网络连接错误: {}", e.getMessage(), e);
             throw new RenException(ErrorCode.RAG_API_DELETE_FAILED, "删除RAGFlow数据集失败: 网络连接错误 - " + e.getMessage());
@@ -588,7 +590,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
             throw new RenException(ErrorCode.RAG_API_DELETE_FAILED, "删除RAGFlow数据集失败: " + e.getMessage());
         }
     }
-    
+
     /**
      * 获取RAG配置并验证
      */
@@ -599,7 +601,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
             return getDefaultRAGConfig();
         }
     }
-    
+
     /**
      * 从RAGFlow API获取知识库的文档数量
      */
@@ -611,7 +613,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
 
         try {
             log.info("开始获取知识库 {} 的文档数量", datasetId);
-            
+
             // 获取RAG配置
             Map<String, Object> ragConfig = getValidatedRAGConfig(ragModelId);
             String baseUrl = (String) ragConfig.get("base_url");
@@ -646,7 +648,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
             ObjectMapper objectMapper = new ObjectMapper();
             Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
             Integer code = (Integer) responseMap.get("code");
-            
+
             if (code != null && code == 0) {
                 Object dataObj = responseMap.get("data");
                 if (dataObj instanceof Map) {
@@ -669,11 +671,11 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         } catch (IOException e) {
             log.error("解析RAGFlow API响应失败: {}", e.getMessage(), e);
         } catch (HttpClientErrorException e) {
-            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}", 
-                e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
+            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}",
+                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
         } catch (HttpServerErrorException e) {
-            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}", 
-                e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
+            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}",
+                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
         } catch (ResourceAccessException e) {
             log.error("RAGFlow API调用失败 - 网络连接错误: {}", e.getMessage(), e);
         } catch (Exception e) {
@@ -682,8 +684,5 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
 
         return 0;
     }
-
-
-    
 
 }

@@ -1206,7 +1206,7 @@ export default {
   'knowledgeFileUpload.documentNamePlaceholder': 'Please enter document name',
   'knowledgeFileUpload.file': 'File',
   'knowledgeFileUpload.clickToUpload': 'Click to upload',
-  'knowledgeFileUpload.uploadTip': 'Only pdf, doc, docx, txt files are supported, and file size should not exceed 10MB',
+  'knowledgeFileUpload.uploadTip': 'Supported file types: PDF, DOC, DOCX, TXT, MD, CSV, XLS, XLSX, PPT, PPTX. Maximum 32 files per upload, each file size up to 10MB',
   'knowledgeFileUpload.dragOrClick': 'Drag file here, or click to upload',
   'knowledgeFileUpload.cancel': 'Cancel',
   'knowledgeFileUpload.confirm': 'Confirm',

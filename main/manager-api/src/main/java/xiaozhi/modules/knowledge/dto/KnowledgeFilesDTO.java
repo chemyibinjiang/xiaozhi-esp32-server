@@ -16,7 +16,7 @@ public class KnowledgeFilesDTO implements Serializable {
     private static final long serialVersionUID = 1L;
     @Schema(description = "唯一标识")
     private String id;
-    
+
     @Schema(description = "文档ID")
     private String documentId;
 
