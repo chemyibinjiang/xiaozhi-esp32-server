@@ -200,22 +200,11 @@ public interface ErrorCode {
     // 模型相关错误码
     int MODEL_PROVIDER_NOT_EXIST = 10162; // 供应器不存在
 
-    // 知识库数据集相关错误码
+    // 知识库相关错误码
     int Knowledge_Base_RECORD_NOT_EXISTS = 10163; // 知识库记录不存在
-
-    // RAG配置相关错误码
     int RAG_CONFIG_NOT_FOUND = 10164; // RAG配置未找到
     int RAG_CONFIG_TYPE_ERROR = 10165; // RAG配置类型错误
     int RAG_DEFAULT_CONFIG_NOT_FOUND = 10166; // 默认RAG配置未找到
     int RAG_CONFIG_MISSING_PARAMS = 10167; // RAG配置缺少必要参数
-
-    // RAG API调用相关错误码
-    int RAG_API_CREATE_FAILED = 10168; // RAG API创建数据集失败
-    int RAG_API_UPDATE_FAILED = 10169; // RAG API更新数据集失败
-    int RAG_API_DELETE_FAILED = 10170; // RAG API删除数据集失败
-
-    int UPLOAD_FILE_ERROR = 10171; // 上传文件失败
-    int RAG_API_QUERY_FAILED = 10172; // RAG API查询失败
-    int RAG_API_PARSE_FAILED = 10173; // RAG API解析失败
-    int RAG_API_OPERATION_FAILED = 10174; // RAG API操作失败
+    int UPLOAD_FILE_ERROR = 10168; // 上传文件失败
 }

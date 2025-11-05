@@ -213,7 +213,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                 apiDeleteSuccess = true;
             } catch (Exception e) {
                 log.error("删除RAGFlow数据集失败: {}", e.getMessage());
-                throw new RenException(ErrorCode.RAG_API_DELETE_FAILED, "删除RAGFlow数据集失败: " + e.getMessage());
+                throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "删除RAGFlow数据集失败: " + e.getMessage());
             }
         } else {
             log.warn("datasetId或ragModelId为空，跳过RAGFlow删除");
@@ -396,7 +396,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
 
             if (!response.getStatusCode().is2xxSuccessful()) {
                 log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
-                throw new RenException(ErrorCode.RAG_API_CREATE_FAILED);
+                throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS);
             }
 
             // 解析响应体，提取datasetId
@@ -427,40 +427,39 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                     } else {
                         // 如果响应码不为0，说明API调用失败
                         log.error("RAGFlow API调用失败，响应码: {}, 响应内容: {}", code, responseBody);
-                        throw new RenException(ErrorCode.RAG_API_CREATE_FAILED, "RAGFlow API调用失败，响应码: " + code);
+                        throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "RAGFlow API调用失败，响应码: " + code);
                     }
 
                     log.info("从RAGFlow API响应中解析出datasetId: {}", datasetId);
                     log.debug("完整响应内容: {}", responseBody);
                 } catch (Exception e) {
                     log.error("解析RAGFlow API响应失败: {}, 响应内容: {}", e.getMessage(), responseBody);
-                    throw new RenException(ErrorCode.RAG_API_CREATE_FAILED, "解析RAGFlow响应失败: " + e.getMessage());
+                    throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "解析RAGFlow响应失败: " + e.getMessage());
                 }
             }
 
             if (StringUtils.isBlank(datasetId)) {
                 log.error("无法从RAGFlow API响应中获取datasetId，响应内容: {}", responseBody);
-                throw new RenException(ErrorCode.RAG_API_CREATE_FAILED, "RAGFlow API响应中未包含datasetId");
+                throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "RAGFlow API响应中未包含datasetId");
             }
-
             log.info("RAGFlow数据集创建成功，datasetId: {}", datasetId);
 
         } catch (HttpClientErrorException e) {
             log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}",
                     e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_CREATE_FAILED,
+            throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS,
                     "创建RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
         } catch (HttpServerErrorException e) {
             log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}",
                     e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_CREATE_FAILED,
+            throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS,
                     "创建RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
         } catch (ResourceAccessException e) {
             log.error("RAGFlow API调用失败 - 网络连接错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_CREATE_FAILED, "创建RAGFlow数据集失败: 网络连接错误 - " + e.getMessage());
+            throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "创建RAGFlow数据集失败: 网络连接错误 - " + e.getMessage());
         } catch (Exception e) {
             log.error("RAGFlow API调用失败 - 未知错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_CREATE_FAILED, "创建RAGFlow数据集失败: " + e.getMessage());
+            throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "创建RAGFlow数据集失败: " + e.getMessage());
         }
         return datasetId;
     }
@@ -506,7 +505,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
 
             if (!response.getStatusCode().is2xxSuccessful()) {
                 log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
-                throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED);
+                throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS);
             }
 
             log.info("RAGFlow数据集更新成功，datasetId: {}", datasetId);
@@ -514,19 +513,19 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         } catch (HttpClientErrorException e) {
             log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}",
                     e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED,
+            throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS,
                     "更新RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
         } catch (HttpServerErrorException e) {
             log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}",
                     e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED,
+            throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS,
                     "更新RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
         } catch (ResourceAccessException e) {
             log.error("RAGFlow API调用失败 - 网络连接错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED, "更新RAGFlow数据集失败: 网络连接错误 - " + e.getMessage());
+            throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "更新RAGFlow数据集失败: 网络连接错误 - " + e.getMessage());
         } catch (Exception e) {
             log.error("RAGFlow API调用失败 - 未知错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED, "更新RAGFlow数据集失败: " + e.getMessage());
+            throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "更新RAGFlow数据集失败: " + e.getMessage());
         }
     }
 
@@ -567,27 +566,26 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
 
             if (!response.getStatusCode().is2xxSuccessful()) {
                 log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
-                throw new RenException(ErrorCode.RAG_API_DELETE_FAILED);
+                throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS);
             }
-
             log.info("RAGFlow数据集删除成功，datasetId: {}", datasetId);
 
         } catch (HttpClientErrorException e) {
             log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}",
                     e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_DELETE_FAILED,
+            throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS,
                     "删除RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
         } catch (HttpServerErrorException e) {
             log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}",
                     e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_DELETE_FAILED,
+            throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS,
                     "删除RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
         } catch (ResourceAccessException e) {
             log.error("RAGFlow API调用失败 - 网络连接错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_DELETE_FAILED, "删除RAGFlow数据集失败: 网络连接错误 - " + e.getMessage());
+            throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "删除RAGFlow数据集失败: 网络连接错误 - " + e.getMessage());
         } catch (Exception e) {
             log.error("RAGFlow API调用失败 - 未知错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_DELETE_FAILED, "删除RAGFlow数据集失败: " + e.getMessage());
+            throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "删除RAGFlow数据集失败: " + e.getMessage());
         }
     }
 
