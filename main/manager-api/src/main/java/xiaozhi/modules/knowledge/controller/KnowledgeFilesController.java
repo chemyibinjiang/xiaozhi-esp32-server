@@ -14,10 +14,15 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
+import xiaozhi.common.exception.ErrorCode;
+import xiaozhi.common.exception.RenException;
 import xiaozhi.common.page.PageData;
 import xiaozhi.common.utils.Result;
+import xiaozhi.modules.knowledge.dto.KnowledgeBaseDTO;
 import xiaozhi.modules.knowledge.dto.KnowledgeFilesDTO;
+import xiaozhi.modules.knowledge.service.KnowledgeBaseService;
 import xiaozhi.modules.knowledge.service.KnowledgeFilesService;
+import xiaozhi.modules.security.user.SecurityUser;
 
 @AllArgsConstructor
 @RestController
@@ -26,6 +31,25 @@ import xiaozhi.modules.knowledge.service.KnowledgeFilesService;
 public class KnowledgeFilesController {
 
     private final KnowledgeFilesService knowledgeFilesService;
+    private final KnowledgeBaseService knowledgeBaseService;
+
+    /**
+     * 验证当前用户是否有权限操作指定知识库
+     * 
+     * @param datasetId 知识库ID
+     */
+    private void validateKnowledgeBasePermission(String datasetId) {
+        // 获取当前登录用户ID
+        Long currentUserId = SecurityUser.getUserId();
+
+        // 获取知识库信息
+        KnowledgeBaseDTO knowledgeBase = knowledgeBaseService.getByDatasetId(datasetId);
+
+        // 检查权限：用户只能操作自己创建的知识库
+        if (knowledgeBase.getCreator() == null || !knowledgeBase.getCreator().equals(currentUserId)) {
+            throw new RenException(ErrorCode.NO_PERMISSION);
+        }
+    }
 
     @GetMapping("/documents")
     @Operation(summary = "分页查询文档列表")
@@ -35,6 +59,9 @@ public class KnowledgeFilesController {
             @RequestParam(required = false) String name,
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "10") Integer page_size) {
+        // 验证知识库权限
+        validateKnowledgeBasePermission(datasetId);
+
         KnowledgeFilesDTO knowledgeFilesDTO = new KnowledgeFilesDTO();
         knowledgeFilesDTO.setDatasetId(datasetId);
         knowledgeFilesDTO.setName(name);
@@ -53,6 +80,9 @@ public class KnowledgeFilesController {
             @RequestParam(required = false) String metaFields,
             @RequestParam(required = false) String parserConfig) {
 
+        // 验证知识库权限
+        validateKnowledgeBasePermission(datasetId);
+
         KnowledgeFilesDTO resp = knowledgeFilesService.uploadDocument(datasetId, file, name,
                 metaFields != null ? parseJsonMap(metaFields) : null,
                 chunkMethod,
@@ -66,6 +96,9 @@ public class KnowledgeFilesController {
     @RequiresPermissions("sys:role:normal")
     public Result<Void> delete(@PathVariable("dataset_id") String datasetId,
             @PathVariable("document_id") String documentId) {
+        // 验证知识库权限
+        validateKnowledgeBasePermission(datasetId);
+
         knowledgeFilesService.deleteByDocumentId(documentId, datasetId);
         return new Result<>();
     }
@@ -75,6 +108,9 @@ public class KnowledgeFilesController {
     @RequiresPermissions("sys:role:normal")
     public Result<Void> parseDocuments(@PathVariable("dataset_id") String datasetId,
             @RequestBody Map<String, List<String>> requestBody) {
+        // 验证知识库权限
+        validateKnowledgeBasePermission(datasetId);
+
         List<String> documentIds = requestBody.get("document_ids");
         if (documentIds == null || documentIds.isEmpty()) {
             return new Result<Void>().error("document_ids参数不能为空");
@@ -97,6 +133,9 @@ public class KnowledgeFilesController {
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "1024") Integer page_size,
             @RequestParam(required = false) String id) {
+        // 验证知识库权限
+        validateKnowledgeBasePermission(datasetId);
+
         Map<String, Object> result = knowledgeFilesService.listChunks(datasetId, documentId, keywords, page, page_size,
                 id);
         return new Result<Map<String, Object>>().ok(result);
@@ -110,6 +149,9 @@ public class KnowledgeFilesController {
     @RequiresPermissions("sys:role:normal")
     public Result<Map<String, Object>> retrievalTest(@PathVariable("dataset_id") String datasetId,
             @RequestBody Map<String, Object> params) {
+        // 验证知识库权限
+        validateKnowledgeBasePermission(datasetId);
+
         try {
             // 提取参数
             String question = (String) params.get("question");

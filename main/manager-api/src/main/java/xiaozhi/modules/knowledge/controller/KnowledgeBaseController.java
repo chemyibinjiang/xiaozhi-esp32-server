@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.apache.commons.lang3.StringUtils;
 import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.exception.RenException;
+import xiaozhi.modules.security.user.SecurityUser;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -39,8 +40,13 @@ public class KnowledgeBaseController {
             @RequestParam(required = false) String name,
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "10") Integer page_size) {
+        // 获取当前登录用户ID
+        Long currentUserId = SecurityUser.getUserId();
+
         KnowledgeBaseDTO knowledgeBaseDTO = new KnowledgeBaseDTO();
         knowledgeBaseDTO.setName(name);
+        knowledgeBaseDTO.setCreator(currentUserId); // 设置创建者ID，用于权限过滤
+
         PageData<KnowledgeBaseDTO> pageData = knowledgeBaseService.getPageList(knowledgeBaseDTO, page, page_size);
         return new Result<PageData<KnowledgeBaseDTO>>().ok(pageData);
     }
@@ -49,7 +55,16 @@ public class KnowledgeBaseController {
     @Operation(summary = "根据知识库ID获取知识库详情")
     @RequiresPermissions("sys:role:normal")
     public Result<KnowledgeBaseDTO> getByDatasetId(@PathVariable("dataset_id") String datasetId) {
+        // 获取当前登录用户ID
+        Long currentUserId = SecurityUser.getUserId();
+
         KnowledgeBaseDTO knowledgeBaseDTO = knowledgeBaseService.getByDatasetId(datasetId);
+
+        // 检查权限：用户只能查看自己创建的知识库
+        if (knowledgeBaseDTO.getCreator() == null || !knowledgeBaseDTO.getCreator().equals(currentUserId)) {
+            throw new RenException(ErrorCode.NO_PERMISSION);
+        }
+
         return new Result<KnowledgeBaseDTO>().ok(knowledgeBaseDTO);
     }
 
@@ -66,6 +81,17 @@ public class KnowledgeBaseController {
     @RequiresPermissions("sys:role:normal")
     public Result<KnowledgeBaseDTO> update(@PathVariable("dataset_id") String datasetId,
             @RequestBody @Validated KnowledgeBaseDTO knowledgeBaseDTO) {
+        // 获取当前登录用户ID
+        Long currentUserId = SecurityUser.getUserId();
+
+        // 先获取现有知识库信息以检查权限
+        KnowledgeBaseDTO existingKnowledgeBase = knowledgeBaseService.getByDatasetId(datasetId);
+
+        // 检查权限：用户只能更新自己创建的知识库
+        if (existingKnowledgeBase.getCreator() == null || !existingKnowledgeBase.getCreator().equals(currentUserId)) {
+            throw new RenException(ErrorCode.NO_PERMISSION);
+        }
+
         knowledgeBaseDTO.setDatasetId(datasetId);
         KnowledgeBaseDTO resp = knowledgeBaseService.update(knowledgeBaseDTO);
         return new Result<KnowledgeBaseDTO>().ok(resp);
@@ -76,6 +102,17 @@ public class KnowledgeBaseController {
     @Parameter(name = "dataset_id", description = "知识库ID", required = true)
     @RequiresPermissions("sys:role:normal")
     public Result<Void> delete(@PathVariable("dataset_id") String datasetId) {
+        // 获取当前登录用户ID
+        Long currentUserId = SecurityUser.getUserId();
+
+        // 先获取现有知识库信息以检查权限
+        KnowledgeBaseDTO existingKnowledgeBase = knowledgeBaseService.getByDatasetId(datasetId);
+
+        // 检查权限：用户只能删除自己创建的知识库
+        if (existingKnowledgeBase.getCreator() == null || !existingKnowledgeBase.getCreator().equals(currentUserId)) {
+            throw new RenException(ErrorCode.NO_PERMISSION);
+        }
+
         knowledgeBaseService.deleteByDatasetId(datasetId);
         return new Result<>();
     }
@@ -89,9 +126,20 @@ public class KnowledgeBaseController {
             throw new RenException(ErrorCode.PARAMS_GET_ERROR);
         }
 
+        // 获取当前登录用户ID
+        Long currentUserId = SecurityUser.getUserId();
         String[] idArray = ids.split(",");
         for (String datasetId : idArray) {
             if (StringUtils.isNotBlank(datasetId)) {
+                // 先获取现有知识库信息以检查权限
+                KnowledgeBaseDTO existingKnowledgeBase = knowledgeBaseService.getByDatasetId(datasetId.trim());
+
+                // 检查权限：用户只能删除自己创建的知识库
+                if (existingKnowledgeBase.getCreator() == null
+                        || !existingKnowledgeBase.getCreator().equals(currentUserId)) {
+                    throw new RenException(ErrorCode.NO_PERMISSION);
+                }
+
                 knowledgeBaseService.deleteByDatasetId(datasetId.trim());
             }
         }
