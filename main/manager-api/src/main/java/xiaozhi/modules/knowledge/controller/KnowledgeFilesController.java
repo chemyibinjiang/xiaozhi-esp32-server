@@ -72,7 +72,7 @@ public class KnowledgeFilesController {
     }
 
     @PostMapping("/chunks")
-    @Operation(summary = "批量解析文档（切块）")
+    @Operation(summary = "解析文档（切块）")
     @RequiresPermissions("sys:role:normal")
     public Result<Void> parseDocuments(@PathVariable("dataset_id") String datasetId,
             @RequestBody Map<String, List<String>> requestBody) {
@@ -80,21 +80,6 @@ public class KnowledgeFilesController {
         if (documentIds == null || documentIds.isEmpty()) {
             return new Result<Void>().error("document_ids参数不能为空");
         }
-
-        boolean success = knowledgeFilesService.parseDocuments(datasetId, documentIds);
-        if (success) {
-            return new Result<Void>();
-        } else {
-            return new Result<Void>().error("文档解析失败，文档可能正在处理中");
-        }
-    }
-
-    @PostMapping("/documents/{document_id}/parse")
-    @Operation(summary = "解析单个文档（切块）")
-    @RequiresPermissions("sys:role:normal")
-    public Result<Void> parseDocument(@PathVariable("dataset_id") String datasetId,
-            @PathVariable("document_id") String documentId) {
-        List<String> documentIds = java.util.Arrays.asList(documentId);
 
         boolean success = knowledgeFilesService.parseDocuments(datasetId, documentIds);
         if (success) {
