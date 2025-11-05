@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.shiro.authz.annotation.RequiresPermissions;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -22,7 +21,7 @@ import xiaozhi.modules.knowledge.service.KnowledgeFilesService;
 
 @AllArgsConstructor
 @RestController
-@RequestMapping("/api/v1/datasets/{dataset_id}")
+@RequestMapping("/datasets/{dataset_id}")
 @Tag(name = "知识库文档管理")
 public class KnowledgeFilesController {
 

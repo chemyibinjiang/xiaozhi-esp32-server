@@ -23,17 +23,16 @@ import xiaozhi.common.page.PageData;
 import xiaozhi.common.utils.Result;
 import xiaozhi.modules.knowledge.dto.KnowledgeBaseDTO;
 import xiaozhi.modules.knowledge.service.KnowledgeBaseService;
-import java.util.Map;
 
 @AllArgsConstructor
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/datasets")
 @Tag(name = "知识库管理")
 public class KnowledgeBaseController {
 
     private final KnowledgeBaseService knowledgeBaseService;
 
-    @GetMapping("/datasets")
+    @GetMapping
     @Operation(summary = "分页查询知识库列表")
     @RequiresPermissions("sys:role:normal")
     public Result<PageData<KnowledgeBaseDTO>> getPageList(
@@ -46,7 +45,7 @@ public class KnowledgeBaseController {
         return new Result<PageData<KnowledgeBaseDTO>>().ok(pageData);
     }
 
-    @GetMapping("/datasets/{dataset_id}")
+    @GetMapping("/{dataset_id}")
     @Operation(summary = "根据知识库ID获取知识库详情")
     @RequiresPermissions("sys:role:normal")
     public Result<KnowledgeBaseDTO> getByDatasetId(@PathVariable("dataset_id") String datasetId) {
@@ -54,7 +53,7 @@ public class KnowledgeBaseController {
         return new Result<KnowledgeBaseDTO>().ok(knowledgeBaseDTO);
     }
 
-    @PostMapping("/datasets")
+    @PostMapping
     @Operation(summary = "创建知识库")
     @RequiresPermissions("sys:role:normal")
     public Result<KnowledgeBaseDTO> save(@RequestBody @Validated KnowledgeBaseDTO knowledgeBaseDTO) {
@@ -62,7 +61,7 @@ public class KnowledgeBaseController {
         return new Result<KnowledgeBaseDTO>().ok(resp);
     }
 
-    @PutMapping("/datasets/{dataset_id}")
+    @PutMapping("/{dataset_id}")
     @Operation(summary = "更新知识库")
     @RequiresPermissions("sys:role:normal")
     public Result<KnowledgeBaseDTO> update(@PathVariable("dataset_id") String datasetId,
@@ -72,7 +71,7 @@ public class KnowledgeBaseController {
         return new Result<KnowledgeBaseDTO>().ok(resp);
     }
 
-    @DeleteMapping("/datasets/{dataset_id}")
+    @DeleteMapping("/{dataset_id}")
     @Operation(summary = "删除单个知识库")
     @Parameter(name = "dataset_id", description = "知识库ID", required = true)
     @RequiresPermissions("sys:role:normal")
@@ -81,7 +80,7 @@ public class KnowledgeBaseController {
         return new Result<>();
     }
 
-    @DeleteMapping("/datasets/batch")
+    @DeleteMapping("/batch")
     @Operation(summary = "批量删除知识库")
     @Parameter(name = "ids", description = "知识库ID列表，用逗号分隔", required = true)
     @RequiresPermissions("sys:role:normal")

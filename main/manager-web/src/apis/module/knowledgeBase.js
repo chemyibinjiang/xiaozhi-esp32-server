@@ -74,7 +74,7 @@ export default {
     }).toString();
 
     makeApiRequest({
-      url: `${getServiceUrl()}/api/v1/datasets?${queryParams}`,
+      url: `${getServiceUrl()}/datasets?${queryParams}`,
       method: 'GET',
       callback: callback,
       errorCallback: errorCallback,
@@ -91,10 +91,10 @@ export default {
    */
   createKnowledgeBase(data, callback, errorCallback) {
     console.log('createKnowledgeBase called with data:', data);
-    console.log('API URL:', `${getServiceUrl()}/api/v1/datasets`);
+    console.log('API URL:', `${getServiceUrl()}/datasets`);
 
     makeApiRequest({
-      url: `${getServiceUrl()}/api/v1/datasets`,
+      url: `${getServiceUrl()}/datasets`,
       method: 'POST',
       data: data,
       headers: { 'Content-Type': 'application/json' },
@@ -126,10 +126,10 @@ export default {
    */
   updateKnowledgeBase(datasetId, data, callback, errorCallback) {
     console.log('updateKnowledgeBase called with datasetId:', datasetId, 'data:', data);
-    console.log('API URL:', `${getServiceUrl()}/api/v1/datasets/${datasetId}`);
+    console.log('API URL:', `${getServiceUrl()}/datasets/${datasetId}`);
 
     makeApiRequest({
-      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}`,
+      url: `${getServiceUrl()}/datasets/${datasetId}`,
       method: 'PUT',
       data: data,
       headers: { 'Content-Type': 'application/json' },
@@ -148,10 +148,10 @@ export default {
    */
   deleteKnowledgeBase(datasetId, callback, errorCallback) {
     console.log('deleteKnowledgeBase called with datasetId:', datasetId);
-    console.log('API URL:', `${getServiceUrl()}/api/v1/datasets/${datasetId}`);
+    console.log('API URL:', `${getServiceUrl()}/datasets/${datasetId}`);
 
     makeApiRequest({
-      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}`,
+      url: `${getServiceUrl()}/datasets/${datasetId}`,
       method: 'DELETE',
       callback: callback,
       errorCallback: errorCallback,
@@ -171,7 +171,7 @@ export default {
     const idsStr = Array.isArray(ids) ? ids.join(',') : ids;
 
     makeApiRequest({
-      url: `${getServiceUrl()}/api/v1/datasets/batch?ids=${idsStr}`,
+      url: `${getServiceUrl()}/datasets/batch?ids=${idsStr}`,
       method: 'DELETE',
       callback: callback,
       errorCallback: errorCallback,
@@ -195,7 +195,7 @@ export default {
     }).toString();
 
     makeApiRequest({
-      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}/documents?${queryParams}`,
+      url: `${getServiceUrl()}/datasets/${datasetId}/documents?${queryParams}`,
       method: 'GET',
       callback: callback,
       errorCallback: errorCallback,
@@ -213,7 +213,7 @@ export default {
    */
   uploadDocument(datasetId, formData, callback, errorCallback) {
     makeApiRequest({
-      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}/documents`,
+      url: `${getServiceUrl()}/datasets/${datasetId}/documents`,
       method: 'POST',
       data: formData,
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -237,7 +237,7 @@ export default {
     };
 
     makeApiRequest({
-      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}/chunks`,
+      url: `${getServiceUrl()}/datasets/${datasetId}/chunks`,
       method: 'POST',
       data: requestBody,
       headers: { 'Content-Type': 'application/json' },
@@ -257,7 +257,7 @@ export default {
    */
   deleteDocument(datasetId, documentId, callback, errorCallback) {
     makeApiRequest({
-      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}/documents/${documentId}`,
+      url: `${getServiceUrl()}/datasets/${datasetId}/documents/${documentId}`,
       method: 'DELETE',
       callback: callback,
       errorCallback: errorCallback,
@@ -286,7 +286,7 @@ export default {
     }
 
     makeApiRequest({
-      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}/documents/${documentId}/chunks?${queryParams}`,
+      url: `${getServiceUrl()}/datasets/${datasetId}/documents/${documentId}/chunks?${queryParams}`,
       method: 'GET',
       callback: callback,
       errorCallback: errorCallback,
@@ -304,7 +304,7 @@ export default {
    */
   retrievalTest(datasetId, data, callback, errorCallback) {
     makeApiRequest({
-      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}/retrieval-test`,
+      url: `${getServiceUrl()}/datasets/${datasetId}/retrieval-test`,
       method: 'POST',
       data: data,
       headers: { 'Content-Type': 'application/json' },
