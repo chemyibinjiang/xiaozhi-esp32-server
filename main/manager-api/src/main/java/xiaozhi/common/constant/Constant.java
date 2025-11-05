@@ -156,11 +156,6 @@ public interface Constant {
      */
     String RAG_CONFIG_TYPE = "RAG";
 
-    /**
-     * 默认RAG模型配置ID
-     */
-    String DEFAULT_RAG_MODEL_ID = "RAG_DEFAULT_MODEL";
-
     enum SysBaseParam {
         /**
          * ICP备案号

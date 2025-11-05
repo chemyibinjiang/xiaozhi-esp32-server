@@ -38,14 +38,12 @@ public class KnowledgeBaseController {
     @RequiresPermissions("sys:role:normal")
     public Result<PageData<KnowledgeBaseDTO>> getPageList(
             @RequestParam(required = false) String name,
-            @RequestParam(required = false) String id,
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "10") Integer page_size,
             @RequestParam(required = false) String orderby,
             @RequestParam(required = false) Boolean desc) {
         KnowledgeBaseDTO knowledgeBaseDTO = new KnowledgeBaseDTO();
         knowledgeBaseDTO.setName(name);
-        knowledgeBaseDTO.setDatasetId(id);
         PageData<KnowledgeBaseDTO> pageData = knowledgeBaseService.getPageList(knowledgeBaseDTO, String.valueOf(page),
                 String.valueOf(page_size));
         return new Result<PageData<KnowledgeBaseDTO>>().ok(pageData);
@@ -102,13 +100,5 @@ public class KnowledgeBaseController {
             }
         }
         return new Result<>();
-    }
-
-    @GetMapping("/rag-config/default")
-    @Operation(summary = "获取默认RAG配置")
-    @RequiresPermissions("sys:role:normal")
-    public Result<Map<String, Object>> getDefaultRAGConfig() {
-        Map<String, Object> config = knowledgeBaseService.getDefaultRAGConfig();
-        return new Result<Map<String, Object>>().ok(config);
     }
 }
