@@ -620,22 +620,18 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         String baseUrl = (String) ragConfig.get("base_url");
         String apiKey = (String) ragConfig.get("api_key");
 
-        // 验证base_url是否存在且非空
         if (StringUtils.isBlank(baseUrl)) {
             throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "RAG配置中base_url为空，请完善配置");
         }
 
-        // 验证apiKey是否存在且非空
         if (StringUtils.isBlank(apiKey)) {
             throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "RAG配置中api_key为空，请完善配置");
         }
 
-        // 验证apiKey是否包含"你"字（可能是占位符）
         if (apiKey.contains("你")) {
             throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "RAG配置中api_key包含占位符'你'，请替换为实际的API密钥");
         }
 
-        // 验证baseUrl格式（基本验证）
         if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
             throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "RAG配置中base_url格式不正确，必须以http://或https://开头");
         }
