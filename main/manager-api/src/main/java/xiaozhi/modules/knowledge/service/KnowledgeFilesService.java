@@ -80,19 +80,6 @@ public interface KnowledgeFilesService {
         boolean parseDocuments(String datasetId, List<String> documentIds);
 
         /**
-         * 添加切片到指定文档
-         * 
-         * @param datasetId         知识库ID
-         * @param documentId        文档ID
-         * @param content           切片内容
-         * @param importantKeywords 重要关键词列表
-         * @param questions         问题列表
-         * @return 添加的切片信息
-         */
-        Map<String, Object> addChunk(String datasetId, String documentId, String content,
-                        List<String> importantKeywords, List<String> questions);
-
-        /**
          * 列出指定文档的切片
          * 
          * @param datasetId  知识库ID

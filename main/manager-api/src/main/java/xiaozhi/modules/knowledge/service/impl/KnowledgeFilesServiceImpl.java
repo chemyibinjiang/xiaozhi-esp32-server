@@ -262,14 +262,6 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                 }
             }
 
-            // 设置状态 - 支持多种可能的字段名
-            Object statusObj = getValueFromMultipleKeys(docMap, "status", "state", "processing_status");
-            if (statusObj instanceof String) {
-                dto.setStatus(convertRAGStatusToLocal((String) statusObj));
-            } else if (statusObj instanceof Integer) {
-                dto.setStatus((Integer) statusObj);
-            }
-
             // 设置元数据和配置 - 支持多种可能的字段名
             Object metaFieldsObj = getValueFromMultipleKeys(docMap, "meta_fields", "metadata", "meta", "properties");
             if (metaFieldsObj instanceof Map) {
@@ -316,28 +308,6 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
         } catch (Exception e) {
             log.error("转换RAGFlow文档数据失败: {}", e.getMessage(), e);
             return null;
-        }
-    }
-
-    /**
-     * 转换RAGFlow状态到本地状态
-     */
-    private Integer convertRAGStatusToLocal(String ragStatus) {
-        if (ragStatus == null)
-            return 0;
-
-        switch (ragStatus.toLowerCase()) {
-            case "pending":
-            case "processing":
-                return 1; // 处理中
-            case "completed":
-            case "finished":
-                return 2; // 已完成
-            case "failed":
-            case "error":
-                return 3; // 失败
-            default:
-                return 0; // 未知
         }
     }
 
@@ -552,10 +522,9 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
             if (lastDotIndex > 0 && lastDotIndex < fileName.length() - 1) {
                 String extension = fileName.substring(lastDotIndex + 1).toLowerCase();
 
-                // 支持RAGFlow四种文档格式类型
+                // 文档格式类型
                 String[] documentTypes = { "pdf", "doc", "docx", "txt", "md", "mdx" };
                 String[] spreadsheetTypes = { "csv", "xls", "xlsx" };
-                String[] imageTypes = { "jpeg", "jpg", "png", "tif", "gif" };
                 String[] presentationTypes = { "ppt", "pptx" };
 
                 // 检查文档类型
@@ -571,21 +540,12 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                         return "spreadsheet";
                     }
                 }
-
-                // 检查图片类型
-                for (String type : imageTypes) {
-                    if (type.equals(extension)) {
-                        return "image";
-                    }
-                }
-
                 // 检查幻灯片类型
                 for (String type : presentationTypes) {
                     if (type.equals(extension)) {
                         return "presentation";
                     }
                 }
-
                 // 返回原始扩展名作为文件类型
                 return extension;
             }
@@ -864,83 +824,6 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
     }
 
     /**
-     * 调用RAGFlow API更新文档配置
-     */
-    private void updateDocumentInRAGFlow(String documentId, String name, Map<String, Object> metaFields,
-            String chunkMethod, Map<String, Object> parserConfig) {
-        try {
-            // 获取RAG配置
-            Map<String, Object> ragConfig = getDefaultRAGConfig();
-            String baseUrl = (String) ragConfig.get("base_url");
-            String apiKey = (String) ragConfig.get("api_key");
-
-            log.info("开始调用RAGFlow API更新文档配置，documentId: {}, name: {}", documentId, name);
-            log.debug("RAGFlow配置 - baseUrl: {}, apiKey: {}", baseUrl, StringUtils.isBlank(apiKey) ? "未配置" : "已配置");
-
-            // 构建请求URL - 根据RAGFlow API规范，更新文档需要datasetId，但这里假设documentId足够
-            // 如果更新失败，可能需要调整URL格式
-            String url = baseUrl + "/api/v1/documents/" + documentId;
-            log.debug("请求URL: {}", url);
-
-            // 构建请求体
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("document_id", documentId);
-            if (StringUtils.isNotBlank(name)) {
-                requestBody.put("name", name);
-            }
-            if (metaFields != null && !metaFields.isEmpty()) {
-                requestBody.put("meta_fields", metaFields);
-            }
-            if (StringUtils.isNotBlank(chunkMethod)) {
-                requestBody.put("chunk_method", chunkMethod);
-            }
-            if (parserConfig != null && !parserConfig.isEmpty()) {
-                requestBody.put("parser_config", parserConfig);
-            }
-
-            log.debug("请求体: {}", requestBody);
-
-            // 设置请求头
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + apiKey);
-
-            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
-
-            // 发送PUT请求
-            log.info("发送PUT请求到RAGFlow API...");
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.PUT, requestEntity, String.class);
-
-            log.info("RAGFlow API响应状态码: {}", response.getStatusCode());
-            log.debug("RAGFlow API响应内容: {}", response.getBody());
-
-            if (!response.getStatusCode().is2xxSuccessful()) {
-                log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
-                throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED);
-            }
-
-            log.info("RAGFlow文档配置更新成功，documentId: {}", documentId);
-
-        } catch (HttpClientErrorException e) {
-            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}",
-                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED,
-                    "更新RAGFlow文档配置失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
-        } catch (HttpServerErrorException e) {
-            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}",
-                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED,
-                    "更新RAGFlow文档配置失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
-        } catch (ResourceAccessException e) {
-            log.error("RAGFlow API调用失败 - 网络连接错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED, "更新RAGFlow文档配置失败: 网络连接错误 - " + e.getMessage());
-        } catch (Exception e) {
-            log.error("RAGFlow API调用失败 - 未知错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_UPDATE_FAILED, "更新RAGFlow文档配置失败: " + e.getMessage());
-        }
-    }
-
-    /**
      * 调用RAGFlow API删除文档
      */
     private void deleteDocumentInRAGFlow(String documentId, String datasetId) {
@@ -1142,96 +1025,6 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
             throw new RenException(ErrorCode.RAG_API_PARSE_FAILED, "解析文档失败: " + e.getMessage());
         } finally {
             log.info("=== 解析文档操作结束 ===");
-        }
-    }
-
-    @Override
-    public Map<String, Object> addChunk(String datasetId, String documentId, String content,
-            List<String> importantKeywords, List<String> questions) {
-        if (StringUtils.isBlank(datasetId) || StringUtils.isBlank(documentId) || StringUtils.isBlank(content)) {
-            throw new RenException(ErrorCode.PARAMS_GET_ERROR, "datasetId、documentId和content不能为空");
-        }
-
-        log.info("=== 开始添加切片 ===");
-        log.info("datasetId: {}, documentId: {}, content长度: {}", datasetId, documentId, content.length());
-
-        try {
-            // 获取RAG配置
-            Map<String, Object> ragConfig = getDefaultRAGConfig();
-            String baseUrl = (String) ragConfig.get("base_url");
-            String apiKey = (String) ragConfig.get("api_key");
-
-            // 构建请求URL - 根据RAGFlow API文档，添加切片的接口
-            String url = baseUrl + "/api/v1/datasets/" + datasetId + "/documents/" + documentId + "/chunks";
-            log.debug("请求URL: {}", url);
-
-            // 构建请求体
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("content", content);
-
-            if (importantKeywords != null && !importantKeywords.isEmpty()) {
-                requestBody.put("important_keywords", importantKeywords);
-            }
-
-            if (questions != null && !questions.isEmpty()) {
-                requestBody.put("questions", questions);
-            }
-
-            log.debug("请求体: {}", requestBody);
-
-            // 设置请求头
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + apiKey);
-
-            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
-
-            // 发送POST请求
-            log.info("发送POST请求到RAGFlow API添加切片...");
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
-
-            log.info("RAGFlow API响应状态码: {}", response.getStatusCode());
-
-            if (!response.getStatusCode().is2xxSuccessful()) {
-                log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
-                throw new RenException(ErrorCode.RAG_API_OPERATION_FAILED, "添加切片失败");
-            }
-
-            String responseBody = response.getBody();
-            log.debug("RAGFlow API响应内容: {}", responseBody);
-
-            // 解析响应
-            Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
-            Integer code = (Integer) responseMap.get("code");
-
-            if (code != null && code == 0) {
-                log.info("切片添加成功，datasetId: {}, documentId: {}", datasetId, documentId);
-                return responseMap;
-            } else {
-                String message = (String) responseMap.get("message");
-                log.error("RAGFlow API调用失败，响应码: {}, 消息: {}, 响应内容: {}", code, message, responseBody);
-                throw new RenException(ErrorCode.RAG_API_OPERATION_FAILED, "RAGFlow API调用失败: " + message);
-            }
-
-        } catch (IOException e) {
-            log.error("解析RAGFlow API响应失败: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_OPERATION_FAILED, "解析RAGFlow响应失败: " + e.getMessage());
-        } catch (HttpClientErrorException e) {
-            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}",
-                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_OPERATION_FAILED, "添加切片失败: " + e.getMessage());
-        } catch (HttpServerErrorException e) {
-            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}",
-                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_OPERATION_FAILED, "添加切片失败: " + e.getMessage());
-        } catch (ResourceAccessException e) {
-            log.error("RAGFlow API调用失败 - 网络连接错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_OPERATION_FAILED, "添加切片失败: 网络连接错误 - " + e.getMessage());
-        } catch (Exception e) {
-            log.error("添加切片失败: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_OPERATION_FAILED, "添加切片失败: " + e.getMessage());
-        } finally {
-            log.info("=== 添加切片操作结束 ===");
         }
     }
 

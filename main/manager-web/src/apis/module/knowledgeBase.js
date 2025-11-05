@@ -296,27 +296,6 @@ export default {
   },
 
   /**
-   * 添加切片
-   * @param {string} datasetId - 知识库ID
-   * @param {string} documentId - 文档ID
-   * @param {Object} data - 切片数据
-   * @param {Function} callback - 回调函数
-   * @param {Function} errorCallback - 错误回调
-   */
-  addChunk(datasetId, documentId, data, callback, errorCallback) {
-    makeApiRequest({
-      url: `${getServiceUrl()}/api/v1/datasets/${datasetId}/documents/${documentId}/chunks`,
-      method: 'POST',
-      data: data,
-      headers: { 'Content-Type': 'application/json' },
-      callback: callback,
-      errorCallback: errorCallback,
-      errorMessage: '添加切片失败',
-      retryFunction: () => this.addChunk(datasetId, documentId, data, callback, errorCallback)
-    });
-  },
-
-  /**
    * 召回测试
    * @param {string} datasetId - 知识库ID
    * @param {Object} data - 召回测试参数

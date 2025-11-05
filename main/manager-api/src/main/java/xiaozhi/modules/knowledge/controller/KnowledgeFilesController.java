@@ -104,21 +104,6 @@ public class KnowledgeFilesController {
         }
     }
 
-    @PostMapping("/documents/{document_id}/chunks")
-    @Operation(summary = "添加切片到指定文档")
-    @RequiresPermissions("sys:role:normal")
-    public Result<Map<String, Object>> addChunk(@PathVariable("dataset_id") String datasetId,
-            @PathVariable("document_id") String documentId,
-            @RequestBody Map<String, Object> requestBody) {
-        String content = (String) requestBody.get("content");
-        List<String> importantKeywords = (List<String>) requestBody.get("important_keywords");
-        List<String> questions = (List<String>) requestBody.get("questions");
-
-        Map<String, Object> result = knowledgeFilesService.addChunk(datasetId, documentId, content, importantKeywords,
-                questions);
-        return new Result<Map<String, Object>>().ok(result);
-    }
-
     @GetMapping("/documents/{document_id}/chunks")
     @Operation(summary = "列出指定文档的切片")
     @RequiresPermissions("sys:role:normal")
