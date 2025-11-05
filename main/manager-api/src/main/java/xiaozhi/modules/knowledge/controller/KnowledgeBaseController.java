@@ -39,13 +39,10 @@ public class KnowledgeBaseController {
     public Result<PageData<KnowledgeBaseDTO>> getPageList(
             @RequestParam(required = false) String name,
             @RequestParam(required = false, defaultValue = "1") Integer page,
-            @RequestParam(required = false, defaultValue = "10") Integer page_size,
-            @RequestParam(required = false) String orderby,
-            @RequestParam(required = false) Boolean desc) {
+            @RequestParam(required = false, defaultValue = "10") Integer page_size) {
         KnowledgeBaseDTO knowledgeBaseDTO = new KnowledgeBaseDTO();
         knowledgeBaseDTO.setName(name);
-        PageData<KnowledgeBaseDTO> pageData = knowledgeBaseService.getPageList(knowledgeBaseDTO, String.valueOf(page),
-                String.valueOf(page_size));
+        PageData<KnowledgeBaseDTO> pageData = knowledgeBaseService.getPageList(knowledgeBaseDTO, page, page_size);
         return new Result<PageData<KnowledgeBaseDTO>>().ok(pageData);
     }
 

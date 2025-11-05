@@ -46,9 +46,9 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
     private RestTemplate restTemplate = new RestTemplate();
 
     @Override
-    public PageData<KnowledgeBaseDTO> getPageList(KnowledgeBaseDTO knowledgeBaseDTO, String page, String limit) {
-        long curPage = Long.parseLong(page);
-        long pageSize = Long.parseLong(limit);
+    public PageData<KnowledgeBaseDTO> getPageList(KnowledgeBaseDTO knowledgeBaseDTO, Integer page, Integer limit) {
+        long curPage = page;
+        long pageSize = limit;
         Page<KnowledgeBaseEntity> pageInfo = new Page<>(curPage, pageSize);
 
         QueryWrapper<KnowledgeBaseEntity> queryWrapper = new QueryWrapper<>();
