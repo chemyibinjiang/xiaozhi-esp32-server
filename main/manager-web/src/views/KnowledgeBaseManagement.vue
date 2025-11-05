@@ -299,16 +299,20 @@ export default {
         console.log('Creating knowledge base with data:', createData);
         Api.knowledgeBase.createKnowledgeBase(createData, (res) => {
           console.log('Create response:', res);
-          // 修复：检查 res.data.code 而不是 res.code
           if (res.data && res.data.code === 0) {
             this.dialogVisible = false;
             this.fetchKnowledgeBaseList();
             this.$message.success(this.$t('knowledgeBaseManagement.addSuccess'));
-          } else {
-            this.$message.error(res.data?.msg || this.$t('knowledgeBaseManagement.addFailed'));
           }
-        }, () => {
-          this.$message.error(this.$t('knowledgeBaseManagement.addFailed'));
+        }, (err) => {
+          console.log('Error callback received:', err);
+          // 错误回调处理后端返回的错误信息
+          if (err && err.data) {
+            console.log('后端返回错误消息:', err.data.msg || err.msg);
+            this.$message.error(err.data.msg || err.msg || this.$t('knowledgeBaseManagement.addFailed'));
+          } else {
+            this.$message.error(this.$t('knowledgeBaseManagement.addFailed'));
+          }
         });
       }
     },
@@ -328,7 +332,6 @@ export default {
         }).then(() => {
         const ids = this.selectedKnowledgeBase.map(item => item.datasetId).join(',');
         Api.knowledgeBase.deleteKnowledgeBases(ids, (res) => {
-          // 修复：检查 res.data.code 而不是 res.code
           if (res.data && res.data.code === 0) {
             this.fetchKnowledgeBaseList();
             this.$message.success(this.$t('knowledgeBaseManagement.batchDeleteSuccess', { count: this.selectedKnowledgeBase.length }));
@@ -356,7 +359,6 @@ export default {
           type: 'warning'
         }).then(() => {
         Api.knowledgeBase.deleteKnowledgeBase(row.datasetId, (res) => {
-          // 修复：检查 res.data.code 而不是 res.code
           if (res.data && res.data.code === 0) {
             this.fetchKnowledgeBaseList();
             this.$message.success(this.$t('knowledgeBaseManagement.batchDeleteSuccess', { count: 1 }));

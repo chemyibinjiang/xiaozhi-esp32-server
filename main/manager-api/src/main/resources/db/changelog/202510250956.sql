@@ -8,7 +8,7 @@ INSERT INTO `ai_model_provider` (`id`, `model_type`, `provider_code`, `name`, `f
 
 -- 添加RAG模型配置
 delete from `ai_model_config` where id = 'RAG_RAGFlow';
-INSERT INTO `ai_model_config` VALUES ('RAG_RAGFlow', 'RAG', 'ragflow', 'RAGFlow', 1, 1, '{"type": "ragflow", "base_url": "http://localhost", "api_key": "your_api_key_here"}', 'https://github.com/infiniflow/ragflow/blob/main/README_zh.md', 'RAGFlow配置说明：
+INSERT INTO `ai_model_config` VALUES ('RAG_RAGFlow', 'RAG', 'ragflow', 'RAGFlow', 1, 1, '{"type": "ragflow", "base_url": "http://localhost", "api_key": "你的RAG密钥"}', 'https://github.com/infiniflow/ragflow/blob/main/README_zh.md', 'RAGFlow配置说明：
 一、快速部署教程（docker部署）
 1.$ sysctl vm.max_map_count
 2.$ sysctl -w vm.max_map_count=262144

@@ -403,12 +403,12 @@ databaseChangeLog:
             encoding: utf8
             path: classpath:db/changelog/202510191042.sql
   - changeSet:
-      id: 202510250955
+      id: 202510250956
       author: rainv123
       changes:
         - sqlFile:
             encoding: utf8
-            path: classpath:db/changelog/202510250955.sql
+            path: classpath:db/changelog/202510250956.sql
   - changeSet:
       id: 202510251150
       author: rainv123
