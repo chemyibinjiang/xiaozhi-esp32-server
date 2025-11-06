@@ -205,8 +205,7 @@ public interface ErrorCode {
     int RAG_CONFIG_NOT_FOUND = 10164; // RAG配置未找到
     int RAG_CONFIG_TYPE_ERROR = 10165; // RAG配置类型错误
     int RAG_DEFAULT_CONFIG_NOT_FOUND = 10166; // 默认RAG配置未找到
-    int RAG_CONFIG_MISSING_PARAMS = 10167; // RAG配置缺少必要参数
+    int RAG_API_ERROR = 10167; // RAG配置缺少必要参数
     int UPLOAD_FILE_ERROR = 10168; // 上传文件失败
     int NO_PERMISSION = 10169; // 没有权限
-    int RAG_API_ERROR = 10170; // RAG API接口错误
 }

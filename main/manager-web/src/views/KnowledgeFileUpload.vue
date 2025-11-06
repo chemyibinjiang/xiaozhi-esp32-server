@@ -26,22 +26,23 @@
                 element-loading-background="rgba(255, 255, 255, 0.7)" :header-cell-class-name="headerCellClassName"
                 @selection-change="handleSelectionChange">
                 <el-table-column type="selection" width="55" align="center"></el-table-column>
-                <el-table-column :label="$t('knowledgeFileUpload.documentName')" prop="name" align="center">
+                <el-table-column :label="$t('knowledgeFileUpload.documentName')" prop="name" align="left">
                   <template slot-scope="scope">
                     <span class="document-name">{{ scope.row.name }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column :label="$t('knowledgeFileUpload.uploadTime')" prop="createdAt" align="center">
+                <el-table-column :label="$t('knowledgeFileUpload.uploadTime')" prop="createdAt" align="center"
+                  width="300">
                   <template slot-scope="scope">
                     <span>{{ formatDate(scope.row.createdAt) }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column :label="$t('knowledgeFileUpload.sliceCount')" align="center">
+                <el-table-column :label="$t('knowledgeFileUpload.sliceCount')" align="center" width="100">
                   <template slot-scope="scope">
                     <span>{{ scope.row.sliceCount || 0 }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column :label="$t('knowledgeFileUpload.operation')" align="center">
+                <el-table-column :label="$t('knowledgeFileUpload.operation')" align="center" width="200">
                   <template slot-scope="scope">
                     <el-button size="mini" type="text" @click="handleParse(scope.row)"
                       :disabled="scope.row.status === 1" v-if="!scope.row.sliceCount || scope.row.sliceCount <= 0">
@@ -150,7 +151,7 @@
               <div v-for="(slice, index) in sliceList" :key="index" class="slice-card">
                 <div class="slice-header-info">
                   <p><strong>{{ $t('knowledgeFileUpload.slice') }} {{ (sliceCurrentPage - 1) * slicePageSize + index + 1
-                  }}</strong></p>
+                      }}</strong></p>
                 </div>
                 <div class="slice-card-content">
                   <div class="content-text">{{ slice.content }}</div>
@@ -1386,8 +1387,8 @@ export default {
 .document-uploader {
   :deep(.el-upload-dragger) {
     width: 600px;
-    height: 300px;
-    min-height: 300px;
+    height: 200px;
+    min-height: 200px;
     border: 2px dashed #c0c4cc;
     border-radius: 16px;
     cursor: pointer;
