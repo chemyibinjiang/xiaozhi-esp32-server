@@ -3,34 +3,44 @@ package xiaozhi.modules.knowledge.service.impl;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.core.io.AbstractResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.http.*;
-import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.core.io.AbstractResource;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.multipart.MultipartFile;
-
 import xiaozhi.common.constant.Constant;
 import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.exception.RenException;
 import xiaozhi.common.page.PageData;
 import xiaozhi.modules.knowledge.dto.KnowledgeFilesDTO;
 import xiaozhi.modules.knowledge.service.KnowledgeFilesService;
-import xiaozhi.modules.model.service.ModelConfigService;
 import xiaozhi.modules.model.dao.ModelConfigDao;
 import xiaozhi.modules.model.entity.ModelConfigEntity;
+import xiaozhi.modules.model.service.ModelConfigService;
 
 @Service
 @AllArgsConstructor
@@ -1003,7 +1013,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
             } else {
                 String message = (String) responseMap.get("message");
                 log.error("RAGFlow API调用失败，响应码: {}, 消息: {}, 响应内容: {}", code, message, responseBody);
-                throw new RenException(ErrorCode.RAG_CONFIG_MISSING_PARAMS, "RAGFlow API调用失败: " + message);
+                throw new RenException(ErrorCode.RAG_API_ERROR, response.getStatusCode().toString());
             }
 
         } catch (IOException e) {

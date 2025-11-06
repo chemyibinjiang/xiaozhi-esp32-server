@@ -208,4 +208,5 @@ public interface ErrorCode {
     int RAG_CONFIG_MISSING_PARAMS = 10167; // RAG配置缺少必要参数
     int UPLOAD_FILE_ERROR = 10168; // 上传文件失败
     int NO_PERMISSION = 10169; // 没有权限
+    int RAG_API_ERROR = 10170; // RAG API接口错误
 }
