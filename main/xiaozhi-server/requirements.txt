@@ -5,7 +5,7 @@ websockets==14.2
 opuslib_next==1.1.2
 numpy==1.26.4
 pydub==0.25.1
-funasr==1.2.3
+funasr==1.2.7
 torchaudio==2.9.0
 openai==2.6.1
 google-generativeai==0.8.5
@@ -21,7 +21,7 @@ cozepy==0.19.0
 mem0ai==1.0.0
 bs4==0.0.2
 modelscope==1.23.2
-sherpa_onnx==1.12.11
+sherpa_onnx==1.12.15
 mcp==1.20.0
 cnlunar==0.2.0
 PySocks==1.7.1
