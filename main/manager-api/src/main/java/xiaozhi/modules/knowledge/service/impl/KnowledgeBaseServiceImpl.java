@@ -1,6 +1,7 @@
 package xiaozhi.modules.knowledge.service.impl;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,8 @@ import xiaozhi.common.constant.Constant;
 import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.exception.RenException;
 import xiaozhi.common.page.PageData;
+import xiaozhi.common.redis.RedisKeys;
+import xiaozhi.common.redis.RedisUtils;
 import xiaozhi.common.service.impl.BaseServiceImpl;
 import xiaozhi.common.utils.ConvertUtils;
 import xiaozhi.modules.knowledge.dao.KnowledgeBaseDao;
@@ -47,7 +50,33 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
     private final KnowledgeBaseDao knowledgeBaseDao;
     private final ModelConfigService modelConfigService;
     private final ModelConfigDao modelConfigDao;
+    private final RedisUtils redisUtils;
     private RestTemplate restTemplate = new RestTemplate();
+
+    @Override
+    public KnowledgeBaseEntity selectById(Serializable datasetId) {
+        if (datasetId == null) {
+            return null;
+        }
+
+        // 先从Redis获取缓存
+        String key = RedisKeys.getKnowledgeBaseCacheKey(datasetId.toString());
+        KnowledgeBaseEntity cachedEntity = (KnowledgeBaseEntity) redisUtils.get(key);
+        if (cachedEntity != null) {
+            return cachedEntity;
+        }
+
+        // 如果缓存中没有，则从数据库获取
+        KnowledgeBaseEntity entity = knowledgeBaseDao.selectById(datasetId);
+        if (entity == null) {
+            return null;
+        }
+
+        // 存入Redis缓存
+        redisUtils.set(key, entity);
+
+        return entity;
+    }
 
     @Override
     public PageData<KnowledgeBaseDTO> getPageList(KnowledgeBaseDTO knowledgeBaseDTO, Integer page, Integer limit) {
@@ -169,6 +198,11 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         KnowledgeBaseEntity entity = ConvertUtils.sourceToTarget(knowledgeBaseDTO, KnowledgeBaseEntity.class);
         knowledgeBaseDao.updateById(entity);
 
+        // 删除缓存
+        if (entity.getDatasetId() != null) {
+            redisUtils.delete(RedisKeys.getKnowledgeBaseCacheKey(entity.getDatasetId()));
+        }
+
         // 调用RAGFlow API更新数据集
         if (StringUtils.isNotBlank(knowledgeBaseDTO.getDatasetId())) {
             try {
@@ -192,6 +226,12 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
     public void delete(String id) {
         if (StringUtils.isBlank(id)) {
             throw new RenException(ErrorCode.IDENTIFIER_NOT_NULL);
+        }
+
+        // 先获取实体以获取datasetId用于删除缓存
+        KnowledgeBaseEntity tempEntity = knowledgeBaseDao.selectById(id);
+        if (tempEntity != null && tempEntity.getDatasetId() != null) {
+            redisUtils.delete(RedisKeys.getKnowledgeBaseCacheKey(tempEntity.getDatasetId()));
         }
 
         log.info("=== 开始删除操作 ===");
