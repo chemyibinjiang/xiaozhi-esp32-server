@@ -47,6 +47,9 @@ public class KnowledgeFilesDTO implements Serializable {
     @Schema(description = "状态")
     private Integer status;
 
+    @Schema(description = "文档解析状态")
+    private String run;
+
     @Schema(description = "创建者")
     private Long creator;
 
@@ -58,4 +61,36 @@ public class KnowledgeFilesDTO implements Serializable {
 
     @Schema(description = "更新时间")
     private Date updatedAt;
+
+    // 文档解析状态常量定义
+    private static final Integer STATUS_UNSTART = 0;
+    private static final Integer STATUS_RUNNING = 1;
+    private static final Integer STATUS_CANCEL = 2;
+    private static final Integer STATUS_DONE = 3;
+    private static final Integer STATUS_FAIL = 4;
+
+    /**
+     * 获取文档解析状态码（基于run字段转换）
+     */
+    public Integer getParseStatusCode() {
+        if (run == null) {
+            return STATUS_UNSTART;
+        }
+
+        // 根据run字段的值直接映射到对应的状态码
+        switch (run.toUpperCase()) {
+            case "RUNNING":
+                return STATUS_RUNNING;
+            case "CANCEL":
+                return STATUS_CANCEL;
+            case "DONE":
+                return STATUS_DONE;
+            case "FAIL":
+                return STATUS_FAIL;
+            case "UNSTART":
+            default:
+                return STATUS_UNSTART;
+        }
+    }
+
 }

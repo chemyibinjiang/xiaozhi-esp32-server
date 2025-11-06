@@ -57,15 +57,38 @@ public class KnowledgeFilesController {
     public Result<PageData<KnowledgeFilesDTO>> getPageList(
             @PathVariable("dataset_id") String datasetId,
             @RequestParam(required = false) String name,
+            @RequestParam(required = false) Integer status,
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "10") Integer page_size) {
         // 验证知识库权限
         validateKnowledgeBasePermission(datasetId);
 
+        // 如果指定了状态参数，使用状态查询接口
+        if (status != null) {
+            PageData<KnowledgeFilesDTO> pageData = knowledgeFilesService.getPageListByStatus(datasetId, status, page, page_size);
+            return new Result<PageData<KnowledgeFilesDTO>>().ok(pageData);
+        }
+
+        // 否则使用通用查询接口
         KnowledgeFilesDTO knowledgeFilesDTO = new KnowledgeFilesDTO();
         knowledgeFilesDTO.setDatasetId(datasetId);
         knowledgeFilesDTO.setName(name);
         PageData<KnowledgeFilesDTO> pageData = knowledgeFilesService.getPageList(knowledgeFilesDTO, page, page_size);
+        return new Result<PageData<KnowledgeFilesDTO>>().ok(pageData);
+    }
+
+    @GetMapping("/documents/status/{status}")
+    @Operation(summary = "根据状态分页查询文档列表")
+    @RequiresPermissions("sys:role:normal")
+    public Result<PageData<KnowledgeFilesDTO>> getPageListByStatus(
+            @PathVariable("dataset_id") String datasetId,
+            @PathVariable("status") Integer status,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "10") Integer page_size) {
+        // 验证知识库权限
+        validateKnowledgeBasePermission(datasetId);
+
+        PageData<KnowledgeFilesDTO> pageData = knowledgeFilesService.getPageListByStatus(datasetId, status, page, page_size);
         return new Result<PageData<KnowledgeFilesDTO>>().ok(pageData);
     }
 
@@ -186,7 +209,6 @@ public class KnowledgeFilesController {
             return new Result<Map<String, Object>>().error("召回测试失败: " + e.getMessage());
         }
     }
-
     /**
      * 解析JSON字符串为Map对象
      */
