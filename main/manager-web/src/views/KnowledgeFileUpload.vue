@@ -37,6 +37,13 @@
                     <span>{{ formatDate(scope.row.createdAt) }}</span>
                   </template>
                 </el-table-column>
+                <el-table-column :label="$t('knowledgeFileUpload.status')" align="center" width="120">
+                  <template slot-scope="scope">
+                    <el-tag :type="getParseStatusType(scope.row.parseStatusCode)" size="small">
+                      {{ getParseStatusText(scope.row.parseStatusCode) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
                 <el-table-column :label="$t('knowledgeFileUpload.sliceCount')" align="center" width="100">
                   <template slot-scope="scope">
                     <span>{{ scope.row.sliceCount || 0 }}</span>
@@ -45,7 +52,7 @@
                 <el-table-column :label="$t('knowledgeFileUpload.operation')" align="center" width="200">
                   <template slot-scope="scope">
                     <el-button size="mini" type="text" @click="handleParse(scope.row)"
-                      :disabled="scope.row.status === 1" v-if="!scope.row.sliceCount || scope.row.sliceCount <= 0">
+                      :disabled="scope.row.parseStatusCode === 1 || scope.row.parseStatusCode === 3 || scope.row.parseStatusCode === 4" v-if="!scope.row.sliceCount || scope.row.sliceCount <= 0">
                       {{ $t('knowledgeFileUpload.parse') }}
                     </el-button>
                     <el-button size="mini" type="text" @click="handleViewSlices(scope.row)"
@@ -298,7 +305,13 @@ export default {
         question: ''
       },
       retrievalTestResult: null,
-      retrievalTestLoading: false
+      retrievalTestLoading: false,
+      
+      // 状态轮询相关数据
+      statusPollingTimer: null,
+      statusPollingInterval: 5000, // 5秒轮询一次
+      maxStatusPollingTime: 300000, // 最大轮询时间5分钟
+      statusPollingStartTime: null
     };
   },
   created() {
@@ -306,6 +319,10 @@ export default {
     this.knowledgeBaseName = this.$route.query.knowledgeBaseName || '';
     this.uploadUrl = `${Api.getServiceUrl()}/api/v1/documents/upload`;
     this.fetchFileList();
+  },
+  
+  beforeDestroy() {
+    this.stopStatusPolling();
   },
   computed: {
     pageCount() {
@@ -373,6 +390,9 @@ export default {
 
             // 为每个文档获取切片数量
             await this.fetchSliceCountsForDocuments();
+            
+            // 自动为处理中的文档启动状态检测
+            this.startStatusPolling();
           } else {
             this.$message.error(data?.msg || this.$t('knowledgeFileUpload.getListFailed'));
             this.fileList = [];
@@ -388,6 +408,113 @@ export default {
         }
       );
     },
+    
+    // 启动文档状态轮询
+    startStatusPolling: function () {
+      // 检查是否已经有轮询在进行
+      if (this.statusPollingTimer) {
+        console.log('状态轮询已在运行');
+        return;
+      }
+      
+      // 检查是否有处理中的文档
+      const hasProcessingDocuments = this.fileList.some(document => 
+        document.parseStatusCode === 1
+      );
+      
+      if (!hasProcessingDocuments) {
+        console.log('没有处理中的文档，不启动状态轮询');
+        return;
+      }
+      
+      console.log('启动文档状态轮询');
+      this.statusPollingStartTime = Date.now();
+      
+      // 立即执行一次状态检查
+      this.pollDocumentStatus();
+      
+      // 开始轮询
+      this.statusPollingTimer = setInterval(() => {
+        this.pollDocumentStatus();
+      }, this.statusPollingInterval);
+    },
+    
+    // 停止文档状态轮询
+    stopStatusPolling: function () {
+      if (this.statusPollingTimer) {
+        clearInterval(this.statusPollingTimer);
+        this.statusPollingTimer = null;
+        console.log('停止文档状态轮询');
+      }
+    },
+    
+    // 轮询文档状态
+    pollDocumentStatus: async function () {
+      // 检查是否超过最大轮询时间
+      if (Date.now() - this.statusPollingStartTime > this.maxStatusPollingTime) {
+        console.log('达到最大轮询时间，停止状态轮询');
+        this.stopStatusPolling();
+        return;
+      }
+      
+      try {
+        const params = {
+          page: this.currentPage,
+          page_size: this.pageSize,
+          name: this.searchName
+        };
+        
+        const response = await new Promise((resolve, reject) => {
+          KnowledgeBaseAPI.getDocumentList(this.datasetId, params,
+            ({ data }) => resolve(data),
+            (err) => reject(err)
+          );
+        });
+        
+        if (response && response.code === 0) {
+          const updatedFileList = response.data.list;
+          
+          // 更新文档状态
+          this.updateDocumentStatuses(updatedFileList);
+          
+          // 检查是否还有处理中的文档
+          const hasProcessingDocuments = updatedFileList.some(document => 
+            document.parseStatusCode === 1
+          );
+          
+          if (!hasProcessingDocuments) {
+            console.log('所有文档处理完成，停止状态轮询');
+            this.stopStatusPolling();
+          }
+        }
+      } catch (error) {
+        console.warn('轮询文档状态失败:', error);
+      }
+    },
+    
+    // 更新文档状态
+    updateDocumentStatuses: function (updatedFileList) {
+      let hasChanges = false;
+      
+      updatedFileList.forEach(updatedDoc => {
+        const existingDoc = this.fileList.find(doc => doc.id === updatedDoc.id);
+        if (existingDoc && existingDoc.parseStatusCode !== updatedDoc.parseStatusCode) {
+          // 状态发生变化，更新文档
+          Object.assign(existingDoc, updatedDoc);
+          hasChanges = true;
+          console.log(`文档 ${existingDoc.name} 状态已更新: ${existingDoc.parseStatusCode} -> ${updatedDoc.parseStatusCode}`);
+          
+          // 如果状态变为完成，启动切片数量检测
+          if (updatedDoc.parseStatusCode === 3) {
+            this.fetchSliceCountForSingleDocument(updatedDoc.id);
+          }
+        }
+      });
+      
+      if (hasChanges) {
+        this.$forceUpdate();
+      }
+    },
 
     // 为文档列表中的每个文档获取切片数量
     fetchSliceCountsForDocuments: async function () {
@@ -395,55 +522,9 @@ export default {
         return;
       }
 
-      // 为每个文档创建获取切片数量的Promise
-      const sliceCountPromises = this.fileList.map(async (document) => {
-        try {
-          const params = {
-            page: 1,
-            page_size: 1 // 只需要获取总数，不需要实际数据
-          };
-
-          return new Promise((resolve) => {
-            KnowledgeBaseAPI.listChunks(this.datasetId, document.id, params,
-              ({ data }) => {
-                if (data && data.code === 0) {
-                  // 获取切片总数
-                  const sliceCount = data.data.total || 0;
-                  resolve({ documentId: document.id, sliceCount });
-                } else {
-                  console.warn(`获取文档 ${document.name} 切片数量失败:`, data?.msg);
-                  resolve({ documentId: document.id, sliceCount: 0 });
-                }
-              },
-              (err) => {
-                console.warn(`获取文档 ${document.name} 切片数量失败:`, err);
-                resolve({ documentId: document.id, sliceCount: 0 });
-              }
-            );
-          });
-        } catch (error) {
-          console.warn(`获取文档 ${document.name} 切片数量失败:`, error);
-          return { documentId: document.id, sliceCount: 0 };
-        }
-      });
-
-      try {
-        // 等待所有切片数量获取完成
-        const sliceCountResults = await Promise.all(sliceCountPromises);
-
-        // 更新文档列表中的切片数量
-        sliceCountResults.forEach(result => {
-          const document = this.fileList.find(doc => doc.id === result.documentId);
-          if (document) {
-            // 使用Vue.set确保响应式更新
-            this.$set(document, 'sliceCount', result.sliceCount);
-          }
-        });
-
-        // 强制更新视图
-        this.$forceUpdate();
-      } catch (error) {
-        console.error('获取切片数量失败:', error);
+      // 为每个文档获取切片数量
+      for (const document of this.fileList) {
+        this.fetchSliceCountForSingleDocument(document.id);
       }
     },
 
@@ -480,72 +561,17 @@ export default {
     },
 
     // 智能检测切片生成状态并自动刷新
-    smartRefreshSliceCount: function (documentId, maxRetries = 10, interval = 2000) {
+    smartRefreshSliceCount: function (documentId) {
       const document = this.fileList.find(doc => doc.id === documentId);
       if (!document) {
         console.warn('未找到文档:', documentId);
         return;
       }
 
-      let retryCount = 0;
-      let lastSliceCount = document.sliceCount || 0;
-
-      const checkSliceStatus = () => {
-        const params = {
-          page: 1,
-          page_size: 1
-        };
-
-        KnowledgeBaseAPI.listChunks(this.datasetId, documentId, params,
-          ({ data }) => {
-            if (data && data.code === 0) {
-              const currentSliceCount = data.data.total || 0;
-
-              if (currentSliceCount > 0 && currentSliceCount !== lastSliceCount) {
-                // 切片数量有变化，更新显示
-                this.$set(document, 'sliceCount', currentSliceCount);
-                this.$forceUpdate();
-                console.log(`文档 ${document.name} 切片数量已自动更新为:`, currentSliceCount);
-
-                // 如果切片数量稳定且大于0，停止检测
-                if (currentSliceCount > 0) {
-                  return;
-                }
-              }
-
-              lastSliceCount = currentSliceCount;
-
-              // 继续检测直到达到最大重试次数
-              if (retryCount < maxRetries) {
-                retryCount++;
-                setTimeout(checkSliceStatus, interval);
-              } else {
-                console.log(`文档 ${document.name} 切片检测已达到最大重试次数`);
-              }
-            } else {
-              console.warn(`获取文档 ${document.name} 切片数量失败:`, data?.msg);
-
-              // 失败时也继续重试
-              if (retryCount < maxRetries) {
-                retryCount++;
-                setTimeout(checkSliceStatus, interval);
-              }
-            }
-          },
-          (err) => {
-            console.warn(`获取文档 ${document.name} 切片数量失败:`, err);
-
-            // 失败时也继续重试
-            if (retryCount < maxRetries) {
-              retryCount++;
-              setTimeout(checkSliceStatus, interval);
-            }
-          }
-        );
-      };
-
-      // 开始检测
-      setTimeout(checkSliceStatus, 1000); // 1秒后开始第一次检测
+      // 延迟2秒后获取切片数量，给后端更多处理时间
+      setTimeout(() => {
+        this.fetchSliceCountForSingleDocument(documentId);
+      }, 2000);
     },
     handleSearch: function () {
       this.currentPage = 1;
@@ -707,6 +733,17 @@ export default {
           ({ data }) => {
             if (data && data.code === 0) {
               this.$message.success('请求已提交，解析中');
+              
+              // 立即更新文档状态为处理中
+              const document = this.fileList.find(doc => doc.id === row.id);
+              if (document) {
+                document.parseStatusCode = 1; // 处理中状态
+                this.$forceUpdate();
+              }
+              
+              // 启动状态轮询
+              this.startStatusPolling();
+              
               // 使用智能检测自动刷新切片数量
               this.smartRefreshSliceCount(row.id);
             } else {
@@ -812,28 +849,36 @@ export default {
         this.$message.info(this.$t('knowledgeFileUpload.deleteCancelled'));
       });
     },
-    getStatusType: function (status) {
-      switch (status) {
+    getParseStatusType: function (parseStatusCode) {
+      switch (parseStatusCode) {
         case 0:
-          return 'info'; // 灰色 - 待解析
+          return 'info'; // 灰色 - 未开始
         case 1:
-          return 'success'; // 绿色 - 解析成功
+          return 'primary'; // 蓝色 - 处理中
         case 2:
-          return 'primary'; // 蓝色 - 解析中
+          return 'warning'; // 黄色 - 已取消
+        case 3:
+          return 'success'; // 绿色 - 完成
+        case 4:
+          return 'danger'; // 红色 - 失败
         default:
-          return 'danger'; // 红色 - 解析失败
+          return 'info'; // 默认灰色
       }
     },
-    getStatusText: function (status) {
-      switch (status) {
+    getParseStatusText: function (parseStatusCode) {
+      switch (parseStatusCode) {
         case 0:
-          return this.$t('knowledgeFileUpload.statusPending');
+          return this.$t('knowledgeFileUpload.statusNotStarted');
         case 1:
-          return this.$t('knowledgeFileUpload.statusSuccess');
+          return this.$t('knowledgeFileUpload.statusProcessing');
         case 2:
-          return this.$t('knowledgeFileUpload.statusParsing');
-        default:
+          return this.$t('knowledgeFileUpload.statusCancelled');
+        case 3:
+          return this.$t('knowledgeFileUpload.statusCompleted');
+        case 4:
           return this.$t('knowledgeFileUpload.statusFailed');
+        default:
+          return this.$t('knowledgeFileUpload.statusNotStarted');
       }
     },
     goToPage: function (page) {

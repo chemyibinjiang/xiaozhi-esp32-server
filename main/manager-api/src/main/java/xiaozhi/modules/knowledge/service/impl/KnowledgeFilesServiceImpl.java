@@ -9,6 +9,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.core.io.AbstractResource;
@@ -36,6 +37,7 @@ import xiaozhi.common.constant.Constant;
 import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.exception.RenException;
 import xiaozhi.common.page.PageData;
+import xiaozhi.common.redis.RedisUtils;
 import xiaozhi.modules.knowledge.dto.KnowledgeFilesDTO;
 import xiaozhi.modules.knowledge.service.KnowledgeFilesService;
 import xiaozhi.modules.model.dao.ModelConfigDao;
@@ -49,6 +51,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
     private final ModelConfigService modelConfigService;
     private final ModelConfigDao modelConfigDao;
+    private final RedisUtils redisUtils;
     private RestTemplate restTemplate = new RestTemplate();
     private ObjectMapper objectMapper = new ObjectMapper();
 
@@ -197,6 +200,8 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                     for (Map<String, Object> docMap : documentList) {
                         KnowledgeFilesDTO dto = convertRAGDocumentToDTO(docMap);
                         if (dto != null) {
+                            // 在文档列表获取时也进行状态同步检查
+                            syncDocumentStatusWithRAGFlow(dto);
                             documents.add(dto);
                         }
                     }
@@ -236,6 +241,88 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
         } catch (Exception e) {
             log.error("获取文档列表响应失败: {}", e.getMessage(), e);
             throw new RenException(ErrorCode.RAG_API_ERROR, "获取文档列表响应失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 同步文档状态与RAGFlow实际状态
+     * 优化状态同步逻辑，确保解析中状态能够正常显示
+     * 只有当文档有切片且解析时间超过30秒时，才更新为完成状态
+     */
+    private void syncDocumentStatusWithRAGFlow(KnowledgeFilesDTO dto) {
+        if (dto == null || StringUtils.isBlank(dto.getDocumentId())) {
+            return;
+        }
+
+        String documentId = dto.getDocumentId();
+        Integer currentStatus = dto.getStatus();
+
+        // 只有当状态明确为处理中(1)时，才进行状态同步检查
+        // 避免在状态不确定或已完成的文档上重复检查
+        if (currentStatus != null && currentStatus == 1) {
+            try {
+                long currentTime = System.currentTimeMillis();
+
+                // 调用RAGFlow API获取文档切片信息
+                Map<String, Object> ragConfig = getDefaultRAGConfig();
+                String baseUrl = (String) ragConfig.get("base_url");
+                String apiKey = (String) ragConfig.get("api_key");
+
+                String url = baseUrl + "/api/v1/documents/" + documentId + "/chunks";
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                headers.set("Authorization", "Bearer " + apiKey);
+
+                HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+                log.debug("检查文档切片状态，documentId: {}", documentId);
+                ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, requestEntity,
+                        String.class);
+
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    String responseBody = response.getBody();
+                    Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
+
+                    Integer code = (Integer) responseMap.get("code");
+                    if (code != null && code == 0) {
+                        Object dataObj = responseMap.get("data");
+                        if (dataObj instanceof Map) {
+                            Map<String, Object> dataMap = (Map<String, Object>) dataObj;
+
+                            // 检查是否有切片数据
+                            Object chunksObj = getValueFromMultipleKeys(dataMap, "chunks", "items", "list", "data");
+                            if (chunksObj instanceof List) {
+                                List<?> chunks = (List<?>) chunksObj;
+
+                                // 如果有切片且数量大于0，说明解析已完成
+                                if (!chunks.isEmpty()) {
+                                    // 检查文档创建时间，确保解析过程有足够的时间显示
+                                    Date createdAt = dto.getCreatedAt();
+                                    long parseDuration = currentTime
+                                            - (createdAt != null ? createdAt.getTime() : currentTime);
+
+                                    // 只有当解析时间超过30秒时，才更新为完成状态
+                                    // 这样可以确保解析中状态有足够的时间显示
+                                    if (parseDuration > 30000) {
+                                        log.info("状态同步：文档已有切片且解析时间超过30秒，更新为完成状态，documentId: {}, 切片数量: {}, 解析时长: {}ms",
+                                                documentId, chunks.size(), parseDuration);
+
+                                        // 更新状态为完成(3)
+                                        dto.setStatus(3);
+                                    } else {
+                                        log.debug("文档已有切片但解析时间不足30秒，保持解析中状态，documentId: {}, 解析时长: {}ms",
+                                                documentId, parseDuration);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("检查文档切片状态失败，documentId: {}, 错误: {}", documentId, e.getMessage());
+                // 忽略检查失败，保持原状态
+            }
         }
     }
 
@@ -311,6 +398,21 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                 } catch (NumberFormatException e) {
                     log.warn("无法解析更新时间: {}", updateTimeObj);
                 }
+            }
+
+            // 设置文档解析状态信息 - 直接使用RAGFlow最新状态
+            String documentId = dto.getDocumentId();
+            if (StringUtils.isNotBlank(documentId)) {
+                // 获取RAGFlow的最新状态
+                Object runObj = getValueFromMultipleKeys(docMap, "run", "status", "parse_status");
+                Integer ragFlowStatus = null;
+                if (runObj != null) {
+                    dto.setRun(runObj.toString());
+                    ragFlowStatus = dto.getParseStatusCode();
+                    log.debug("获取RAGFlow最新状态，documentId: {}, run: {}, status: {}",
+                            documentId, runObj, ragFlowStatus);
+                }
+
             }
 
             return dto;
@@ -430,6 +532,115 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
             throw new RenException(ErrorCode.RAG_API_ERROR, "获取文档失败: " + e.getMessage());
         } finally {
             log.info("=== 根据documentId获取文档操作结束 ===");
+        }
+    }
+
+    @Override
+    public PageData<KnowledgeFilesDTO> getPageListByStatus(String datasetId, Integer status, Integer page,
+            Integer limit) {
+        if (StringUtils.isBlank(datasetId)) {
+            throw new RenException(ErrorCode.PARAMS_GET_ERROR, "datasetId不能为空");
+        }
+
+        log.info("=== 开始根据状态查询文档列表 ===");
+        log.info("datasetId: {}, status: {}, page: {}, limit: {}", datasetId, status, page, limit);
+
+        try {
+            // 获取RAG配置
+            Map<String, Object> ragConfig = getDefaultRAGConfig();
+            String baseUrl = (String) ragConfig.get("base_url");
+            String apiKey = (String) ragConfig.get("api_key");
+
+            // 构建请求URL - 获取文档列表
+            StringBuilder urlBuilder = new StringBuilder();
+            urlBuilder.append(baseUrl).append("/api/v1/datasets/").append(datasetId).append("/documents");
+
+            // 构建查询参数
+            List<String> params = new ArrayList<>();
+            if (page != null && page > 0) {
+                params.add("page=" + page);
+            }
+            if (limit != null && limit > 0) {
+                params.add("page_size=" + limit);
+            }
+
+            if (!params.isEmpty()) {
+                urlBuilder.append("?").append(String.join("&", params));
+            }
+
+            String url = urlBuilder.toString();
+            log.debug("请求URL: {}", url);
+
+            // 设置请求头
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + apiKey);
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+            // 发送GET请求
+            log.info("发送GET请求到RAGFlow API获取文档列表...");
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, requestEntity, String.class);
+
+            log.info("RAGFlow API响应状态码: {}", response.getStatusCode());
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
+                throw new RenException(ErrorCode.RAG_API_ERROR);
+            }
+
+            String responseBody = response.getBody();
+            log.debug("RAGFlow API响应内容: {}", responseBody);
+
+            // 解析响应
+            Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
+            Integer code = (Integer) responseMap.get("code");
+
+            if (code != null && code == 0) {
+                Object dataObj = responseMap.get("data");
+
+                // 解析文档列表并过滤状态
+                PageData<KnowledgeFilesDTO> pageData = parseDocumentListResponse(dataObj, page, limit);
+
+                if (status != null) {
+                    // 根据状态过滤文档列表
+                    List<KnowledgeFilesDTO> filteredDocuments = pageData.getList().stream()
+                            .filter(doc -> status.equals(doc.getStatus()))
+                            .collect(Collectors.toList());
+
+                    // 更新分页数据
+                    pageData.setList(filteredDocuments);
+                    pageData.setTotal(filteredDocuments.size());
+                }
+
+                log.info("根据状态查询文档列表成功，datasetId: {}, 状态: {}, 文档数量: {}",
+                        datasetId, status, pageData.getList().size());
+                return pageData;
+            } else {
+                log.error("RAGFlow API调用失败，响应码: {}, 响应内容: {}", code, responseBody);
+                throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API调用失败，响应码: " + code);
+            }
+
+        } catch (IOException e) {
+            log.error("解析RAGFlow API响应失败: {}", e.getMessage(), e);
+            throw new RenException(ErrorCode.RAG_API_ERROR,
+                    "解析RAGFlow响应失败: " + e.getMessage());
+        } catch (HttpClientErrorException e) {
+            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}",
+                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString());
+            throw new RenException(ErrorCode.RAG_API_ERROR, "获取RAGFlow文档列表失败: " + e.getMessage());
+        } catch (HttpServerErrorException e) {
+            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}",
+                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString());
+            throw new RenException(ErrorCode.RAG_API_ERROR, "获取RAGFlow文档列表失败: " + e.getMessage());
+        } catch (ResourceAccessException e) {
+            log.error("RAGFlow API调用失败 - 网络连接错误: {}", e.getMessage(), e);
+            throw new RenException(ErrorCode.RAG_API_ERROR, "获取RAGFlow文档列表失败: 网络连接错误 - " + e.getMessage());
+        } catch (Exception e) {
+            log.error("根据状态查询文档列表失败: {}", e.getMessage(), e);
+            throw new RenException(ErrorCode.RAG_API_ERROR, "查询文档列表失败: " + e.getMessage());
+        } finally {
+            log.info("=== 根据状态查询文档列表操作结束 ===");
         }
     }
 
