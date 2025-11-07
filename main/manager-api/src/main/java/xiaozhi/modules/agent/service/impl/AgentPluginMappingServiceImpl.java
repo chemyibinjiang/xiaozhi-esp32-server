@@ -55,7 +55,7 @@ public class AgentPluginMappingServiceImpl extends ServiceImpl<AgentPluginMappin
                 paramInfo.put("name", knowledgeBaseEntity.getName());
                 paramInfo.put("description", knowledgeBaseEntity.getDescription());
                 mapping.setParamInfo(JSONUtils.toJSONString(paramInfo));
-                String providerCode = "xzmcp_search_from_knowledgeBase_" + modelConfigEntity.getModelCode() + "_"
+                String providerCode = "xzKnowledgeBase_search_from_" + modelConfigEntity.getModelCode() + "_"
                         + index;
                 index++;
                 mapping.setProviderCode(providerCode);
