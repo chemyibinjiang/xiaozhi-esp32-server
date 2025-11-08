@@ -208,4 +208,5 @@ public interface ErrorCode {
     int RAG_API_ERROR = 10167; // RAG配置缺少必要参数
     int UPLOAD_FILE_ERROR = 10168; // 上传文件失败
     int NO_PERMISSION = 10169; // 没有权限
+    int KNOWLEDGE_BASE_NAME_EXISTS = 10170; // 同名知识库已存在
 }

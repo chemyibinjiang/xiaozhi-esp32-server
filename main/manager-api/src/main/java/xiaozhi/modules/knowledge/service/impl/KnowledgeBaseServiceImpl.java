@@ -30,6 +30,7 @@ import xiaozhi.common.redis.RedisKeys;
 import xiaozhi.common.redis.RedisUtils;
 import xiaozhi.common.service.impl.BaseServiceImpl;
 import xiaozhi.common.utils.ConvertUtils;
+import xiaozhi.common.utils.MessageUtils;
 import xiaozhi.modules.knowledge.dao.KnowledgeBaseDao;
 import xiaozhi.modules.knowledge.dto.KnowledgeBaseDTO;
 import xiaozhi.modules.knowledge.entity.KnowledgeBaseEntity;
@@ -37,6 +38,7 @@ import xiaozhi.modules.knowledge.service.KnowledgeBaseService;
 import xiaozhi.modules.model.dao.ModelConfigDao;
 import xiaozhi.modules.model.entity.ModelConfigEntity;
 import xiaozhi.modules.model.service.ModelConfigService;
+import xiaozhi.modules.security.user.SecurityUser;
 
 @Service
 @AllArgsConstructor
@@ -135,6 +137,9 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
             throw new RenException(ErrorCode.PARAMS_GET_ERROR);
         }
 
+        // 检查是否存在同名知识库
+        checkDuplicateKnowledgeBaseName(knowledgeBaseDTO, null);
+
         String datasetId = null;
         // 调用RAGFlow API创建数据集
         try {
@@ -181,6 +186,9 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         if (existingEntity == null) {
             throw new RenException(ErrorCode.Knowledge_Base_RECORD_NOT_EXISTS);
         }
+
+        // 检查是否存在同名知识库（排除当前记录）
+        checkDuplicateKnowledgeBaseName(knowledgeBaseDTO, knowledgeBaseDTO.getId());
 
         // 验证数据集ID是否与其他记录冲突
         if (StringUtils.isNotBlank(knowledgeBaseDTO.getDatasetId())) {
@@ -436,7 +444,8 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
 
         // 构建请求体
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("name", name);
+        String username = SecurityUser.getUser().getUsername();
+        requestBody.put("name", username + "_" + name);
         if (StringUtils.isNotBlank(description)) {
             requestBody.put("description", description);
         }
@@ -525,11 +534,11 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         // 构建请求URL
         String url = baseUrl + "/api/v1/datasets/" + datasetId;
         log.debug("请求URL: {}", url);
-
         // 构建请求体
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("dataset_id", datasetId);
-        requestBody.put("name", name);
+        String username = SecurityUser.getUser().getUsername();
+        requestBody.put("name", username + "_" + name);
         if (StringUtils.isNotBlank(description)) {
             requestBody.put("description", description);
         }
@@ -643,6 +652,32 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
 
         if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
             throw new RenException(ErrorCode.RAG_API_ERROR, "RAG配置中base_url格式不正确，必须以http://或https://开头");
+        }
+    }
+
+    /**
+     * 检查是否存在同名知识库
+     * 
+     * @param knowledgeBaseDTO 知识库DTO
+     * @param excludeId        排除的ID（更新时使用）
+     */
+    private void checkDuplicateKnowledgeBaseName(KnowledgeBaseDTO knowledgeBaseDTO, String excludeId) {
+        if (StringUtils.isNotBlank(knowledgeBaseDTO.getName())) {
+            Long currentUserId = SecurityUser.getUserId();
+            QueryWrapper<KnowledgeBaseEntity> queryWrapper = new QueryWrapper<KnowledgeBaseEntity>()
+                    .eq("name", knowledgeBaseDTO.getName())
+                    .eq("creator", currentUserId);
+
+            // 如果提供了排除ID，则排除该记录
+            if (StringUtils.isNotBlank(excludeId)) {
+                queryWrapper.ne("id", excludeId);
+            }
+
+            long count = knowledgeBaseDao.selectCount(queryWrapper);
+            if (count > 0) {
+                throw new RenException(ErrorCode.KNOWLEDGE_BASE_NAME_EXISTS,
+                        MessageUtils.getMessage(ErrorCode.KNOWLEDGE_BASE_NAME_EXISTS));
+            }
         }
     }
 
