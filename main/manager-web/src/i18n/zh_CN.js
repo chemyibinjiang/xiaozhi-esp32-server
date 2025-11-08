@@ -1157,13 +1157,13 @@ export default {
   'knowledgeBaseManagement.addFailed': '新增失败',
   'knowledgeBaseManagement.selectAll': '全选',
   'knowledgeBaseManagement.cancelSelectAll': '取消全选',
-  
+
   // 知识库对话框文本
   'knowledgeBaseDialog.title': '知识库',
   'knowledgeBaseDialog.name': '知识库名称',
-  'knowledgeBaseDialog.namePlaceholder': '请输入知识库名称',
+  'knowledgeBaseDialog.namePlaceholder': '请精确输入知识库名称，才能提高调用知识库的精准性',
   'knowledgeBaseDialog.description': '知识库描述',
-  'knowledgeBaseDialog.descriptionPlaceholder': '请输入知识库描述',
+  'knowledgeBaseDialog.descriptionPlaceholder': '请详细输入知识库描述，以便大模型更好地理解这个知识库的总体内容',
   'knowledgeBaseDialog.ragModel': 'RAG模型',
   'knowledgeBaseDialog.ragModelPlaceholder': '请选择RAG模型',
   'knowledgeBaseDialog.ragModelRequired': '请选择RAG模型',

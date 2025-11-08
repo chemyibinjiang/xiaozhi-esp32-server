@@ -1161,9 +1161,9 @@ export default {
   // Knowledge Base Dialog text
   'knowledgeBaseDialog.title': 'Knowledge Base',
   'knowledgeBaseDialog.name': 'Knowledge Base Name',
-  'knowledgeBaseDialog.namePlaceholder': 'Please enter knowledge base name',
+  'knowledgeBaseDialog.namePlaceholder': 'Please enter knowledge base name accurately to improve the accuracy of knowledge base call',
   'knowledgeBaseDialog.description': 'Knowledge Base Description',
-  'knowledgeBaseDialog.descriptionPlaceholder': 'Please enter knowledge base description',
+  'knowledgeBaseDialog.descriptionPlaceholder': 'Please enter knowledge base description accurately to help the model better understand the knowledge base content',
   'knowledgeBaseDialog.ragModel': 'RAG Model',
   'knowledgeBaseDialog.ragModelPlaceholder': 'Please select RAG model',
   'knowledgeBaseDialog.ragModelRequired': 'Please select RAG model',

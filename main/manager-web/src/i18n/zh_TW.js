@@ -1161,9 +1161,9 @@ export default {
   // 知識庫對話框文本
   'knowledgeBaseDialog.title': '知識庫',
   'knowledgeBaseDialog.name': '知識庫名稱',
-  'knowledgeBaseDialog.namePlaceholder': '請輸入知識庫名稱',
+  'knowledgeBaseDialog.namePlaceholder': '請精確輸入知識庫名稱，才能提高知識庫呼叫的準確性',
   'knowledgeBaseDialog.description': '知識庫描述',
-  'knowledgeBaseDialog.descriptionPlaceholder': '請輸入知識庫描述',
+  'knowledgeBaseDialog.descriptionPlaceholder': '請詳細輸入知識庫描述，以便大模型更好地理解這個知識庫的总体內容',
   'knowledgeBaseDialog.ragModel': 'RAG模型',
   'knowledgeBaseDialog.ragModelPlaceholder': '請選擇RAG模型',
   'knowledgeBaseDialog.ragModelRequired': '請選擇RAG模型',
