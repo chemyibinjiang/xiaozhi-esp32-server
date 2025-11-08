@@ -1,5 +1,9 @@
 package xiaozhi.modules.knowledge.controller;
 
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -11,19 +15,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.apache.commons.lang3.StringUtils;
-import xiaozhi.common.exception.ErrorCode;
-import xiaozhi.common.exception.RenException;
-import xiaozhi.modules.security.user.SecurityUser;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
+import xiaozhi.common.exception.ErrorCode;
+import xiaozhi.common.exception.RenException;
 import xiaozhi.common.page.PageData;
 import xiaozhi.common.utils.Result;
 import xiaozhi.modules.knowledge.dto.KnowledgeBaseDTO;
 import xiaozhi.modules.knowledge.service.KnowledgeBaseService;
+import xiaozhi.modules.security.user.SecurityUser;
 
 @AllArgsConstructor
 @RestController
@@ -144,5 +147,13 @@ public class KnowledgeBaseController {
             }
         }
         return new Result<>();
+    }
+
+    @GetMapping("/rag-models")
+    @Operation(summary = "获取RAG模型列表")
+    @RequiresPermissions("sys:role:normal")
+    public Result<List<Map<String, Object>>> getRAGModels() {
+        List<Map<String, Object>> result = knowledgeBaseService.getRAGModels();
+        return new Result<List<Map<String, Object>>>().ok(result);
     }
 }

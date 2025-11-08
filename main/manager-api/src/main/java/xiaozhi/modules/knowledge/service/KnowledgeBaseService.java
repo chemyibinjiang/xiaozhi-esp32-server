@@ -1,5 +1,6 @@
 package xiaozhi.modules.knowledge.service;
 
+import java.util.List;
 import java.util.Map;
 
 import xiaozhi.common.page.PageData;
@@ -82,4 +83,11 @@ public interface KnowledgeBaseService extends BaseService<KnowledgeBaseEntity> {
      * @return 默认RAG配置信息
      */
     Map<String, Object> getDefaultRAGConfig();
+
+    /**
+     * 获取RAG模型列表
+     * 
+     * @return RAG模型列表
+     */
+    List<Map<String, Object>> getRAGModels();
 }

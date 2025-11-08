@@ -1,7 +1,7 @@
 package xiaozhi.modules.knowledge.service.impl;
 
-import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,9 +13,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -88,8 +85,9 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
 
         // 添加查询条件
         if (knowledgeBaseDTO != null) {
-            queryWrapper.like(StringUtils.isNotBlank(knowledgeBaseDTO.getName()), "name", knowledgeBaseDTO.getName())
-                    .eq(knowledgeBaseDTO.getStatus() != null, "status", knowledgeBaseDTO.getStatus());
+            queryWrapper.like(StringUtils.isNotBlank(knowledgeBaseDTO.getName()), "name", knowledgeBaseDTO.getName());
+            queryWrapper.eq(knowledgeBaseDTO.getStatus() != null, "status", knowledgeBaseDTO.getStatus());
+            queryWrapper.eq("creator", knowledgeBaseDTO.getCreator());
         }
 
         // 添加排序规则：按创建时间降序
@@ -382,6 +380,27 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         return config;
     }
 
+    @Override
+    public List<Map<String, Object>> getRAGModels() {
+        // 查询RAG类型的模型配置
+        QueryWrapper<ModelConfigEntity> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("model_type", Constant.RAG_CONFIG_TYPE)
+                .eq("is_enabled", 1)
+                .orderByDesc("is_default")
+                .orderByDesc("create_date");
+
+        List<ModelConfigEntity> modelConfigs = modelConfigDao.selectList(queryWrapper);
+
+        List<Map<String, Object>> modelList = new ArrayList<>();
+        for (ModelConfigEntity modelConfig : modelConfigs) {
+            Map<String, Object> modelInfo = new HashMap<>();
+            modelInfo.put("id", modelConfig.getId());
+            modelInfo.put("modelName", modelConfig.getModelName());
+            modelList.add(modelInfo);
+        }
+        return modelList;
+    }
+
     /**
      * 验证RAG配置中是否包含必要的参数
      */
@@ -405,106 +424,90 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
      */
     private String createDatasetInRAGFlow(String name, String description, Map<String, Object> ragConfig) {
         String datasetId = null;
-        try {
-            String baseUrl = (String) ragConfig.get("base_url");
-            String apiKey = (String) ragConfig.get("api_key");
+        String baseUrl = (String) ragConfig.get("base_url");
+        String apiKey = (String) ragConfig.get("api_key");
 
-            log.info("开始调用RAGFlow API创建数据集, name: {}", name);
-            log.debug("RAGFlow配置 - baseUrl: {}, apiKey: {}", baseUrl, StringUtils.isBlank(apiKey) ? "未配置" : "已配置");
+        log.info("开始调用RAGFlow API创建数据集, name: {}", name);
+        log.debug("RAGFlow配置 - baseUrl: {}, apiKey: {}", baseUrl, StringUtils.isBlank(apiKey) ? "未配置" : "已配置");
 
-            // 构建请求URL
-            String url = baseUrl + "/api/v1/datasets";
-            log.debug("请求URL: {}", url);
+        // 构建请求URL
+        String url = baseUrl + "/api/v1/datasets";
+        log.debug("请求URL: {}", url);
 
-            // 构建请求体
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("name", name);
-            if (StringUtils.isNotBlank(description)) {
-                requestBody.put("description", description);
-            }
-            log.debug("请求体: {}", requestBody);
-
-            // 设置请求头
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + apiKey);
-
-            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
-
-            // 发送POST请求
-            log.info("发送POST请求到RAGFlow API...");
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
-
-            log.info("RAGFlow API响应状态码: {}", response.getStatusCode());
-            log.debug("RAGFlow API响应内容: {}", response.getBody());
-
-            if (!response.getStatusCode().is2xxSuccessful()) {
-                log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
-                throw new RenException(ErrorCode.RAG_API_ERROR, response.getStatusCode().toString());
-            }
-
-            // 解析响应体，提取datasetId
-            String responseBody = response.getBody();
-            if (StringUtils.isNotBlank(responseBody)) {
-                try {
-                    // 解析RAGFlow API响应，支持多种可能的字段名
-                    ObjectMapper objectMapper = new ObjectMapper();
-                    Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
-
-                    log.debug("RAGFlow API响应解析结果: {}", responseMap);
-
-                    // 首先检查响应码
-                    Integer code = (Integer) responseMap.get("code");
-                    if (code != null && code == 0) {
-                        // 响应码为0表示成功，从data字段中获取datasetId
-                        Object dataObj = responseMap.get("data");
-                        if (dataObj instanceof Map) {
-                            Map<String, Object> dataMap = (Map<String, Object>) dataObj;
-                            datasetId = (String) dataMap.get("id");
-
-                            if (StringUtils.isBlank(datasetId)) {
-                                // 如果id字段为空，尝试其他可能的字段名
-                                datasetId = (String) dataMap.get("dataset_id");
-                                datasetId = (String) dataMap.get("datasetId");
-                            }
-                        }
-                    } else {
-                        // 如果响应码不为0，说明API调用失败
-                        log.error("RAGFlow API调用失败，响应码: {}, 响应内容: {}", code, responseBody);
-                        throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API调用失败，响应码: " + code);
-                    }
-
-                    log.info("从RAGFlow API响应中解析出datasetId: {}", datasetId);
-                    log.debug("完整响应内容: {}", responseBody);
-                } catch (Exception e) {
-                    log.error("解析RAGFlow API响应失败: {}, 响应内容: {}", e.getMessage(), responseBody);
-                    throw new RenException(ErrorCode.RAG_API_ERROR, "解析RAGFlow响应失败: " + e.getMessage());
-                }
-            }
-
-            if (StringUtils.isBlank(datasetId)) {
-                log.error("无法从RAGFlow API响应中获取datasetId，响应内容: {}", responseBody);
-                throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API响应中未包含datasetId");
-            }
-            log.info("RAGFlow数据集创建成功，datasetId: {}", datasetId);
-
-        } catch (HttpClientErrorException e) {
-            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}",
-                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_ERROR,
-                    "创建RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
-        } catch (HttpServerErrorException e) {
-            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}",
-                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_ERROR,
-                    "创建RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
-        } catch (ResourceAccessException e) {
-            log.error("RAGFlow API调用失败 - 网络连接错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_ERROR, "创建RAGFlow数据集失败: 网络连接错误 - " + e.getMessage());
-        } catch (Exception e) {
-            log.error("RAGFlow API调用失败 - 未知错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_ERROR, "创建RAGFlow数据集失败: " + e.getMessage());
+        // 构建请求体
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("name", name);
+        if (StringUtils.isNotBlank(description)) {
+            requestBody.put("description", description);
         }
+        log.debug("请求体: {}", requestBody);
+
+        // 设置请求头
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", "Bearer " + apiKey);
+
+        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+        // 发送POST请求
+        log.info("发送POST请求到RAGFlow API...");
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
+
+        log.info("RAGFlow API响应状态码: {}", response.getStatusCode());
+        log.debug("RAGFlow API响应内容: {}", response.getBody());
+
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
+            throw new RenException(ErrorCode.RAG_API_ERROR, response.getStatusCode().toString());
+        }
+
+        // 解析响应体，提取datasetId
+        String responseBody = response.getBody();
+        if (StringUtils.isNotBlank(responseBody)) {
+            try {
+                // 解析RAGFlow API响应，支持多种可能的字段名
+                ObjectMapper objectMapper = new ObjectMapper();
+                Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
+
+                log.debug("RAGFlow API响应解析结果: {}", responseMap);
+
+                // 首先检查响应码
+                Integer code = (Integer) responseMap.get("code");
+                String message = (String) responseMap.get("message");
+                if (code != null && code == 0) {
+                    // 响应码为0表示成功，从data字段中获取datasetId
+                    Object dataObj = responseMap.get("data");
+                    if (dataObj instanceof Map) {
+                        Map<String, Object> dataMap = (Map<String, Object>) dataObj;
+                        datasetId = (String) dataMap.get("id");
+
+                        if (StringUtils.isBlank(datasetId)) {
+                            // 如果id字段为空，尝试其他可能的字段名
+                            datasetId = (String) dataMap.get("dataset_id");
+                            datasetId = (String) dataMap.get("datasetId");
+                        }
+                    }
+                } else {
+                    // 如果响应码不为0，说明API调用失败
+                    log.error("RAGFlow API调用失败，响应码: {}, 响应内容: {}", code, message);
+                    throw new RenException(ErrorCode.RAG_API_ERROR,
+                            "RAGFlow API调用失败，响应码: " + code + ", 消息: " + message);
+                }
+
+                log.info("从RAGFlow API响应中解析出datasetId: {}", datasetId);
+                log.debug("完整响应内容: {}", responseBody);
+            } catch (Exception e) {
+                log.error("解析RAGFlow API响应失败: {}", e.getMessage(), e);
+                throw new RenException(ErrorCode.RAG_API_ERROR, "解析响应失败: " + e.getMessage());
+            }
+        }
+
+        if (StringUtils.isBlank(datasetId)) {
+            log.error("无法从RAGFlow API响应中获取datasetId，响应内容: {}", responseBody);
+            throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API响应中未包含datasetId");
+        }
+        log.info("RAGFlow数据集创建成功，datasetId: {}", datasetId);
+
         return datasetId;
     }
 
@@ -513,124 +516,88 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
      */
     private void updateDatasetInRAGFlow(String datasetId, String name, String description,
             Map<String, Object> ragConfig) {
-        try {
-            String baseUrl = (String) ragConfig.get("base_url");
-            String apiKey = (String) ragConfig.get("api_key");
+        String baseUrl = (String) ragConfig.get("base_url");
+        String apiKey = (String) ragConfig.get("api_key");
 
-            log.info("开始调用RAGFlow API更新数据集，datasetId: {}, name: {}", datasetId, name);
-            log.debug("RAGFlow配置 - baseUrl: {}, apiKey: {}", baseUrl, StringUtils.isBlank(apiKey) ? "未配置" : "已配置");
+        log.info("开始调用RAGFlow API更新数据集，datasetId: {}, name: {}", datasetId, name);
+        log.debug("RAGFlow配置 - baseUrl: {}, apiKey: {}", baseUrl, StringUtils.isBlank(apiKey) ? "未配置" : "已配置");
 
-            // 构建请求URL
-            String url = baseUrl + "/api/v1/datasets/" + datasetId;
-            log.debug("请求URL: {}", url);
+        // 构建请求URL
+        String url = baseUrl + "/api/v1/datasets/" + datasetId;
+        log.debug("请求URL: {}", url);
 
-            // 构建请求体
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("dataset_id", datasetId);
-            requestBody.put("name", name);
-            if (StringUtils.isNotBlank(description)) {
-                requestBody.put("description", description);
-            }
-            log.debug("请求体: {}", requestBody);
-
-            // 设置请求头
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + apiKey);
-
-            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
-
-            // 发送PUT请求
-            log.info("发送PUT请求到RAGFlow API...");
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.PUT, requestEntity, String.class);
-
-            log.info("RAGFlow API响应状态码: {}", response.getStatusCode());
-            log.debug("RAGFlow API响应内容: {}", response.getBody());
-
-            if (!response.getStatusCode().is2xxSuccessful()) {
-                log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
-                throw new RenException(ErrorCode.RAG_API_ERROR);
-            }
-
-            log.info("RAGFlow数据集更新成功，datasetId: {}", datasetId);
-
-        } catch (HttpClientErrorException e) {
-            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}",
-                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_ERROR,
-                    "更新RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
-        } catch (HttpServerErrorException e) {
-            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}",
-                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_ERROR,
-                    "更新RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
-        } catch (ResourceAccessException e) {
-            log.error("RAGFlow API调用失败 - 网络连接错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_ERROR, "更新RAGFlow数据集失败: 网络连接错误 - " + e.getMessage());
-        } catch (Exception e) {
-            log.error("RAGFlow API调用失败 - 未知错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_ERROR, "更新RAGFlow数据集失败: " + e.getMessage());
+        // 构建请求体
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("dataset_id", datasetId);
+        requestBody.put("name", name);
+        if (StringUtils.isNotBlank(description)) {
+            requestBody.put("description", description);
         }
+        log.debug("请求体: {}", requestBody);
+
+        // 设置请求头
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", "Bearer " + apiKey);
+
+        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
+
+        // 发送PUT请求
+        log.info("发送PUT请求到RAGFlow API...");
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.PUT, requestEntity, String.class);
+
+        log.info("RAGFlow API响应状态码: {}", response.getStatusCode());
+        log.debug("RAGFlow API响应内容: {}", response.getBody());
+
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
+            throw new RenException(ErrorCode.RAG_API_ERROR);
+        }
+
+        log.info("RAGFlow数据集更新成功，datasetId: {}", datasetId);
+
     }
 
     /**
      * 调用RAGFlow API删除数据集
      */
     private void deleteDatasetInRAGFlow(String datasetId, Map<String, Object> ragConfig) {
-        try {
-            String baseUrl = (String) ragConfig.get("base_url");
-            String apiKey = (String) ragConfig.get("api_key");
+        String baseUrl = (String) ragConfig.get("base_url");
+        String apiKey = (String) ragConfig.get("api_key");
 
-            log.info("开始调用RAGFlow API删除数据集，datasetId: {}", datasetId);
-            log.debug("RAGFlow配置 - baseUrl: {}, apiKey: {}", baseUrl, StringUtils.isBlank(apiKey) ? "未配置" : "已配置");
+        log.info("开始调用RAGFlow API删除数据集，datasetId: {}", datasetId);
+        log.debug("RAGFlow配置 - baseUrl: {}, apiKey: {}", baseUrl, StringUtils.isBlank(apiKey) ? "未配置" : "已配置");
 
-            // 构建请求URL
-            String url = baseUrl + "/api/v1/datasets";
-            log.debug("请求URL: {}", url);
+        // 构建请求URL
+        String url = baseUrl + "/api/v1/datasets";
+        log.debug("请求URL: {}", url);
 
-            // 构建请求体
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("ids", List.of(datasetId));
-            log.debug("请求体: {}", requestBody);
+        // 构建请求体
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("ids", List.of(datasetId));
+        log.debug("请求体: {}", requestBody);
 
-            // 设置请求头
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + apiKey);
+        // 设置请求头
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", "Bearer " + apiKey);
 
-            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
+        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
 
-            // 发送DELETE请求
-            log.info("发送DELETE请求到RAGFlow API...");
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.DELETE, requestEntity,
-                    String.class);
+        // 发送DELETE请求
+        log.info("发送DELETE请求到RAGFlow API...");
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.DELETE, requestEntity,
+                String.class);
 
-            log.info("RAGFlow API响应状态码: {}", response.getStatusCode());
-            log.debug("RAGFlow API响应内容: {}", response.getBody());
+        log.info("RAGFlow API响应状态码: {}", response.getStatusCode());
+        log.debug("RAGFlow API响应内容: {}", response.getBody());
 
-            if (!response.getStatusCode().is2xxSuccessful()) {
-                log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
-                throw new RenException(ErrorCode.RAG_API_ERROR);
-            }
-            log.info("RAGFlow数据集删除成功，datasetId: {}", datasetId);
-
-        } catch (HttpClientErrorException e) {
-            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}",
-                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_ERROR,
-                    "删除RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
-        } catch (HttpServerErrorException e) {
-            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}",
-                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-            throw new RenException(ErrorCode.RAG_API_ERROR,
-                    "删除RAGFlow数据集失败: " + e.getMessage() + ", 响应: " + e.getResponseBodyAsString());
-        } catch (ResourceAccessException e) {
-            log.error("RAGFlow API调用失败 - 网络连接错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_ERROR, "删除RAGFlow数据集失败: 网络连接错误 - " + e.getMessage());
-        } catch (Exception e) {
-            log.error("RAGFlow API调用失败 - 未知错误: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_ERROR, "删除RAGFlow数据集失败: " + e.getMessage());
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
+            throw new RenException(ErrorCode.RAG_API_ERROR);
         }
+        log.info("RAGFlow数据集删除成功，datasetId: {}", datasetId);
+
     }
 
     /**
@@ -688,40 +655,40 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
             return 0;
         }
 
+        log.info("开始获取知识库 {} 的文档数量", datasetId);
+
+        // 获取RAG配置
+        Map<String, Object> ragConfig = getValidatedRAGConfig(ragModelId);
+        String baseUrl = (String) ragConfig.get("base_url");
+        String apiKey = (String) ragConfig.get("api_key");
+
+        // 构建请求URL - 调用RAGFlow API获取文档列表，但不返回文档详情，只获取总数
+        String url = baseUrl + "/api/v1/datasets/" + datasetId + "/documents?page=1&size=1";
+        log.debug("请求URL: {}", url);
+
+        // 设置请求头
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", "Bearer " + apiKey);
+
+        HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+
+        // 发送GET请求
+        log.info("发送GET请求到RAGFlow API获取文档数量...");
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, requestEntity, String.class);
+
+        log.info("RAGFlow API响应状态码: {}", response.getStatusCode());
+
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
+            return 0;
+        }
+
+        String responseBody = response.getBody();
+        log.debug("RAGFlow API响应内容: {}", responseBody);
+
+        // 解析响应
         try {
-            log.info("开始获取知识库 {} 的文档数量", datasetId);
-
-            // 获取RAG配置
-            Map<String, Object> ragConfig = getValidatedRAGConfig(ragModelId);
-            String baseUrl = (String) ragConfig.get("base_url");
-            String apiKey = (String) ragConfig.get("api_key");
-
-            // 构建请求URL - 调用RAGFlow API获取文档列表，但不返回文档详情，只获取总数
-            String url = baseUrl + "/api/v1/datasets/" + datasetId + "/documents?page=1&size=1";
-            log.debug("请求URL: {}", url);
-
-            // 设置请求头
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + apiKey);
-
-            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
-
-            // 发送GET请求
-            log.info("发送GET请求到RAGFlow API获取文档数量...");
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, requestEntity, String.class);
-
-            log.info("RAGFlow API响应状态码: {}", response.getStatusCode());
-
-            if (!response.getStatusCode().is2xxSuccessful()) {
-                log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
-                return 0;
-            }
-
-            String responseBody = response.getBody();
-            log.debug("RAGFlow API响应内容: {}", responseBody);
-
-            // 解析响应
             ObjectMapper objectMapper = new ObjectMapper();
             Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
             Integer code = (Integer) responseMap.get("code");
@@ -744,21 +711,9 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
             } else {
                 log.error("RAGFlow API调用失败，响应码: {}, 响应内容: {}", code, responseBody);
             }
-
-        } catch (IOException e) {
-            log.error("解析RAGFlow API响应失败: {}", e.getMessage(), e);
-        } catch (HttpClientErrorException e) {
-            log.error("RAGFlow API调用失败 - HTTP错误: {}, 状态码: {}, 响应内容: {}",
-                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-        } catch (HttpServerErrorException e) {
-            log.error("RAGFlow API调用失败 - 服务器错误: {}, 状态码: {}, 响应内容: {}",
-                    e.getMessage(), e.getStatusCode(), e.getResponseBodyAsString(), e);
-        } catch (ResourceAccessException e) {
-            log.error("RAGFlow API调用失败 - 网络连接错误: {}", e.getMessage(), e);
         } catch (Exception e) {
-            log.error("获取文档数量失败: {}", e.getMessage(), e);
+            log.error("解析RAGFlow API响应失败: {}", e.getMessage(), e);
         }
-
         return 0;
     }
 

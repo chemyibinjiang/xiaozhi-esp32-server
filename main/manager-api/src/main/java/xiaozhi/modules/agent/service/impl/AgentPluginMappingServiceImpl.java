@@ -82,8 +82,12 @@ public class AgentPluginMappingServiceImpl extends ServiceImpl<AgentPluginMappin
                 paramInfo.put("api_key", modelConfigEntity.getConfigJson().getStr("api_key"));
                 paramInfo.put("dataset_ids",
                         knowledgeBaseList.stream().map(KnowledgeBaseEntity::getDatasetId).toList());
-                paramInfo.put("description",
-                        String.join(",", knowledgeBaseList.stream().map(KnowledgeBaseEntity::getDescription).toList()));
+
+                String description = "如果用户询问与【"
+                        + String.join(",", knowledgeBaseList.stream().map(KnowledgeBaseEntity::getName).toList())
+                        + "】相关的问题应调用本方法，用于查询：" + String.join(",",
+                                knowledgeBaseList.stream().map(KnowledgeBaseEntity::getDescription).toList());
+                paramInfo.put("description", description);
                 agentPluginMapping.setParamInfo(JsonUtils.toJsonString(paramInfo));
                 list.add(agentPluginMapping);
             }

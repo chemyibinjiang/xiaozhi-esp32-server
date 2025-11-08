@@ -1,46 +1,17 @@
 <template>
-  <el-dialog
-    :title="title"
-    :visible="dialogVisible"
-    width="600px"
-    class="knowledge-base-dialog"
-    @close="handleClose">
-    <el-form
-      ref="knowledgeBaseForm"
-      :model="form"
-      :rules="rules"
-      label-width="100px"
-      size="medium">
+  <el-dialog :title="title" :visible="dialogVisible" width="600px" class="knowledge-base-dialog" @close="handleClose">
+    <el-form ref="knowledgeBaseForm" :model="form" :rules="rules" label-width="100px" size="medium">
       <el-form-item :label="$t('knowledgeBaseDialog.name')" prop="name">
-        <el-input
-          v-model="form.name"
-          :placeholder="$t('knowledgeBaseDialog.namePlaceholder')"
-          clearable></el-input>
+        <el-input v-model="form.name" :placeholder="$t('knowledgeBaseDialog.namePlaceholder')" clearable></el-input>
       </el-form-item>
       <el-form-item :label="$t('knowledgeBaseDialog.description')" prop="description">
-        <el-input
-          v-model="form.description"
-          :placeholder="$t('knowledgeBaseDialog.descriptionPlaceholder')"
-          type="textarea"
-          :rows="4"
-          maxlength="200"
-          show-word-limit></el-input>
+        <el-input v-model="form.description" :placeholder="$t('knowledgeBaseDialog.descriptionPlaceholder')"
+          type="textarea" :rows="4" maxlength="200" show-word-limit></el-input>
       </el-form-item>
       <el-form-item :label="$t('knowledgeBaseDialog.ragModel')" prop="ragModelId">
-        <el-select
-          v-model="form.ragModelId"
-          :placeholder="$t('knowledgeBaseDialog.ragModelPlaceholder')"
-          clearable
-          filterable
-          style="width: 100%"
-          @focus="loadRAGModels">
-          <el-option
-            v-for="model in ragModels"
-            :key="model.id"
-            :label="model.modelName"
-            :value="model.id">
-            <span style="float: left">{{ model.modelName }}</span>
-            <span style="float: right; color: #8492a6; font-size: 13px">{{ model.providerCode }}</span>
+        <el-select v-model="form.ragModelId" :placeholder="$t('knowledgeBaseDialog.ragModelPlaceholder')" clearable
+          filterable style="width: 100%" @focus="loadRAGModels">
+          <el-option v-for="model in ragModels" :key="model.id" :label="model.modelName" :value="model.id">
           </el-option>
         </el-select>
       </el-form-item>
@@ -123,12 +94,12 @@ export default {
       if (val) {
         // 对话框显示时加载RAG模型列表
         this.loadRAGModels();
-        
+
         // 如果是新增知识库且没有设置ragModelId，则默认选择第一个RAG模型
         if (!this.form.id && !this.form.ragModelId && this.ragModels.length > 0) {
           this.$set(this.form, 'ragModelId', this.ragModels[0].id);
         }
-        
+
         if (this.$refs.knowledgeBaseForm) {
           this.$refs.knowledgeBaseForm.clearValidate();
         }
@@ -170,14 +141,14 @@ export default {
       if (this.ragModels.length > 0) {
         return; // 已经加载过，避免重复加载
       }
-      
+
       console.log('开始加载RAG模型列表');
       Api.model.getRAGModels((res) => {
         console.log('RAG模型列表响应:', res);
         if (res.data && res.data.code === 0) {
-          this.ragModels = res.data.data?.list || [];
+          this.ragModels = res.data.data || [];
           console.log('RAG模型列表加载成功，共', this.ragModels.length, '个模型');
-          
+
           // 如果是新增知识库且没有设置ragModelId，则默认选择第一个RAG模型
           if (!this.form.id && !this.form.ragModelId && this.ragModels.length > 0) {
             this.$set(this.form, 'ragModelId', this.ragModels[0].id);
@@ -199,7 +170,7 @@ export default {
     border-radius: 20px;
     overflow: hidden;
   }
-  
+
   ::v-deep .el-dialog__body {
     padding: 20px 30px;
   }

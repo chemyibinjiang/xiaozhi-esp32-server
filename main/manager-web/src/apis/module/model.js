@@ -338,11 +338,11 @@ export default {
         })
       }).send()
   },
-  
+
   // 获取RAG模型列表
   getRAGModels(callback) {
     RequestService.sendRequest()
-      .url(`${getServiceUrl()}/models/list?modelType=RAG&page=0&limit=100`)
+      .url(`${getServiceUrl()}/datasets/rag-models`)
       .method('GET')
       .success((res) => {
         RequestService.clearRequestTime()
