@@ -147,7 +147,15 @@ plugins:
       - ".wav"
       - ".p3"
     refresh_time: 300 # 刷新音乐列表的时间间隔，单位为秒
-
+  search_from_ragflow:
+    # 知识库的描述信息，方便大语言模型知道什么时候调用
+    description: "当用户问xxx时，调用本方法，使用知识库中的信息回答问题"
+    # ragflow接口配置
+    base_url: "http://192.168.0.8"
+    # ragflow api访问令牌
+    api_key: "ragflow-xxx"
+    # ragflow知识库id
+    dataset_ids: ["123456789"]
 # 声纹识别配置
 voiceprint:
   # 声纹接口地址
@@ -239,6 +247,7 @@ Intent:
     functions:
       - change_role
       - get_weather
+      # - search_from_ragflow
       # - get_news_from_chinanews
       - get_news_from_newsnow
       # play_music是服务器自带的音乐播放，hass_play_music是通过home assistant控制的独立外部程序音乐播放
