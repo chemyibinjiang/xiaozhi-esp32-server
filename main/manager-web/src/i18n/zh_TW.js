@@ -1258,4 +1258,5 @@ export default {
   'knowledgeFileUpload.comprehensiveSimilarity': '綜合相似度',
   'knowledgeFileUpload.content': '內容:',
   'knowledgeFileUpload.testQuestionRequired': '請輸入測試問題',
+  'knowledgeBaseDialog.descriptionRequired': '請輸入知识库描述',
 }
