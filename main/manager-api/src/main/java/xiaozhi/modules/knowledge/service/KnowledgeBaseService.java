@@ -48,13 +48,6 @@ public interface KnowledgeBaseService extends BaseService<KnowledgeBaseEntity> {
     KnowledgeBaseDTO update(KnowledgeBaseDTO knowledgeBaseDTO);
 
     /**
-     * 根据ID删除知识库
-     * 
-     * @param id 知识库ID
-     */
-    void delete(String id);
-
-    /**
      * 根据知识库ID查询知识库
      * 
      * @param datasetId 知识库ID
