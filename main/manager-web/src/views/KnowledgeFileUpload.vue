@@ -401,7 +401,13 @@ export default {
         },
         (err) => {
           this.loading = false;
-          this.$message.error(this.$t('knowledgeFileUpload.getListFailed'));
+          console.log('Error callback received:', err);
+          if (err && err.data) {
+            console.log('后端返回错误消息:', err.data.msg || err.msg);
+            this.$message.error(err.data.msg || err.msg || this.$t('knowledgeFileUpload.getListFailed'));
+          } else {
+            this.$message.error(this.$t('knowledgeFileUpload.getListFailed'));
+          }
           console.error('获取文档列表失败:', err);
           this.fileList = [];
           this.total = 0;

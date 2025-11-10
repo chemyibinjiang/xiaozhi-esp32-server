@@ -281,7 +281,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                 apiDeleteSuccess = true;
             } catch (Exception e) {
                 log.error("删除RAGFlow数据集失败: {}", e.getMessage());
-                throw new RenException(ErrorCode.RAG_API_ERROR, "删除RAGFlow数据集失败: " + e.getMessage());
+                throw e;
             }
         } else {
             log.warn("datasetId或ragModelId为空，跳过RAGFlow删除");
@@ -427,8 +427,9 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         log.debug("RAGFlow API响应内容: {}", response.getBody());
 
         if (!response.getStatusCode().is2xxSuccessful()) {
-            log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
-            throw new RenException(ErrorCode.RAG_API_ERROR, response.getStatusCode().toString());
+            String errorMessage = response.getStatusCode() + ", 响应内容: " + response.getBody();
+            log.error(errorMessage);
+            throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
         }
 
         // 解析响应体，提取datasetId
@@ -459,16 +460,22 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                     }
                 } else {
                     // 如果响应码不为0，说明API调用失败
-                    log.error("RAGFlow API调用失败，响应码: {}, 响应内容: {}", code, message);
-                    throw new RenException(ErrorCode.RAG_API_ERROR,
-                            "RAGFlow API调用失败，响应码: " + code + ", 消息: " + message);
+                    String errorMessage = "RAGFlow API调用失败，响应码: " + code + ", 消息: "
+                            + (message != null ? message : "未知错误");
+                    log.error(errorMessage);
+                    throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
                 }
 
                 log.info("从RAGFlow API响应中解析出datasetId: {}", datasetId);
                 log.debug("完整响应内容: {}", responseBody);
             } catch (Exception e) {
                 log.error("解析RAGFlow API响应失败: {}", e.getMessage(), e);
-                throw new RenException(ErrorCode.RAG_API_ERROR, "解析响应失败: " + e.getMessage());
+                // 如果解析失败，但响应体不为空，尝试直接使用响应体作为错误信息
+                String errorMessage = responseBody;
+                if (e.getMessage() != null) {
+                    errorMessage += "，解析错误: " + e.getMessage();
+                }
+                throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
             }
         }
 
@@ -520,8 +527,9 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         log.debug("RAGFlow API响应内容: {}", response.getBody());
 
         if (!response.getStatusCode().is2xxSuccessful()) {
-            log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
-            throw new RenException(ErrorCode.RAG_API_ERROR);
+            String errorMessage = response.getStatusCode() + ", 响应内容: " + response.getBody();
+            log.error(errorMessage);
+            throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
         }
 
         // 解析响应体，验证操作是否真正成功
@@ -533,12 +541,19 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                 String message = (String) responseMap.get("message");
 
                 if (code != null && code != 0) {
-                    log.error("RAGFlow API调用失败，响应码: {}, 消息: {}", code, message);
-                    throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API调用失败: " + message);
+                    String errorMessage = "RAGFlow API调用失败，响应码: " + code + ", 消息: "
+                            + (message != null ? message : "未知错误");
+                    log.error(errorMessage);
+                    throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
                 }
             } catch (Exception e) {
                 log.error("解析RAGFlow API响应失败: {}", e.getMessage(), e);
-                throw new RenException(ErrorCode.RAG_API_ERROR, "解析响应失败: " + e.getMessage());
+                // 如果解析失败，但响应体不为空，尝试直接使用响应体作为错误信息
+                String errorMessage = responseBody;
+                if (e.getMessage() != null) {
+                    errorMessage += "，解析错误: " + e.getMessage();
+                }
+                throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
             }
         }
 
@@ -581,8 +596,9 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         log.debug("RAGFlow API响应内容: {}", response.getBody());
 
         if (!response.getStatusCode().is2xxSuccessful()) {
-            log.error("RAGFlow API调用失败，状态码: {}, 响应内容: {}", response.getStatusCode(), response.getBody());
-            throw new RenException(ErrorCode.RAG_API_ERROR);
+            String errorMessage = response.getStatusCode() + ", 响应内容: " + response.getBody();
+            log.error(errorMessage);
+            throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
         }
 
         // 解析响应体，验证操作是否真正成功
@@ -594,12 +610,19 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                 String message = (String) responseMap.get("message");
 
                 if (code != null && code != 0) {
-                    log.error("RAGFlow API调用失败，响应码: {}, 消息: {}", code, message);
-                    throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API调用失败: " + message);
+                    String errorMessage = "RAGFlow API调用失败，响应码: " + code + ", 消息: "
+                            + (message != null ? message : "未知错误");
+                    log.error(errorMessage);
+                    throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
                 }
             } catch (Exception e) {
                 log.error("解析RAGFlow API响应失败: {}", e.getMessage(), e);
-                throw new RenException(ErrorCode.RAG_API_ERROR, "解析响应失败: " + e.getMessage());
+                // 如果解析失败，但响应体不为空，尝试直接使用响应体作为错误信息
+                String errorMessage = responseBody;
+                if (e.getMessage() != null) {
+                    errorMessage += "，解析错误: " + e.getMessage();
+                }
+                throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
             }
         }
 
