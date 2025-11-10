@@ -206,7 +206,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
 
         // 删除缓存
         if (entity.getDatasetId() != null) {
-            redisUtils.delete(RedisKeys.getKnowledgeBaseCacheKey(entity.getDatasetId()));
+            redisUtils.delete(RedisKeys.getKnowledgeBaseCacheKey(entity.getId()));
         }
 
         // 调用RAGFlow API更新数据集
@@ -226,57 +226,6 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         }
 
         return ConvertUtils.sourceToTarget(entity, KnowledgeBaseDTO.class);
-    }
-
-    @Override
-    public void delete(String id) {
-        if (StringUtils.isBlank(id)) {
-            throw new RenException(ErrorCode.IDENTIFIER_NOT_NULL);
-        }
-
-        // 先获取实体以获取datasetId用于删除缓存
-        KnowledgeBaseEntity tempEntity = knowledgeBaseDao.selectById(id);
-        if (tempEntity != null && tempEntity.getDatasetId() != null) {
-            redisUtils.delete(RedisKeys.getKnowledgeBaseCacheKey(tempEntity.getDatasetId()));
-        }
-
-        log.info("=== 开始删除操作 ===");
-        log.info("删除ID: {}", id);
-
-        KnowledgeBaseEntity entity = knowledgeBaseDao.selectById(id);
-        if (entity == null) {
-            log.warn("记录不存在，ID: {}", id);
-            throw new RenException(ErrorCode.Knowledge_Base_RECORD_NOT_EXISTS);
-        }
-
-        log.info("找到记录: ID={}, datasetId={}, ragModelId={}",
-                entity.getId(), entity.getDatasetId(), entity.getRagModelId());
-
-        // 先调用RAGFlow API删除数据集
-        boolean apiDeleteSuccess = false;
-        if (StringUtils.isNotBlank(entity.getDatasetId()) && StringUtils.isNotBlank(entity.getRagModelId())) {
-            try {
-                log.info("开始调用RAGFlow API删除数据集");
-                Map<String, Object> ragConfig = getValidatedRAGConfig(entity.getRagModelId());
-                deleteDatasetInRAGFlow(entity.getDatasetId(), ragConfig);
-                log.info("RAGFlow API删除调用完成");
-                apiDeleteSuccess = true;
-            } catch (Exception e) {
-                log.error("删除RAGFlow数据集失败: {}", e.getMessage());
-                throw new RenException(ErrorCode.RAG_API_ERROR, "删除RAGFlow数据集失败: " + e.getMessage());
-            }
-        } else {
-            log.warn("datasetId或ragModelId为空，跳过RAGFlow删除");
-            apiDeleteSuccess = true; // 没有RAG数据集，视为成功
-        }
-
-        // API删除成功后再删除本地记录
-        if (apiDeleteSuccess) {
-            int deleteCount = knowledgeBaseDao.deleteById(id);
-            log.info("本地数据库删除结果: {}", deleteCount > 0 ? "成功" : "失败");
-        }
-
-        log.info("=== 删除操作结束 ===");
     }
 
     @Override
@@ -311,6 +260,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
             log.warn("记录不存在，datasetId: {}", datasetId);
             throw new RenException(ErrorCode.Knowledge_Base_RECORD_NOT_EXISTS);
         }
+        redisUtils.delete(RedisKeys.getKnowledgeBaseCacheKey(entity.getId()));
 
         log.info("找到记录: ID={}, datasetId={}, ragModelId={}",
                 entity.getId(), entity.getDatasetId(), entity.getRagModelId());

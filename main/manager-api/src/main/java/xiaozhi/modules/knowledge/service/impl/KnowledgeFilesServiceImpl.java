@@ -37,7 +37,6 @@ import xiaozhi.common.constant.Constant;
 import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.exception.RenException;
 import xiaozhi.common.page.PageData;
-import xiaozhi.common.redis.RedisUtils;
 import xiaozhi.modules.knowledge.dto.KnowledgeFilesDTO;
 import xiaozhi.modules.knowledge.service.KnowledgeFilesService;
 import xiaozhi.modules.model.dao.ModelConfigDao;
@@ -51,7 +50,6 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
     private final ModelConfigService modelConfigService;
     private final ModelConfigDao modelConfigDao;
-    private final RedisUtils redisUtils;
     private RestTemplate restTemplate = new RestTemplate();
     private ObjectMapper objectMapper = new ObjectMapper();
 
