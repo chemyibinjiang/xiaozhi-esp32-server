@@ -1259,4 +1259,5 @@ export default {
   'knowledgeFileUpload.comprehensiveSimilarity': 'Comprehensive Similarity',
   'knowledgeFileUpload.content': 'Content:',
   'knowledgeFileUpload.testQuestionRequired': 'Please enter test question',
+  'knowledgeBaseDialog.descriptionRequired': 'Please enter knowledge base description',
 }

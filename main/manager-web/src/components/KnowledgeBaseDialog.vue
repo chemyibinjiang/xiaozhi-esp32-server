@@ -73,6 +73,11 @@ export default {
         ],
         description: [
           {
+            required: true,
+            message: this.$t("knowledgeBaseDialog.descriptionRequired"),
+            trigger: "blur"
+          },
+          {
             max: 200,
             message: this.$t("knowledgeBaseDialog.descriptionLength"),
             trigger: "blur"
