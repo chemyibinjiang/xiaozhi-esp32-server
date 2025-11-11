@@ -6,7 +6,7 @@
 本项目基于人机共生智能理论和技术研发智能终端软硬件体系<br/>为开源智能硬件项目
 <a href="https://github.com/78/xiaozhi-esp32">xiaozhi-esp32</a>提供后端服务<br/>
 根据<a href="https://ccnphfhqs21z.feishu.cn/wiki/M0XiwldO9iJwHikpXD5cEx71nKh">小智通信协议</a>使用Python、Java、Vue实现<br/>
-支持MQTT+UDP协议、Websocket协议、MCP接入点、声纹识别
+支持MQTT+UDP协议、Websocket协议、MCP接入点、声纹识别、知识库
 </p>
 
 <p align="center">
@@ -248,6 +248,7 @@ Websocket接口地址: wss://2662r3426b.vicp.fun/xiaozhi/v1/
 | 视觉感知 | 支持多种VLLM(视觉大模型)，实现多模态交互 |
 | 意图识别 | 支持LLM意图识别、Function Call函数调用，提供插件化意图处理机制 |
 | 记忆系统 | 支持本地短期记忆、mem0ai接口记忆，具备记忆总结功能 |
+| 知识库 | 支持RAGFlow知识库，让大模型判断需要调度知识库后再回答 |
 | 工具调用 | 支持客户端IOT协议、客户MCP协议、服务端MCP协议、MCP接入点协议、自定义工具函数 |
 | 指令下发 | 依托MQTT协议，支持从智控台将MCP指令下发到ESP32设备 |
 | 管理后台 | 提供Web管理界面，支持用户管理、系统配置和设备管理；界面支持中文简体、中文繁体、英文显示 |
