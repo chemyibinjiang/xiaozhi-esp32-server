@@ -110,7 +110,10 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                             knowledgeBase.getRagModelId());
                     knowledgeBase.setDocumentCount(documentCount);
                 } catch (Exception e) {
-                    log.warn("获取知识库 {} 的文档数量失败: {}", knowledgeBase.getDatasetId(), e.getMessage());
+                    // 构建详细的错误信息，包含异常类型和消息
+                    String baseErrorMessage = e.getClass().getSimpleName() + " - 获取知识库文档数量失败";
+                    String errorMessage = baseErrorMessage + (e.getMessage() != null ? ": " + e.getMessage() : "");
+                    log.warn("知识库 {} {}", knowledgeBase.getDatasetId(), errorMessage);
                     knowledgeBase.setDocumentCount(0); // 设置默认值
                 }
             }
@@ -164,7 +167,12 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                 Map<String, Object> ragConfig = getValidatedRAGConfig(knowledgeBaseDTO.getRagModelId());
                 deleteDatasetInRAGFlow(datasetId, ragConfig);
             } catch (Exception deleteException) {
-                log.warn("删除重复datasetId的RAGFlow数据集失败: {}", deleteException.getMessage());
+                // 提供更详细的错误信息，包括异常类型和消息
+                String errorMessage = "删除重复datasetId的RAGFlow数据集失败: " + deleteException.getClass().getSimpleName();
+                if (deleteException.getMessage() != null) {
+                    errorMessage += " - " + deleteException.getMessage();
+                }
+                log.warn(errorMessage, deleteException);
             }
             throw new RenException(ErrorCode.DB_RECORD_EXISTS);
         }
@@ -207,17 +215,27 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                 && StringUtils.isNotBlank(knowledgeBaseDTO.getRagModelId());
 
         if (needRagValidation) {
-            // 先校验RAG配置
-            Map<String, Object> ragConfig = getValidatedRAGConfig(knowledgeBaseDTO.getRagModelId());
+            try {
+                // 先校验RAG配置
+                Map<String, Object> ragConfig = getValidatedRAGConfig(knowledgeBaseDTO.getRagModelId());
 
-            // 调用RAGFlow API更新数据集
-            updateDatasetInRAGFlow(
-                    knowledgeBaseDTO.getDatasetId(),
-                    knowledgeBaseDTO.getName(),
-                    knowledgeBaseDTO.getDescription(),
-                    ragConfig);
+                // 调用RAGFlow API更新数据集
+                updateDatasetInRAGFlow(
+                        knowledgeBaseDTO.getDatasetId(),
+                        knowledgeBaseDTO.getName(),
+                        knowledgeBaseDTO.getDescription(),
+                        ragConfig);
 
-            log.info("RAGFlow API更新成功，datasetId: {}", knowledgeBaseDTO.getDatasetId());
+                log.info("RAGFlow API更新成功，datasetId: {}", knowledgeBaseDTO.getDatasetId());
+            } catch (Exception e) {
+                // 提供更详细的错误信息，包括异常类型和消息
+                String errorMessage = "更新RAGFlow数据集失败: " + e.getClass().getSimpleName();
+                if (e.getMessage() != null) {
+                    errorMessage += " - " + e.getMessage();
+                }
+                log.error(errorMessage, e);
+                throw e;
+            }
         } else {
             log.warn("datasetId或ragModelId为空，跳过RAGFlow更新");
         }
@@ -281,7 +299,12 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                 log.info("RAGFlow API删除调用完成");
                 apiDeleteSuccess = true;
             } catch (Exception e) {
-                log.error("删除RAGFlow数据集失败: {}", e.getMessage());
+                // 提供更详细的错误信息，包括异常类型和消息
+                String errorMessage = "删除RAGFlow数据集失败: " + e.getClass().getSimpleName();
+                if (e.getMessage() != null) {
+                    errorMessage += " - " + e.getMessage();
+                }
+                log.error(errorMessage, e);
                 throw e;
             }
         } else {
@@ -376,7 +399,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
      */
     private void validateRagConfig(Map<String, Object> config) {
         if (config == null) {
-            throw new RenException(ErrorCode.RAG_CONFIG_NOT_FOUND);
+            throw new RenException(ErrorCode.RAG_CONFIG_NOT_FOUND, "RAG配置为空，请检查配置");
         }
 
         // 从配置中提取必要的参数
@@ -385,7 +408,22 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
 
         // 验证base_url是否存在且非空
         if (StringUtils.isBlank(baseUrl)) {
-            throw new RenException(ErrorCode.RAG_API_ERROR);
+            throw new RenException(ErrorCode.RAG_API_ERROR_URL_NULL);
+        }
+
+        // 验证api_key是否存在且非空
+        if (StringUtils.isBlank(apiKey)) {
+            throw new RenException(ErrorCode.RAG_API_ERROR_API_KEY_NULL);
+        }
+
+        // 检查api_key是否包含占位符
+        if (apiKey.contains("你")) {
+            throw new RenException(ErrorCode.RAG_API_ERROR_API_KEY_INVALID);
+        }
+
+        // 验证base_url格式
+        if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+            throw new RenException(ErrorCode.RAG_API_ERROR_URL_INVALID);
         }
     }
 
@@ -477,16 +515,22 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                 log.info("从RAGFlow API响应中解析出datasetId: {}", datasetId);
                 log.debug("完整响应内容: {}", responseBody);
             } catch (IOException e) {
-                log.error("解析RAGFlow API响应时发生IO异常: {}", e.getMessage(), e);
-                throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API响应解析失败: " + e.getMessage());
+                // 构建详细的错误信息，包含异常类型和消息
+                String baseErrorMessage = e.getClass().getSimpleName() + " - 解析RAGFlow API响应时发生IO异常";
+                String errorMessage = baseErrorMessage + (e.getMessage() != null ? ": " + e.getMessage() : "");
+                log.error(errorMessage, e);
+                throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API响应解析失败: " + errorMessage);
             } catch (Exception e) {
-                log.error("解析RAGFlow API响应失败: {}", e.getMessage(), e);
+                // 构建详细的错误信息，包含异常类型和消息
+                String baseErrorMessage = e.getClass().getSimpleName() + " - 解析RAGFlow API响应失败";
+                String errorMessage = baseErrorMessage + (e.getMessage() != null ? ": " + e.getMessage() : "");
+                log.error(errorMessage, e);
                 // 如果解析失败，但响应体不为空，尝试直接使用响应体作为错误信息
-                String errorMessage = responseBody;
+                String finalErrorMessage = responseBody;
                 if (e.getMessage() != null) {
-                    errorMessage += "，解析错误: " + e.getMessage();
+                    finalErrorMessage += "，解析错误: " + errorMessage;
                 }
-                throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
+                throw new RenException(ErrorCode.RAG_API_ERROR, finalErrorMessage);
             }
         }
 
@@ -565,16 +609,22 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                     throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
                 }
             } catch (IOException e) {
-                log.error("解析RAGFlow API响应时发生IO异常: {}", e.getMessage(), e);
-                throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API响应解析失败: " + e.getMessage());
+                // 构建详细的错误信息，包含异常类型和消息
+                String baseErrorMessage = e.getClass().getSimpleName() + " - 解析RAGFlow API响应时发生IO异常";
+                String errorMessage = baseErrorMessage + (e.getMessage() != null ? ": " + e.getMessage() : "");
+                log.error(errorMessage, e);
+                throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API响应解析失败: " + errorMessage);
             } catch (Exception e) {
-                log.error("解析RAGFlow API响应失败: {}", e.getMessage(), e);
+                // 构建详细的错误信息，包含异常类型和消息
+                String baseErrorMessage = e.getClass().getSimpleName() + " - 解析RAGFlow API响应失败";
+                String errorMessage = baseErrorMessage + (e.getMessage() != null ? ": " + e.getMessage() : "");
+                log.error(errorMessage, e);
                 // 如果解析失败，但响应体不为空，尝试直接使用响应体作为错误信息
-                String errorMessage = responseBody;
+                String finalErrorMessage = responseBody;
                 if (e.getMessage() != null) {
-                    errorMessage += "，解析错误: " + e.getMessage();
+                    finalErrorMessage += "，解析错误: " + errorMessage;
                 }
-                throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
+                throw new RenException(ErrorCode.RAG_API_ERROR, finalErrorMessage);
             }
         }
 
@@ -643,16 +693,22 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                     throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
                 }
             } catch (IOException e) {
-                log.error("解析RAGFlow API响应时发生IO异常: {}", e.getMessage(), e);
-                throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API响应解析失败: " + e.getMessage());
+                // 构建详细的错误信息，包含异常类型和消息
+                String baseErrorMessage = e.getClass().getSimpleName() + " - 解析RAGFlow API响应时发生IO异常";
+                String errorMessage = baseErrorMessage + (e.getMessage() != null ? ": " + e.getMessage() : "");
+                log.error(errorMessage, e);
+                throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API响应解析失败: " + errorMessage);
             } catch (Exception e) {
-                log.error("解析RAGFlow API响应失败: {}", e.getMessage(), e);
+                // 构建详细的错误信息，包含异常类型和消息
+                String baseErrorMessage = e.getClass().getSimpleName() + " - 解析RAGFlow API响应失败";
+                String errorMessage = baseErrorMessage + (e.getMessage() != null ? ": " + e.getMessage() : "");
+                log.error(errorMessage, e);
                 // 如果解析失败，但响应体不为空，尝试直接使用响应体作为错误信息
-                String errorMessage = responseBody;
+                String finalErrorMessage = responseBody;
                 if (e.getMessage() != null) {
-                    errorMessage += "，解析错误: " + e.getMessage();
+                    finalErrorMessage += "，解析错误: " + errorMessage;
                 }
-                throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
+                throw new RenException(ErrorCode.RAG_API_ERROR, finalErrorMessage);
             }
         }
 
@@ -671,39 +727,10 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
             ragConfig = getDefaultRAGConfig();
         }
 
-        // 验证baseUrl和apiKey
-        validateRAGConfigParameters(ragConfig);
+        // 验证RAG配置参数
+        validateRagConfig(ragConfig);
 
         return ragConfig;
-    }
-
-    /**
-     * 验证RAG配置参数
-     */
-    private void validateRAGConfigParameters(Map<String, Object> ragConfig) {
-        if (ragConfig == null) {
-            throw new RenException(ErrorCode.RAG_CONFIG_NOT_FOUND, "RAG配置为空，请检查配置");
-        }
-
-        // 从配置中提取必要的参数
-        String baseUrl = (String) ragConfig.get("base_url");
-        String apiKey = (String) ragConfig.get("api_key");
-
-        if (StringUtils.isBlank(baseUrl)) {
-            throw new RenException(ErrorCode.RAG_API_ERROR, "RAG配置中base_url为空，请完善配置");
-        }
-
-        if (StringUtils.isBlank(apiKey)) {
-            throw new RenException(ErrorCode.RAG_API_ERROR, "RAG配置中api_key为空，请完善配置");
-        }
-
-        if (apiKey.contains("你")) {
-            throw new RenException(ErrorCode.RAG_API_ERROR, "RAG配置中api_key包含占位符'你'，请替换为实际的API密钥");
-        }
-
-        if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
-            throw new RenException(ErrorCode.RAG_API_ERROR, "RAG配置中base_url格式不正确，必须以http://或https://开头");
-        }
     }
 
     /**
@@ -805,9 +832,15 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                 log.error("RAGFlow API调用失败，响应码: {}, 响应内容: {}", code, responseBody);
             }
         } catch (IOException e) {
-            log.error("解析RAGFlow API响应时发生IO异常: {}", e.getMessage(), e);
+            // 构建详细的错误信息，包含异常类型和消息
+            String baseErrorMessage = e.getClass().getSimpleName() + " - 解析RAGFlow API响应时发生IO异常";
+            String errorMessage = baseErrorMessage + (e.getMessage() != null ? ": " + e.getMessage() : "");
+            log.error(errorMessage, e);
         } catch (Exception e) {
-            log.error("解析RAGFlow API响应失败: {}", e.getMessage(), e);
+            // 构建详细的错误信息，包含异常类型和消息
+            String baseErrorMessage = e.getClass().getSimpleName() + " - 解析RAGFlow API响应失败";
+            String errorMessage = baseErrorMessage + (e.getMessage() != null ? ": " + e.getMessage() : "");
+            log.error(errorMessage, e);
         }
         return 0;
     }
