@@ -126,6 +126,8 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                 log.error("RAGFlow API调用失败，响应码: {}", code);
                 // 获取错误消息，如果存在的话
                 String apiMessage = (String) responseMap.get("message");
+                String errorDetail = apiMessage != null ? apiMessage : "无详细错误信息";
+                log.error("RAGFlow API调用失败，响应码: {}, 错误详情: {}", errorDetail);
                 throw new RenException(ErrorCode.RAG_API_ERROR, responseBody);
             }
 
@@ -498,6 +500,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                 // 获取错误消息，如果存在的话
                 String apiMessage = (String) responseMap.get("message");
                 String errorDetail = apiMessage != null ? apiMessage : "无详细错误信息";
+                log.error("RAGFlow API调用失败详情: {}", errorDetail);
                 throw new RenException(ErrorCode.RAG_API_ERROR, responseBody);
             }
 
@@ -912,6 +915,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                         // 获取错误消息，如果存在的话
                         String apiMessage = (String) responseMap.get("message");
                         String errorDetail = apiMessage != null ? apiMessage : "无详细错误信息";
+                        log.error("RAGFlow API调用失败详情: {}", errorDetail);
                         throw new RenException(ErrorCode.RAG_API_ERROR, responseBody);
                     }
 
