@@ -7,7 +7,7 @@ pyyml==0.0.2
 silero_vad==6.1.0
 websockets==15.0.1
 opuslib_next==1.1.5
-numpy==1.26.4
+numpy==2.3.4
 pydub==0.25.1
 funasr==1.2.7
 openai==2.7.1
