@@ -119,10 +119,6 @@ public interface ErrorCode {
     int VOICEPRINT_UNREGISTER_PROCESS_ERROR = 10090; // 声纹注销处理失败
     int VOICEPRINT_IDENTIFY_REQUEST_ERROR = 10091; // 声纹识别请求失败
 
-    // 设备相关错误码
-    int MAC_ADDRESS_ALREADY_EXISTS = 10161; // Mac地址已存在
-    // 模型相关错误码
-    int MODEL_PROVIDER_NOT_EXIST = 10162; // 供应器不存在
     int LLM_NOT_EXIST = 10092; // 设置的LLM不存在
     int MODEL_REFERENCED_BY_AGENT = 10093; // 该模型配置已被智能体引用，无法删除
     int LLM_REFERENCED_BY_INTENT = 10094; // 该LLM模型已被意图识别配置引用，无法删除
@@ -198,4 +194,19 @@ public interface ErrorCode {
     int VOICE_CLONE_PREFIX = 10158; // 复刻音色前缀
     int VOICE_ID_ALREADY_EXISTS = 10159; // 音色ID已存在
     int VOICE_CLONE_HUOSHAN_VOICE_ID_ERROR = 10160; // 火山引擎音色ID格式错误
+
+    // 设备相关错误码
+    int MAC_ADDRESS_ALREADY_EXISTS = 10161; // Mac地址已存在
+    // 模型相关错误码
+    int MODEL_PROVIDER_NOT_EXIST = 10162; // 供应器不存在
+
+    // 知识库相关错误码
+    int Knowledge_Base_RECORD_NOT_EXISTS = 10163; // 知识库记录不存在
+    int RAG_CONFIG_NOT_FOUND = 10164; // RAG配置未找到
+    int RAG_CONFIG_TYPE_ERROR = 10165; // RAG配置类型错误
+    int RAG_DEFAULT_CONFIG_NOT_FOUND = 10166; // 默认RAG配置未找到
+    int RAG_API_ERROR = 10167; // RAG配置缺少必要参数
+    int UPLOAD_FILE_ERROR = 10168; // 上传文件失败
+    int NO_PERMISSION = 10169; // 没有权限
+    int KNOWLEDGE_BASE_NAME_EXISTS = 10170; // 同名知识库已存在
 }
