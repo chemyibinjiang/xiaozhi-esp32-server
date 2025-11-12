@@ -1183,7 +1183,7 @@ export default {
   'knowledgeBaseDialog.descriptionLengthLimit': 'Knowledge base description cannot exceed 200 characters',
 
   // Knowledge Base Management page new view button text
-  'knowledgeBaseManagement.view': 'View',
+  'knowledgeBaseManagement.view': 'Manage Files',
 
   // Knowledge File Upload page text
   'knowledgeFileUpload.back': 'Back',
@@ -1215,7 +1215,7 @@ export default {
   'knowledgeFileUpload.statusProcessing': 'Processing',
   'knowledgeFileUpload.statusCancelled': 'Cancelled',
   'knowledgeFileUpload.statusCompleted': 'Completed',
-  'knowledgeFileUpload.statusFailed': 'Parse Failed',
+  'knowledgeFileUpload.statusFailed': 'Failed',
   'knowledgeFileUpload.uploadSuccess': 'Document upload successful',
   'knowledgeFileUpload.uploadFailed': 'Document upload failed',
   'knowledgeFileUpload.parseSuccess': 'Document parse successful',
@@ -1259,4 +1259,5 @@ export default {
   'knowledgeFileUpload.comprehensiveSimilarity': 'Comprehensive Similarity',
   'knowledgeFileUpload.content': 'Content:',
   'knowledgeFileUpload.testQuestionRequired': 'Please enter test question',
+  'knowledgeBaseDialog.descriptionRequired': 'Please enter knowledge base description',
 }

@@ -205,8 +205,12 @@ public interface ErrorCode {
     int RAG_CONFIG_NOT_FOUND = 10164; // RAG配置未找到
     int RAG_CONFIG_TYPE_ERROR = 10165; // RAG配置类型错误
     int RAG_DEFAULT_CONFIG_NOT_FOUND = 10166; // 默认RAG配置未找到
-    int RAG_API_ERROR = 10167; // RAG配置缺少必要参数
+    int RAG_API_ERROR = 10167; // RAG调用失败
     int UPLOAD_FILE_ERROR = 10168; // 上传文件失败
     int NO_PERMISSION = 10169; // 没有权限
     int KNOWLEDGE_BASE_NAME_EXISTS = 10170; // 同名知识库已存在
+    int RAG_API_ERROR_URL_NULL = 10171; // RAG配置中base_url为空，请完善配置
+    int RAG_API_ERROR_API_KEY_NULL = 10172; // RAG配置中api_key为空，请完善配置
+    int RAG_API_ERROR_API_KEY_INVALID = 10173; // RAG配置中api_key包含占位符，请替换为实际的API密钥
+    int RAG_API_ERROR_URL_INVALID = 10174; // RAG配置中base_url格式不正确，请检查协议是否正确
 }

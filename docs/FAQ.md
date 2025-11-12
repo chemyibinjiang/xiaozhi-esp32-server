@@ -79,6 +79,7 @@ VAD:
 6、[MCP方法如何获取设备信息](./mcp-get-device-info.md)<br/>
 7、[如何开启声纹识别](./voiceprint-integration.md)<br/>
 8、[新闻插件源配置指南](./newsnow_plugin_config.md)<br/>
+9、[知识库ragflow集成指南](./ragflow-integration.md)<br/>
 
 ### 11、语音克隆、本地语音部署相关教程
 1、[如何在智控台克隆音色](./huoshan-streamTTS-voice-cloning.md)<br/>
