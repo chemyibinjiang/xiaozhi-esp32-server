@@ -85,7 +85,7 @@ public class AgentPluginMappingServiceImpl extends ServiceImpl<AgentPluginMappin
 
                 String description = "如果用户询问与【"
                         + String.join(",", knowledgeBaseList.stream().map(KnowledgeBaseEntity::getName).toList())
-                        + "】相关的问题应调用本方法，用于查询：" + String.join(",",
+                        + "】涵盖的主体范围相关内容时应调用本方法，用于查询：" + String.join(",",
                                 knowledgeBaseList.stream().map(KnowledgeBaseEntity::getDescription).toList());
                 paramInfo.put("description", description);
                 agentPluginMapping.setParamInfo(JsonUtils.toJsonString(paramInfo));
