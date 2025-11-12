@@ -1183,7 +1183,7 @@ export default {
   'knowledgeBaseDialog.descriptionLengthLimit': '知識庫描述不能超過200個字符',
 
   // 知識庫管理頁面查看按鈕文本
-  'knowledgeBaseManagement.view': '查看',
+  'knowledgeBaseManagement.view': '管理文件',
 
   // 知識庫文件上傳頁面文本
   'knowledgeFileUpload.back': '返回',
@@ -1215,6 +1215,7 @@ export default {
   'knowledgeFileUpload.statusProcessing': '處理中',
   'knowledgeFileUpload.statusCancelled': '已取消',
   'knowledgeFileUpload.statusCompleted': '已完成',
+  'knowledgeFileUpload.statusFailed': '失敗',
   'knowledgeFileUpload.uploadSuccess': '文檔上傳成功',
   'knowledgeFileUpload.uploadFailed': '文檔上傳失敗',
   'knowledgeFileUpload.parseSuccess': '文檔解析成功',
