@@ -66,7 +66,9 @@ class PromptManager:
     def _load_base_template(self):
         """加载基础提示词模板"""
         try:
-            template_path = self.config.get("prompt_template", "agent-base-prompt.txt")
+            template_path = self.config.get("prompt_template", None)
+            if not template_path:
+                template_path = "agent-base-prompt.txt"
             cache_key = f"prompt_template:{template_path}"
 
             # 先从缓存获取
@@ -117,8 +119,12 @@ class PromptManager:
 
     def _get_current_time_info(self) -> tuple:
         """获取当前时间信息"""
-        from .current_time import get_current_date, get_current_weekday, get_current_lunar_date
-        
+        from .current_time import (
+            get_current_date,
+            get_current_weekday,
+            get_current_lunar_date,
+        )
+
         today_date = get_current_date()
         today_weekday = get_current_weekday()
         lunar_date = get_current_lunar_date() + "\n"
@@ -192,9 +198,7 @@ class PromptManager:
 
         try:
             # 获取最新的时间信息（不缓存）
-            today_date, today_weekday, lunar_date = (
-                self._get_current_time_info()
-            )
+            today_date, today_weekday, lunar_date = self._get_current_time_info()
 
             # 获取缓存的上下文信息
             local_address = ""
@@ -225,7 +229,9 @@ class PromptManager:
                 weather_info=weather_info,
                 emojiList=EMOJI_List,
                 device_id=device_id,
-                *args, **kwargs
+                client_ip=client_ip,
+                *args,
+                **kwargs,
             )
             device_cache_key = f"device_prompt:{device_id}"
             self.cache_manager.set(

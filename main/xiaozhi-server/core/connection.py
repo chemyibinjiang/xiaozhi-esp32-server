@@ -798,9 +798,9 @@ class ConnectionHandler:
 
                 if tools_call is not None and len(tools_call) > 0:
                     tool_call_flag = True
-                    if tools_call[0].id is not None:
+                    if tools_call[0].id is not None and tools_call[0].id != "":
                         function_id = tools_call[0].id
-                    if tools_call[0].function.name is not None:
+                    if tools_call[0].function.name is not None and tools_call[0].function.name != "":
                         function_name = tools_call[0].function.name
                     if tools_call[0].function.arguments is not None:
                         function_arguments += tools_call[0].function.arguments
