@@ -12,6 +12,7 @@ import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import xiaozhi.common.utils.JsonUtils;
 import xiaozhi.modules.agent.dao.AgentPluginMappingMapper;
 import xiaozhi.modules.agent.entity.AgentPluginMapping;
@@ -27,6 +28,7 @@ import xiaozhi.modules.model.service.ModelConfigService;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AgentPluginMappingServiceImpl extends ServiceImpl<AgentPluginMappingMapper, AgentPluginMapping>
         implements AgentPluginMappingService {
     private final AgentPluginMappingMapper agentPluginMappingMapper;
