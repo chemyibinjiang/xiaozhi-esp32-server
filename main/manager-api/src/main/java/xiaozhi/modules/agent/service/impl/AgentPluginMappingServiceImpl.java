@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
@@ -33,7 +32,6 @@ import xiaozhi.modules.model.service.ModelConfigService;
 public class AgentPluginMappingServiceImpl extends ServiceImpl<AgentPluginMappingMapper, AgentPluginMapping>
         implements AgentPluginMappingService {
     private final AgentPluginMappingMapper agentPluginMappingMapper;
-    @Lazy
     private final KnowledgeBaseService knowledgeBaseService;
     private final ModelConfigService modelConfigService;
 
