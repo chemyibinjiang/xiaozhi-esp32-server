@@ -6,7 +6,7 @@
       </el-form-item>
       <el-form-item :label="$t('knowledgeBaseDialog.description')" prop="description">
         <el-input v-model="form.description" :placeholder="$t('knowledgeBaseDialog.descriptionPlaceholder')"
-          type="textarea" :rows="4" maxlength="200" show-word-limit></el-input>
+          type="textarea" :rows="4" maxlength="300" show-word-limit></el-input>
       </el-form-item>
       <el-form-item :label="$t('knowledgeBaseDialog.ragModel')" prop="ragModelId">
         <el-select v-model="form.ragModelId" :placeholder="$t('knowledgeBaseDialog.ragModelPlaceholder')" clearable
@@ -78,7 +78,7 @@ export default {
             trigger: "blur"
           },
           {
-            max: 200,
+            max: 300,
             message: this.$t("knowledgeBaseDialog.descriptionLength"),
             trigger: "blur"
           }
