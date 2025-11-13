@@ -90,12 +90,11 @@ FLUSH PRIVILEGES;
 
 你需要在你电脑找一个文件夹，用来存放ragflow项目。例如我在`/home/system/xiaozhi`文件夹。
 
-你可以使用`git`命令，将ragflow项目下载到这个文件夹，本教程使用的是`2025年11月11日`提交的`dd5b8e2e1a877211d17aae5552d8895b1bca763d`版本进行安装部署。
+你可以使用`git`命令，将ragflow项目下载到这个文件夹，本教程使用的是`v0.22.0`版本进行安装部署。
 ```
 git clone https://ghfast.top/https://github.com/infiniflow/ragflow.git
 cd ragflow
-git reset --hard dd5b8e2e1a877211d17aae5552d8895b1bca763d
-
+git checkout v0.22.0
 ```
 下载完后，进入`docker`文件夹。
 ``` shell
@@ -158,8 +157,6 @@ services:
 编辑`ragflow/docker`文件夹下的`.env`文件,找到以下配置，逐个搜索，逐个修改！逐个搜索，逐个修改！
 
 ``` env
-# ragflow镜像
-RAGFLOW_IMAGE=infiniflow/ragflow@sha256:d9ff494d1bf72138ce6fe0eaf4962cf4bea471c8c266d12b8bfb9d10ac3a2f6e
 # 端口设置
 SVR_WEB_HTTP_PORT=8008           # HTTP端口
 SVR_WEB_HTTPS_PORT=8009          # HTTPS端口
@@ -173,7 +170,7 @@ MYSQL_DBNAME=rag_flow            # 数据库名称
 # Redis配置 - 修改为您本地Redis的信息
 REDIS_HOST=host.docker.internal  # 使用host.docker.internal让容器访问主机服务
 REDIS_PORT=6379                  # 本地Redis端口
-REDIS_PASSWORD=                  # 如果你的Redis没有设置密码，这里填写None，否则填写密码
+REDIS_PASSWORD=                  # 如果你的Redis没有设置密码，就按这样子填写，否则填写密码
 ```
 
 注意，如果你的Redis没有设置密码，还要修改`ragflow/docker`文件夹下`service_conf.yaml.template`，将`infini_rag_flow`替换成空字符串。
