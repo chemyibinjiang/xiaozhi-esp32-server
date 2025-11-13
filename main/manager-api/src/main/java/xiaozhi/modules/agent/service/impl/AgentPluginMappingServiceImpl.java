@@ -106,19 +106,4 @@ public class AgentPluginMappingServiceImpl extends ServiceImpl<AgentPluginMappin
         agentPluginMappingMapper.delete(updateWrapper);
     }
 
-    @Override
-    public void deleteByKnowledgeBaseId(String knowledgeBaseId) {
-        if (StringUtils.isBlank(knowledgeBaseId)) {
-            return;
-        }
-
-        UpdateWrapper<AgentPluginMapping> updateWrapper = new UpdateWrapper<>();
-        updateWrapper.eq("plugin_id", knowledgeBaseId);
-        int deletedCount = agentPluginMappingMapper.delete(updateWrapper);
-
-        if (deletedCount > 0) {
-            log.info("已删除 {} 条与知识库ID '{}' 相关的插件映射记录", deletedCount, knowledgeBaseId);
-        }
-    }
-
 }
