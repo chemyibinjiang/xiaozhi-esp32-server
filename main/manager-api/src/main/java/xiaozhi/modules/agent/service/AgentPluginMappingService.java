@@ -26,4 +26,4 @@ public interface AgentPluginMappingService extends IService<AgentPluginMapping> 
      * @param agentId
      */
     void deleteByAgentId(String agentId);
-
+}
