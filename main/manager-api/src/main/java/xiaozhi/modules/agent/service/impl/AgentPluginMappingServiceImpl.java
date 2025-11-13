@@ -6,12 +6,14 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import xiaozhi.common.utils.JsonUtils;
 import xiaozhi.modules.agent.dao.AgentPluginMappingMapper;
 import xiaozhi.modules.agent.entity.AgentPluginMapping;
@@ -27,9 +29,11 @@ import xiaozhi.modules.model.service.ModelConfigService;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AgentPluginMappingServiceImpl extends ServiceImpl<AgentPluginMappingMapper, AgentPluginMapping>
         implements AgentPluginMappingService {
     private final AgentPluginMappingMapper agentPluginMappingMapper;
+    @Lazy
     private final KnowledgeBaseService knowledgeBaseService;
     private final ModelConfigService modelConfigService;
 
@@ -100,6 +104,21 @@ public class AgentPluginMappingServiceImpl extends ServiceImpl<AgentPluginMappin
         UpdateWrapper<AgentPluginMapping> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("agent_id", agentId);
         agentPluginMappingMapper.delete(updateWrapper);
+    }
+
+    @Override
+    public void deleteByKnowledgeBaseId(String knowledgeBaseId) {
+        if (StringUtils.isBlank(knowledgeBaseId)) {
+            return;
+        }
+        
+        UpdateWrapper<AgentPluginMapping> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("plugin_id", knowledgeBaseId);
+        int deletedCount = agentPluginMappingMapper.delete(updateWrapper);
+        
+        if (deletedCount > 0) {
+            log.info("已删除 {} 条与知识库ID '{}' 相关的插件映射记录", deletedCount, knowledgeBaseId);
+        }
     }
 
 }

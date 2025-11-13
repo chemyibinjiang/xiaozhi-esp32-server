@@ -314,6 +314,8 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
 
         // API删除成功后再删除本地记录
         if (apiDeleteSuccess) {
+            log.info("数据库触发器将自动清理ai_agent_plugin_mapping表中与知识库ID '{}' 相关的映射记录", entity.getId());
+            
             int deleteCount = knowledgeBaseDao.deleteById(entity.getId());
             log.info("本地数据库删除结果: {}", deleteCount > 0 ? "成功" : "失败");
         }

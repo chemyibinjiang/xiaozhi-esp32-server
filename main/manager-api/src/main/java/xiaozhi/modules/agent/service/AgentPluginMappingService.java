@@ -26,4 +26,11 @@ public interface AgentPluginMappingService extends IService<AgentPluginMapping> 
      * @param agentId
      */
     void deleteByAgentId(String agentId);
+
+    /**
+     * 根据知识库ID删除插件映射记录
+     * 
+     * @param knowledgeBaseId 知识库ID
+     */
+    void deleteByKnowledgeBaseId(String knowledgeBaseId);
 }
