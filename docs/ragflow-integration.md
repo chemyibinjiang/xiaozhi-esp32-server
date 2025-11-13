@@ -170,7 +170,7 @@ MYSQL_DBNAME=rag_flow            # 数据库名称
 # Redis配置 - 修改为您本地Redis的信息
 REDIS_HOST=host.docker.internal  # 使用host.docker.internal让容器访问主机服务
 REDIS_PORT=6379                  # 本地Redis端口
-REDIS_PASSWORD=                  # 如果你的Redis没有设置密码，这里填写None，否则填写密码
+REDIS_PASSWORD=                  # 如果你的Redis没有设置密码，就按这样子填写，否则填写密码
 ```
 
 注意，如果你的Redis没有设置密码，还要修改`ragflow/docker`文件夹下`service_conf.yaml.template`，将`infini_rag_flow`替换成空字符串。
