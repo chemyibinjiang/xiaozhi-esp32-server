@@ -274,7 +274,7 @@ Websocket接口地址: wss://2662r3426b.vicp.fun/xiaozhi/v1/
 
 | 使用方式 | 支持平台 | 免费平台 |
 |:---:|:---:|:---:|
-| openai 接口调用 | 阿里百炼、火山引擎豆包、深度求索、智谱ChatGLM、Gemini | 智谱ChatGLM、Gemini |
+| openai 接口调用 | 阿里百炼、火山引擎、DeepSeek、智谱、Gemini、科大讯飞 | 智谱、Gemini |
 | ollama 接口调用 | Ollama | - |
 | dify 接口调用 | Dify | - |
 | fastgpt 接口调用 | Fastgpt | - |
@@ -300,7 +300,7 @@ Websocket接口地址: wss://2662r3426b.vicp.fun/xiaozhi/v1/
 
 | 使用方式 | 支持平台 | 免费平台 |
 |:---:|:---:|:---:|
-| 接口调用 | EdgeTTS、火山引擎豆包TTS、腾讯云、阿里云TTS、阿里云流式TTS、CosyVoiceSiliconflow、TTS302AI、CozeCnTTS、GizwitsTTS、ACGNTTS、OpenAITTS、灵犀流式TTS、MinimaxTTS、火山双流式TTS | 灵犀流式TTS、EdgeTTS、CosyVoiceSiliconflow(部分) |
+| 接口调用 | EdgeTTS、科大讯飞、火山引擎、腾讯云、阿里云及百炼、CosyVoiceSiliconflow、TTS302AI、CozeCnTTS、GizwitsTTS、ACGNTTS、OpenAITTS、灵犀流式TTS、MinimaxTTS | 灵犀流式TTS、EdgeTTS、CosyVoiceSiliconflow(部分) |
 | 本地服务 | FishSpeech、GPT_SOVITS_V2、GPT_SOVITS_V3、Index-TTS、PaddleSpeech | Index-TTS、PaddleSpeech、FishSpeech、GPT_SOVITS_V2、GPT_SOVITS_V3 |
 
 ---
@@ -318,7 +318,7 @@ Websocket接口地址: wss://2662r3426b.vicp.fun/xiaozhi/v1/
 | 使用方式 | 支持平台 | 免费平台 |
 |:---:|:---:|:---:|
 | 本地使用 | FunASR、SherpaASR | FunASR、SherpaASR |
-| 接口调用 | DoubaoASR、Doubao流式ASR、FunASRServer、TencentASR、AliyunASR、Aliyun流式ASR、百度ASR、OpenAI ASR | FunASRServer |
+| 接口调用 | FunASRServer、火山引擎、科大讯飞、腾讯云、阿里云、百度云、OpenAI ASR | FunASRServer |
 
 ---
 
@@ -347,6 +347,14 @@ Websocket接口地址: wss://2662r3426b.vicp.fun/xiaozhi/v1/
 | Intent |  intent_llm   | 接口调用 | 根据LLM收费 |    通过大模型识别意图，通用性强     |
 | Intent | function_call | 接口调用 | 根据LLM收费 | 通过大模型函数调用完成意图，速度快，效果好 |
 | Intent |    nointent   | 无意图模式 |    免费     |    不进行意图识别，直接返回对话结果     |
+
+---
+
+### Rag 检索增强生成
+
+|   类型   |     平台名称      | 使用方式 |  收费模式   |          备注           |
+|:------:|:-------------:|:----:|:-------:|:---------------------:|
+| Rag |  ragflow   | 接口调用 | 根据切片、分词消耗的token收费 |    借助RagFlow的检索增强生成功能，提供更准确的对话回复     |
 
 ---
 
