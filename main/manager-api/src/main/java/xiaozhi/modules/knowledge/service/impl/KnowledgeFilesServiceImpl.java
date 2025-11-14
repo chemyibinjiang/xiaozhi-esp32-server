@@ -24,30 +24,30 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import xiaozhi.common.constant.Constant;
 import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.exception.RenException;
 import xiaozhi.common.page.PageData;
 import xiaozhi.modules.knowledge.dto.KnowledgeFilesDTO;
+import xiaozhi.modules.knowledge.service.KnowledgeBaseService;
 import xiaozhi.modules.knowledge.service.KnowledgeFilesService;
-import xiaozhi.modules.model.dao.ModelConfigDao;
-import xiaozhi.modules.model.entity.ModelConfigEntity;
-import xiaozhi.modules.model.service.ModelConfigService;
 
 @Service
 @AllArgsConstructor
 @Slf4j
 public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
-    private final ModelConfigService modelConfigService;
-    private final ModelConfigDao modelConfigDao;
+    private final KnowledgeBaseService knowledgeBaseService;
     private RestTemplate restTemplate = new RestTemplate();
     private ObjectMapper objectMapper = new ObjectMapper();
+
+    @Override
+    public Map<String, Object> getRAGConfig(String ragModelId) {
+        return knowledgeBaseService.getRAGConfig(ragModelId);
+    }
 
     @Override
     public PageData<KnowledgeFilesDTO> getPageList(KnowledgeFilesDTO knowledgeFilesDTO, Integer page, Integer limit) {
@@ -60,16 +60,16 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                     knowledgeFilesDTO != null ? knowledgeFilesDTO.getStatus() : null,
                     page, limit);
 
-            // 获取RAG配置
-            Map<String, Object> ragConfig = getDefaultRAGConfig();
-            String baseUrl = (String) ragConfig.get("base_url");
-            String apiKey = (String) ragConfig.get("api_key");
-
             // 构建请求URL - 根据RAGFlow API文档，获取文档列表的接口
             String datasetId = knowledgeFilesDTO != null ? knowledgeFilesDTO.getDatasetId() : null;
             if (StringUtils.isBlank(datasetId)) {
                 throw new RenException(ErrorCode.PARAMS_GET_ERROR, "datasetId不能为空");
             }
+
+            // 获取RAG配置
+            Map<String, Object> ragConfig = knowledgeBaseService.getRAGConfigByDatasetId(datasetId);
+            String baseUrl = (String) ragConfig.get("base_url");
+            String apiKey = (String) ragConfig.get("api_key");
 
             String url = baseUrl + "/api/v1/datasets/" + datasetId + "/documents";
 
@@ -253,7 +253,8 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                 long currentTime = System.currentTimeMillis();
 
                 // 调用RAGFlow API获取文档切片信息
-                Map<String, Object> ragConfig = getDefaultRAGConfig();
+                String datasetId = dto.getDatasetId();
+                Map<String, Object> ragConfig = knowledgeBaseService.getRAGConfigByDatasetId(datasetId);
                 String baseUrl = (String) ragConfig.get("base_url");
                 String apiKey = (String) ragConfig.get("api_key");
 
@@ -449,7 +450,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getDefaultRAGConfig();
+            Map<String, Object> ragConfig = knowledgeBaseService.getRAGConfigByDatasetId(datasetId);
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
 
@@ -528,7 +529,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getDefaultRAGConfig();
+            Map<String, Object> ragConfig = knowledgeBaseService.getRAGConfigByDatasetId(datasetId);
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
 
@@ -748,58 +749,6 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
         }
     }
 
-    @Override
-    public Map<String, Object> getRAGConfig(String ragModelId) {
-        if (StringUtils.isBlank(ragModelId)) {
-            throw new RenException(ErrorCode.PARAMS_GET_ERROR);
-        }
-
-        // 从缓存获取模型配置
-        ModelConfigEntity modelConfig = modelConfigService.getModelByIdFromCache(ragModelId);
-        if (modelConfig == null || modelConfig.getConfigJson() == null) {
-            throw new RenException(ErrorCode.RAG_CONFIG_NOT_FOUND);
-        }
-
-        // 验证是否为RAG类型配置
-        if (!Constant.RAG_CONFIG_TYPE.equals(modelConfig.getModelType().toUpperCase())) {
-            throw new RenException(ErrorCode.RAG_CONFIG_TYPE_ERROR);
-        }
-
-        Map<String, Object> config = modelConfig.getConfigJson();
-
-        // 验证必要的配置参数
-        validateRagConfig(config);
-
-        // 返回配置信息
-        return config;
-    }
-
-    @Override
-    public Map<String, Object> getDefaultRAGConfig() {
-        // 获取默认RAG模型配置
-        QueryWrapper<ModelConfigEntity> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("model_type", Constant.RAG_CONFIG_TYPE)
-                .eq("is_default", 1)
-                .eq("is_enabled", 1);
-
-        List<ModelConfigEntity> modelConfigs = modelConfigDao.selectList(queryWrapper);
-        if (modelConfigs == null || modelConfigs.isEmpty()) {
-            throw new RenException(ErrorCode.RAG_DEFAULT_CONFIG_NOT_FOUND);
-        }
-
-        ModelConfigEntity defaultConfig = modelConfigs.get(0);
-        if (defaultConfig.getConfigJson() == null) {
-            throw new RenException(ErrorCode.RAG_CONFIG_NOT_FOUND);
-        }
-
-        Map<String, Object> config = defaultConfig.getConfigJson();
-
-        // 验证必要的配置参数
-        validateRagConfig(config);
-
-        return config;
-    }
-
     /**
      * 验证RAG配置中是否包含必要的参数
      */
@@ -826,7 +775,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
             Map<String, Object> parserConfig) {
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getDefaultRAGConfig();
+            Map<String, Object> ragConfig = knowledgeBaseService.getRAGConfigByDatasetId(datasetId);
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
 
@@ -1017,7 +966,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
     private void deleteDocumentInRAGFlow(String documentId, String datasetId) {
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getDefaultRAGConfig();
+            Map<String, Object> ragConfig = knowledgeBaseService.getRAGConfigByDatasetId(datasetId);
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
 
@@ -1141,7 +1090,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getDefaultRAGConfig();
+            Map<String, Object> ragConfig = knowledgeBaseService.getRAGConfigByDatasetId(datasetId);
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
 
@@ -1217,7 +1166,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getDefaultRAGConfig();
+            Map<String, Object> ragConfig = knowledgeBaseService.getRAGConfigByDatasetId(datasetId);
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
 
@@ -1616,7 +1565,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         try {
             // 获取RAG配置
-            Map<String, Object> ragConfig = getDefaultRAGConfig();
+            Map<String, Object> ragConfig = knowledgeBaseService.getRAGConfigByDatasetId(datasetIds.get(0));
             String baseUrl = (String) ragConfig.get("base_url");
             String apiKey = (String) ragConfig.get("api_key");
 

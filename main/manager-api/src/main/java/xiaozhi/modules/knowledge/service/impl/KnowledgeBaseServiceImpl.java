@@ -315,7 +315,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
         // API删除成功后再删除本地记录
         if (apiDeleteSuccess) {
             log.info("开始删除ai_agent_plugin_mapping表中与知识库ID '{}' 相关的映射记录", entity.getId());
-            
+
             // 先删除相关的插件映射记录
             knowledgeBaseDao.deletePluginMappingByKnowledgeBaseId(entity.getId());
             log.info("插件映射记录删除完成");
@@ -354,29 +354,27 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
     }
 
     @Override
-    public Map<String, Object> getDefaultRAGConfig() {
-        // 获取默认RAG模型配置
-        QueryWrapper<ModelConfigEntity> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("model_type", Constant.RAG_CONFIG_TYPE)
-                .eq("is_default", 1)
-                .eq("is_enabled", 1);
-
-        List<ModelConfigEntity> modelConfigs = modelConfigDao.selectList(queryWrapper);
-        if (modelConfigs == null || modelConfigs.isEmpty()) {
-            throw new RenException(ErrorCode.RAG_DEFAULT_CONFIG_NOT_FOUND);
+    public Map<String, Object> getRAGConfigByDatasetId(String datasetId) {
+        if (StringUtils.isBlank(datasetId)) {
+            throw new RenException(ErrorCode.PARAMS_GET_ERROR, "datasetId不能为空");
         }
 
-        ModelConfigEntity defaultConfig = modelConfigs.get(0);
-        if (defaultConfig.getConfigJson() == null) {
-            throw new RenException(ErrorCode.RAG_CONFIG_NOT_FOUND);
+        // 根据datasetId查询知识库信息
+        KnowledgeBaseDTO knowledgeBase = getByDatasetId(datasetId);
+        if (knowledgeBase == null) {
+            log.warn("未找到datasetId为{}的知识库", datasetId);
+            throw new RenException(ErrorCode.Knowledge_Base_RECORD_NOT_EXISTS);
         }
 
-        Map<String, Object> config = defaultConfig.getConfigJson();
+        // 如果知识库指定了ragModelId，使用该配置
+        String ragModelId = knowledgeBase.getRagModelId();
+        if (StringUtils.isBlank(ragModelId)) {
+            log.warn("知识库datasetId为{}未配置ragModelId", datasetId);
+            throw new RenException(ErrorCode.RAG_CONFIG_NOT_FOUND, "知识库未配置RAG模型");
+        }
 
-        // 验证必要的配置参数
-        validateRagConfig(config);
-
-        return config;
+        // 获取并返回RAG配置
+        return getRAGConfig(ragModelId);
     }
 
     @Override
@@ -726,12 +724,11 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
      * 获取RAG配置并验证
      */
     private Map<String, Object> getValidatedRAGConfig(String ragModelId) {
-        Map<String, Object> ragConfig;
-        if (StringUtils.isNotBlank(ragModelId)) {
-            ragConfig = getRAGConfig(ragModelId);
-        } else {
-            ragConfig = getDefaultRAGConfig();
+        if (StringUtils.isBlank(ragModelId)) {
+            throw new RenException(ErrorCode.PARAMS_GET_ERROR, "ragModelId不能为空");
         }
+
+        Map<String, Object> ragConfig = getRAGConfig(ragModelId);
 
         // 验证RAG配置参数
         validateRagConfig(ragConfig);
