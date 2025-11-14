@@ -71,11 +71,12 @@ public interface KnowledgeBaseService extends BaseService<KnowledgeBaseEntity> {
     Map<String, Object> getRAGConfig(String ragModelId);
 
     /**
-     * 获取默认RAG配置信息
+     * 根据知识库ID获取对应的RAG配置
      * 
-     * @return 默认RAG配置信息
+     * @param datasetId 知识库ID
+     * @return RAG配置
      */
-    Map<String, Object> getDefaultRAGConfig();
+    Map<String, Object> getRAGConfigByDatasetId(String datasetId);
 
     /**
      * 获取RAG模型列表
