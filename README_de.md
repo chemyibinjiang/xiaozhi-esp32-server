@@ -10,25 +10,19 @@ Unterstützt MQTT+UDP-Protokoll, Websocket-Protokoll, MCP-Endpunkte und Stimmabd
 </p>
 
 <p align="center">
-<a href="./README.md">中文</a>
-· <a href="./README_en.md">English</a>
-· <a href="./docs/FAQ.md">Häufige Fragen</a>
+<a href="./docs/FAQ.md">Häufige Fragen</a>
 · <a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/issues">Probleme melden</a>
 · <a href="./README.md#%E9%83%A8%E7%BD%B2%E6%96%87%E6%A1%A3">Deployment-Dokumentation</a>
 · <a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/releases">Release-Hinweise</a>
 </p>
+
 <p align="center">
+  <a href="./README.md"><img alt="简体中文版自述文件" src="https://img.shields.io/badge/简体中文-DFE0E5"></a>
+  <a href="./README_en.md"><img alt="README in English" src="https://img.shields.io/badge/English-DFE0E5"></a>
+  <a href="./README_vi.md"><img alt="Tiếng Việt" src="https://img.shields.io/badge/Tiếng Việt-DFE0E5"></a>
+  <a href="./README_de.md"><img alt="Deutsch" src="https://img.shields.io/badge/Deutsch-DBEDFA"></a>
   <a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/releases">
     <img alt="GitHub Contributors" src="https://img.shields.io/github/v/release/xinnan-tech/xiaozhi-esp32-server?logo=docker" />
-  </a>
-  <a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/graphs/contributors">
-    <img alt="GitHub Contributors" src="https://img.shields.io/github/contributors/xinnan-tech/xiaozhi-esp32-server?logo=github" />
-  </a>
-  <a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/issues">
-    <img alt="Issues" src="https://img.shields.io/github/issues/xinnan-tech/xiaozhi-esp32-server?color=0088ff" />
-  </a>
-  <a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/pulls">
-    <img alt="GitHub pull requests" src="https://img.shields.io/github/issues-pr/xinnan-tech/xiaozhi-esp32-server?color=0088ff" />
   </a>
   <a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/LICENSE">
     <img alt="GitHub pull requests" src="https://img.shields.io/badge/license-MIT-white?labelColor=black" />
@@ -247,6 +241,7 @@ Dieses Projekt bietet die folgenden Testwerkzeuge, um Ihnen bei der Überprüfun
 | Visuelle Wahrnehmung | Unterstützt mehrere VLLM (Vision Large Models), implementiert multimodale Interaktion |
 | Absichtserkennung | Unterstützt LLM-Absichtserkennung, Function Call-Funktionsaufruf, bietet plugin-basierten Absichtsverarbeitungsmechanismus |
 | Gedächtnissystem | Unterstützt lokales Kurzzeitgedächtnis, mem0ai-Schnittstellengedächtnis, mit Gedächtniszusammenfassungsfunktion |
+| Wissensdatenbank | Unterstützt RAGFlow-Wissensdatenbank, ermöglicht großem Modell die Bewertung, ob Wissensdatenbank benötigt wird, bevor geantwortet wird |
 | Werkzeugaufruf | Unterstützt Client-IOT-Protokoll, Client-MCP-Protokoll, Server-MCP-Protokoll, MCP-Endpunktprotokoll, benutzerdefinierte Werkzeugfunktionen |
 | Befehlsübermittlung | Basierend auf MQTT-Protokoll, unterstützt die Übermittlung von MCP-Befehlen von der intelligenten Steuerkonsole an ESP32-Geräte |
 | Verwaltungs-Backend | Bietet Web-Verwaltungsoberfläche, unterstützt Benutzerverwaltung, Systemkonfiguration und Geräteverwaltung; Oberfläche unterstützt vereinfachtes Chinesisch, traditionelles Chinesisch und englische Anzeige |
@@ -345,6 +340,14 @@ Tatsächlich kann jedes VLLM, das OpenAI-Schnittstellenaufrufe unterstützt, int
 | Intent | intent_llm | Schnittstellenaufrufe | Basierend auf LLM-Preisen | Erkennt Absicht durch große Modelle, starke Allgemeingültigkeit |
 | Intent | function_call | Schnittstellenaufrufe | Basierend auf LLM-Preisen | Vervollständigt Absicht durch Funktionsaufruf großer Modelle, schnelle Geschwindigkeit, guter Effekt |
 | Intent | nointent | Kein Absichtsmodus | Kostenlos | Führt keine Absichtserkennung durch, gibt direkt Dialogergebnis zurück |
+
+---
+
+### Rag Retrieval Augmented Generation
+
+| Typ | Plattformname | Verwendungsmethode | Preismodell | Hinweise |
+|:------:|:-------------:|:----:|:-------:|:---------------------:|
+| Rag | ragflow | Schnittstellenaufrufe | Gebühren basierend auf Token-Verbrauch für Segmentierung und Tokenisierung | Nutzt RAGFlow's Retrieval-Augmented-Generation-Funktion für präzisere Dialogantworten |
 
 ---
 
