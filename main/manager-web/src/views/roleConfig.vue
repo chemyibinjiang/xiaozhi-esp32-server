@@ -580,7 +580,9 @@ export default {
             referenceAudio: voice.referenceAudio,
             // 新增：添加克隆音频相关字段
             cloneAudioUrl: voice.cloneAudioUrl,
-            hasCloneAudio: voice.hasCloneAudio || false
+            hasCloneAudio: voice.hasCloneAudio || false,
+            // 保存训练状态字段，用于判断是否为克隆音频
+            train_status: voice.trainStatus,
           }));
           // 保存完整的音色信息，添加调试信息
           console.log("获取到的音色数据:", data.data);
@@ -702,31 +704,33 @@ export default {
     },
     // 检查是否有音频预览
     hasAudioPreview(item) {
-        // 检查item中是否包含有效的音频URL字段或克隆音频字段
-        // 克隆音频通过hasCloneAudio标志或特定格式的ID来判断
-        const isCloneAudio = item.hasCloneAudio || 
-                           (item.id && item.id.startsWith('e') && item.id.length === 14);
-        
-        const audioFields = [
-          item.voiceDemo,
-          item.demoUrl,
-          item.audioUrl,
-          item.voice_demo,
-          item.sample_voice,
-          item.referenceAudio,
-          item.cloneAudioUrl // 克隆音频的URL
-        ];
-        
-        // 检查是否有任何音频字段是有效的URL
-        const hasUrlAudio = audioFields.some(field => 
-          field !== undefined && 
-          field !== null && 
-          typeof field === "string" && 
+      // 检查item中是否包含有效的音频URL字段或克隆音频字段
+      // 克隆音频通过hasCloneAudio标志或特定格式的ID来判断
+      const isCloneAudio =
+        item.hasCloneAudio ||
+        (item.id && item.id.startsWith("e") && item.id.length === 14);
+
+      const audioFields = [
+        item.voiceDemo,
+        item.demoUrl,
+        item.audioUrl,
+        item.voice_demo,
+        item.sample_voice,
+        item.referenceAudio,
+        item.cloneAudioUrl, // 克隆音频的URL
+      ];
+
+      // 检查是否有任何音频字段是有效的URL
+      const hasUrlAudio = audioFields.some(
+        (field) =>
+          field !== undefined &&
+          field !== null &&
+          typeof field === "string" &&
           field.trim() !== "" &&
           field.toLowerCase().startsWith("http")
-        );
-        
-        return hasUrlAudio || isCloneAudio;
+      );
+
+      return hasUrlAudio || isCloneAudio;
     },
 
     // 播放/暂停音频切换
@@ -783,12 +787,17 @@ export default {
         // 尝试多种可能的音频属性名
         let audioUrl = null;
         let isCloneAudio = false;
-        
+
         if (voiceDetail) {
-          // 首先检查是否是克隆音频（通过ID格式或hasCloneAudio标志判断）
-          isCloneAudio = voiceDetail.hasCloneAudio || 
-                        (voiceDetail.id && voiceDetail.id.startsWith('e') && voiceDetail.id.length === 14);
-          
+          // 首先检查是否是克隆音频（通过train_status字段、hasCloneAudio标志或ID格式判断）
+          isCloneAudio =
+            (voiceDetail.train_status !== undefined && voiceDetail.train_status >= 0) ||
+            voiceDetail.hasCloneAudio ||
+            (voiceDetail.id &&
+              voiceDetail.id.startsWith("e") &&
+              voiceDetail.id.length === 14);
+          console.log("克隆音频判断结果:", isCloneAudio, "训练状态:", voiceDetail.train_status);
+
           // 获取音频URL
           if (isCloneAudio && voiceDetail.id) {
             // 对于克隆音频，使用后端提供的正确接口
@@ -797,14 +806,14 @@ export default {
             // 2. 然后使用这个ID构建播放URL
             // 由于异步操作，我们需要先请求getAudioId
             console.log("检测到克隆音频，准备获取音频URL:", voiceDetail.id);
-            
+
             // 创建一个Promise来处理异步获取音频URL的操作
             const getCloneAudioUrl = () => {
               return new Promise((resolve) => {
                 // 首先调用getAudioId接口获取临时UUID
                 RequestService.sendRequest()
                   .url(`${getServiceUrl()}/voiceClone/audio/${voiceDetail.id}`)
-                  .method('POST')
+                  .method("POST")
                   .success((res) => {
                     if (res.code === 0 && res.data) {
                       // 使用返回的UUID构建播放URL
@@ -823,14 +832,14 @@ export default {
                   .send();
               });
             };
-            
+
             // 设置播放状态
             this.playingVoice = true;
             // 创建Audio实例
             this.currentAudio = new Audio();
             // 设置音量
             this.currentAudio.volume = 1.0;
-            
+
             // 设置超时，防止加载过长时间
             const timeoutId = setTimeout(() => {
               if (this.currentAudio && this.playingVoice) {
@@ -838,7 +847,7 @@ export default {
                 this.playingVoice = false;
               }
             }, 10000); // 10秒超时
-            
+
             // 监听播放错误
             this.currentAudio.onerror = () => {
               clearTimeout(timeoutId);
@@ -846,17 +855,17 @@ export default {
               this.$message.warning("克隆音频播放失败");
               this.playingVoice = false;
             };
-            
+
             // 监听播放开始，清除超时
             this.currentAudio.onplay = () => {
               clearTimeout(timeoutId);
             };
-            
+
             // 监听播放结束
             this.currentAudio.onended = () => {
               this.playingVoice = false;
             };
-            
+
             // 处理异步获取URL并播放
             getCloneAudioUrl().then((url) => {
               if (url) {
@@ -874,7 +883,7 @@ export default {
                 this.playingVoice = false;
               }
             });
-            
+
             // 返回，避免继续执行下面的普通音频播放逻辑
             return;
           } else {
@@ -922,7 +931,7 @@ export default {
           // 创建并播放音频
           this.currentAudio = new Audio();
           this.currentAudio.src = audioUrl;
-          
+
           // 设置音量
           this.currentAudio.volume = 1.0;
 
