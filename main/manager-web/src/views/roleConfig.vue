@@ -221,25 +221,37 @@
                         class="form-select"
                       >
                         <el-option
-                        v-for="(item, index) in voiceOptions"
-                        :key="`voice-${index}`"
-                        :label="item.label"
-                        :value="item.value"
-                      >
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                          <span>{{ item.label }}</span>
-                          <template v-if="hasAudioPreview(item)">
-                            <el-button
-                              type="text"
-                              icon="el-icon-video-play"
-                              size="small"
-                              @click.stop="playVoicePreview(item.value)"
-                              :loading="playingVoice && form.ttsVoiceId === item.value"
-                              class="play-button"
-                            />
-                          </template>
-                        </div>
-                      </el-option>
+                          v-for="(item, index) in voiceOptions"
+                          :key="`voice-${index}`"
+                          :label="item.label"
+                          :value="item.value"
+                        >
+                          <div
+                            style="
+                              display: flex;
+                              justify-content: space-between;
+                              align-items: center;
+                            "
+                          >
+                            <span>{{ item.label }}</span>
+                            <template v-if="hasAudioPreview(item)">
+                              <el-button
+                                type="text"
+                                :icon="
+                                  playingVoice &&
+                                  currentPlayingVoiceId === item.value &&
+                                  !isPaused
+                                    ? 'el-icon-video-pause'
+                                    : 'el-icon-video-play'
+                                "
+                                size="small"
+                                @click.stop="toggleAudioPlayback(item.value)"
+                                :loading="false"
+                                class="play-button"
+                              />
+                            </template>
+                          </div>
+                        </el-option>
                       </el-select>
                     </el-form-item>
                   </div>
@@ -321,7 +333,9 @@ export default {
       allFunctions: [],
       originalFunctions: [],
       playingVoice: false,
+      isPaused: false,
       currentAudio: null,
+      currentPlayingVoiceId: null,
     };
   },
   methods: {
@@ -555,9 +569,16 @@ export default {
           this.voiceOptions = data.data.map((voice) => ({
             value: voice.id,
             label: voice.name,
+            // 复制音频相关字段，确保hasAudioPreview能检测到
+            voiceDemo: voice.voiceDemo,
+            demoUrl: voice.demoUrl,
+            audioUrl: voice.audioUrl,
+            voice_demo: voice.voice_demo,
+            sample_voice: voice.sample_voice,
+            referenceAudio: voice.referenceAudio,
           }));
           // 保存完整的音色信息，添加调试信息
-          console.log('获取到的音色数据:', data.data);
+          console.log("获取到的音色数据:", data.data);
           this.voiceDetails = data.data.reduce((acc, voice) => {
             acc[voice.id] = voice;
             return acc;
@@ -676,17 +697,54 @@ export default {
     },
     // 检查是否有音频预览
     hasAudioPreview(item) {
-      // 检查item中是否包含音频相关字段
-      const hasAudioFields = item.voiceDemo || item.demoUrl || item.audioUrl || 
-                           item.voice_demo || item.sample_voice || item.referenceAudio;
-      return hasAudioFields && typeof hasAudioFields === 'string' && hasAudioFields.trim() !== '';
+        // 检查item中是否包含有效的音频URL字段，且URL必须以http开头
+        const audioFields = [
+          item.voiceDemo,
+          item.demoUrl,
+          item.audioUrl,
+          item.voice_demo,
+          item.sample_voice,
+          item.referenceAudio
+        ];
+        
+        // 检查是否有任何音频字段是以http开头的有效URL
+        return audioFields.some(field => 
+          field !== undefined && 
+          field !== null && 
+          typeof field === "string" && 
+          field.trim() !== "" &&
+          field.toLowerCase().startsWith("http")
+        );
     },
-    
+
+    // 播放/暂停音频切换
+    toggleAudioPlayback(voiceId) {
+      // 如果点击的是当前正在播放的音频，则切换暂停/播放状态
+      if (this.playingVoice && this.currentPlayingVoiceId === voiceId) {
+        if (this.isPaused) {
+          // 从暂停状态恢复播放
+          this.currentAudio.play().catch((error) => {
+            console.error("恢复播放失败:", error);
+            this.$message.warning("无法恢复播放音频");
+          });
+          this.isPaused = false;
+        } else {
+          // 暂停播放
+          this.currentAudio.pause();
+          this.isPaused = true;
+        }
+        return;
+      }
+
+      // 否则开始播放新的音频
+      this.playVoicePreview(voiceId);
+    },
+
     // 播放音色预览
     playVoicePreview(voiceId = null) {
       // 如果传入了voiceId，则使用传入的，否则使用当前选中的
       const targetVoiceId = voiceId || this.form.ttsVoiceId;
-      
+
       if (!targetVoiceId) {
         this.$message.warning("请先选择一个音色");
         return;
@@ -698,34 +756,41 @@ export default {
         this.currentAudio = null;
       }
 
+      // 重置播放状态
+      this.isPaused = false;
+      this.currentPlayingVoiceId = targetVoiceId;
+
       try {
         // 从保存的音色详情中获取音频URL
         const voiceDetail = this.voiceDetails[targetVoiceId];
-        
+
         // 添加调试信息
-        console.log('当前选择的音色ID:', targetVoiceId);
-        console.log('音色详情:', voiceDetail);
-        
+        console.log("当前选择的音色ID:", targetVoiceId);
+        console.log("音色详情:", voiceDetail);
+
         // 尝试多种可能的音频属性名
         let audioUrl = null;
         if (voiceDetail) {
           // 首先尝试直接从voiceDetail中获取各种可能的音频字段
-          audioUrl = voiceDetail.voiceDemo || 
-                     voiceDetail.demoUrl || 
-                     voiceDetail.audioUrl || 
-                     voiceDetail.voice_demo || 
-                     voiceDetail.sample_voice;
-          
+          audioUrl =
+            voiceDetail.voiceDemo ||
+            voiceDetail.demoUrl ||
+            voiceDetail.audioUrl ||
+            voiceDetail.voice_demo ||
+            voiceDetail.sample_voice;
+
           // 如果没有找到，尝试检查是否有URL格式的字段
           if (!audioUrl) {
             for (const key in voiceDetail) {
               const value = voiceDetail[key];
-              if (typeof value === 'string' && 
-                  (value.startsWith('http://') || 
-                   value.startsWith('https://') || 
-                   value.endsWith('.mp3') || 
-                   value.endsWith('.wav') || 
-                   value.endsWith('.ogg'))) {
+              if (
+                typeof value === "string" &&
+                (value.startsWith("http://") ||
+                  value.startsWith("https://") ||
+                  value.endsWith(".mp3") ||
+                  value.endsWith(".wav") ||
+                  value.endsWith(".ogg"))
+              ) {
                 audioUrl = value;
                 console.log(`发现可能的音频URL在字段 '${key}':`, audioUrl);
                 break;
@@ -733,7 +798,7 @@ export default {
             }
           }
         }
-        
+
         if (!audioUrl) {
           // 如果没有音频URL，显示友好的提示
           this.$message.warning("该音色暂无可预览的音频");
@@ -742,7 +807,7 @@ export default {
 
         // 设置播放状态
         this.playingVoice = true;
-        
+
         // 创建并播放音频
         this.currentAudio = new Audio(audioUrl);
 
@@ -760,7 +825,7 @@ export default {
         // 监听播放错误
         this.currentAudio.onerror = () => {
           clearTimeout(timeoutId);
-          console.error('音频播放错误');
+          console.error("音频播放错误");
           this.$message.warning("音频播放失败");
           this.playingVoice = false;
         };
@@ -778,7 +843,7 @@ export default {
         // 实际调用play方法开始播放
         this.currentAudio.play().catch((error) => {
           clearTimeout(timeoutId);
-          console.error('播放失败:', error);
+          console.error("播放失败:", error);
           this.$message.warning("无法播放音频");
           this.playingVoice = false;
         });
@@ -952,7 +1017,7 @@ export default {
 }
 
 .play-button {
-  color: #409EFF;
+  color: #409eff;
   transition: color 0.3s;
 }
 
