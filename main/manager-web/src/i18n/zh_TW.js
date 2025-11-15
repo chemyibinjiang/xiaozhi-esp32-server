@@ -639,6 +639,8 @@ export default {
   'language.zhCN': '中文简体',
   'language.zhTW': '中文繁體',
   'language.en': 'English',
+  'language.de': 'Deutsch',
+  'language.vi': 'Tiếng Việt',
 
   // 首頁文本
   'home.addAgent': '添加智能體',
