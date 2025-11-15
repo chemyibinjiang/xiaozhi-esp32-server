@@ -100,7 +100,7 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
             wrapper.eq("model_id", dto.getModelId());
             Long count = baseDao.selectCount(wrapper);
             if (count > 0) {
-                throw new RenException(ErrorCode.VOICE_ID_ALREADY_EXISTS, "音色ID " + voiceId + " 已存在");
+                throw new RenException(ErrorCode.VOICE_ID_ALREADY_EXISTS);
             }
         }
 
