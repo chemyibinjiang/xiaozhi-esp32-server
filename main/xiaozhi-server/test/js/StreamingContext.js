@@ -1,4 +1,4 @@
-import BlockingQueue from './utils/BlockingQueue.js';
+import BlockingQueue from './utils/blockingQueue.js';
 import { log } from './utils/logger.js';
 
 // 音频流播放上下文类
