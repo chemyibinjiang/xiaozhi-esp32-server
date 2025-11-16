@@ -63,7 +63,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
             // 构建请求URL - 根据RAGFlow API文档，获取文档列表的接口
             String datasetId = knowledgeFilesDTO != null ? knowledgeFilesDTO.getDatasetId() : null;
             if (StringUtils.isBlank(datasetId)) {
-                throw new RenException(ErrorCode.PARAMS_GET_ERROR, "datasetId不能为空");
+                throw new RenException(ErrorCode.RAG_DATASET_ID_NOT_NULL);
             }
 
             // 获取RAG配置
@@ -109,7 +109,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
             if (!response.getStatusCode().is2xxSuccessful()) {
                 log.error("RAGFlow API调用失败，状态码: {}", response.getStatusCode());
-                throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API调用失败，HTTP状态码: " + response.getStatusCode());
+                throw new RenException(ErrorCode.RAG_API_ERROR, response.getStatusCode().toString());
             }
 
             String responseBody = response.getBody();
@@ -133,7 +133,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         } catch (Exception e) {
             log.error("获取文档列表失败: {}", e.getMessage(), e);
-            String errorMessage = e.getMessage() != null ? e.getMessage() : "未知错误";
+            String errorMessage = e.getMessage() != null ? e.getMessage() : "null";
             if (e instanceof RenException) {
                 throw (RenException) e;
             }
@@ -229,7 +229,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         } catch (Exception e) {
             log.error("获取文档列表响应失败: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_ERROR, "获取文档列表响应失败: " + e.getMessage());
+            throw new RenException(ErrorCode.RAG_API_ERROR, e.getMessage());
         }
     }
 
@@ -442,7 +442,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
     @Override
     public KnowledgeFilesDTO getByDocumentId(String documentId, String datasetId) {
         if (StringUtils.isBlank(documentId) || StringUtils.isBlank(datasetId)) {
-            throw new RenException(ErrorCode.PARAMS_GET_ERROR, "documentId和datasetId不能为空");
+            throw new RenException(ErrorCode.RAG_DATASET_ID_AND_MODEL_ID_NOT_NULL);
         }
 
         log.info("=== 开始根据documentId获取文档 ===");
@@ -475,8 +475,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                 log.error("RAGFlow API调用失败，状态码: {}", response.getStatusCode());
                 String responseBody = response.getBody();
                 throw new RenException(ErrorCode.RAG_API_ERROR,
-                        "RAGFlow API调用失败，HTTP状态码: " + response.getStatusCode() +
-                                ", 响应内容: " + (responseBody != null ? responseBody : "无响应内容"));
+                        response.getStatusCode() + (responseBody != null ? responseBody : "null"));
             }
 
             String responseBody = response.getBody();
@@ -507,7 +506,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         } catch (Exception e) {
             log.error("根据documentId获取文档失败: {}", e.getMessage(), e);
-            String errorMessage = e.getMessage() != null ? e.getMessage() : "未知错误";
+            String errorMessage = e.getMessage() != null ? e.getMessage() : "null";
             if (e instanceof RenException) {
                 throw (RenException) e;
             }
@@ -521,7 +520,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
     public PageData<KnowledgeFilesDTO> getPageListByStatus(String datasetId, Integer status, Integer page,
             Integer limit) {
         if (StringUtils.isBlank(datasetId)) {
-            throw new RenException(ErrorCode.PARAMS_GET_ERROR, "datasetId不能为空");
+            throw new RenException(ErrorCode.RAG_DATASET_ID_NOT_NULL);
         }
 
         log.info("=== 开始根据状态查询文档列表 ===");
@@ -568,7 +567,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
             if (!response.getStatusCode().is2xxSuccessful()) {
                 log.error("RAGFlow API调用失败，状态码: {}", response.getStatusCode());
-                throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API调用失败，HTTP状态码: " + response.getStatusCode());
+                throw new RenException(ErrorCode.RAG_API_ERROR, response.getStatusCode().toString());
             }
 
             String responseBody = response.getBody();
@@ -600,12 +599,12 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                 return pageData;
             } else {
                 log.error("RAGFlow API调用失败，响应码: {}", code);
-                throw new RenException(ErrorCode.RAG_API_ERROR, "RAGFlow API调用失败，响应码: " + code);
+                throw new RenException(ErrorCode.RAG_API_ERROR, code.toString());
             }
 
         } catch (Exception e) {
             log.error("根据状态查询文档列表失败: {}", e.getMessage(), e);
-            throw new RenException(ErrorCode.RAG_API_ERROR, "查询文档列表失败: " + e.getMessage());
+            throw new RenException(ErrorCode.RAG_API_ERROR, e.getMessage());
         } finally {
             log.info("=== 根据状态查询文档列表操作结束 ===");
         }
@@ -635,12 +634,12 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
             // 检查文件基本信息
             if (StringUtils.isBlank(fileName)) {
                 log.error("文件名为空");
-                throw new RenException(ErrorCode.PARAMS_GET_ERROR, "文件名不能为空");
+                throw new RenException(ErrorCode.RAG_FILE_NAME_NOT_NULL);
             }
 
             if (fileSize == 0) {
                 log.error("文件大小为0");
-                throw new RenException(ErrorCode.PARAMS_GET_ERROR, "文件内容为空");
+                throw new RenException(ErrorCode.RAG_FILE_CONTENT_EMPTY);
             }
 
             log.info("2. 开始流式上传到RAGFlow");
@@ -676,7 +675,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
     @Override
     public void deleteByDocumentId(String documentId, String datasetId) {
         if (StringUtils.isBlank(documentId) || StringUtils.isBlank(datasetId)) {
-            throw new RenException(ErrorCode.PARAMS_GET_ERROR, "documentId和datasetId不能为空");
+            throw new RenException(ErrorCode.RAG_DATASET_ID_AND_MODEL_ID_NOT_NULL);
         }
 
         log.info("=== 开始根据documentId删除文档 ===");
@@ -691,7 +690,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         } catch (Exception e) {
             log.error("删除文档失败: {}", e.getMessage(), e);
-            String errorMessage = e.getMessage() != null ? e.getMessage() : "未知错误";
+            String errorMessage = e.getMessage() != null ? e.getMessage() : "null";
             if (e instanceof RenException) {
                 throw (RenException) e;
             }
@@ -763,7 +762,22 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         // 验证base_url是否存在且非空
         if (StringUtils.isBlank(baseUrl)) {
-            throw new RenException(ErrorCode.RAG_API_ERROR, "RAG配置缺少必要参数: base_url");
+            throw new RenException(ErrorCode.RAG_API_ERROR_URL_NULL);
+        }
+
+        // 验证api_key是否存在且非空
+        if (StringUtils.isBlank(apiKey)) {
+            throw new RenException(ErrorCode.RAG_API_ERROR_API_KEY_NULL);
+        }
+
+        // 检查api_key是否包含占位符
+        if (apiKey.contains("你")) {
+            throw new RenException(ErrorCode.RAG_API_ERROR_API_KEY_INVALID);
+        }
+
+        // 验证base_url格式
+        if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+            throw new RenException(ErrorCode.RAG_API_ERROR_URL_INVALID);
         }
     }
 
@@ -876,9 +890,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
                 }
             } else {
                 log.error("RAGFlow API调用失败，状态码: {}", response.getStatusCode());
-                throw new RenException(ErrorCode.RAG_API_ERROR,
-                        "RAGFlow API调用失败，HTTP状态码: " + response.getStatusCode() +
-                                ", 响应内容: " + (responseBody != null ? responseBody : "无响应内容"));
+                throw new RenException(ErrorCode.RAG_API_ERROR, response.getStatusCode().toString());
             }
 
             if (StringUtils.isBlank(documentId)) {
@@ -890,7 +902,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         } catch (Exception e) {
             log.error("RAGFlow API调用失败: {}", e.getMessage(), e);
-            String errorMessage = e.getMessage() != null ? e.getMessage() : "未知错误";
+            String errorMessage = e.getMessage() != null ? e.getMessage() : "null";
             if (e instanceof RenException) {
                 throw (RenException) e;
             }
@@ -1027,13 +1039,12 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
             } else {
                 log.error("RAGFlow API调用失败，状态码: {}", response.getStatusCode());
                 throw new RenException(ErrorCode.RAG_API_ERROR,
-                        "RAGFlow API调用失败，HTTP状态码: " + response.getStatusCode() +
-                                ", 响应内容: " + (responseBody != null ? responseBody : "无响应内容"));
+                        response.getStatusCode() + (responseBody != null ? responseBody : "null"));
             }
 
         } catch (Exception e) {
             log.error("RAGFlow API调用失败: {}", e.getMessage(), e);
-            String errorMessage = e.getMessage() != null ? e.getMessage() : "未知错误";
+            String errorMessage = e.getMessage() != null ? e.getMessage() : "null";
             if (e instanceof RenException) {
                 throw (RenException) e;
             }
@@ -1082,7 +1093,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
     @Override
     public boolean parseDocuments(String datasetId, List<String> documentIds) {
         if (StringUtils.isBlank(datasetId) || documentIds == null || documentIds.isEmpty()) {
-            throw new RenException(ErrorCode.PARAMS_GET_ERROR, "datasetId和documentIds不能为空");
+            throw new RenException(ErrorCode.RAG_DATASET_ID_AND_MODEL_ID_NOT_NULL);
         }
 
         log.info("=== 开始解析文档（切块） ===");
@@ -1122,8 +1133,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
             if (!response.getStatusCode().is2xxSuccessful()) {
                 log.error("RAGFlow API调用失败，状态码: {}", response.getStatusCode());
                 String errorDetail = responseBody != null ? responseBody : "无响应内容";
-                throw new RenException(ErrorCode.RAG_API_ERROR,
-                        "RAGFlow API调用失败，HTTP状态码: " + response.getStatusCode() + ", 响应内容: " + errorDetail);
+                throw new RenException(ErrorCode.RAG_API_ERROR, response.getStatusCode() + errorDetail);
             }
 
             // 解析响应
@@ -1143,7 +1153,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         } catch (Exception e) {
             log.error("解析文档失败: {}", e.getMessage(), e);
-            String errorMessage = e.getMessage() != null ? e.getMessage() : "未知错误";
+            String errorMessage = e.getMessage() != null ? e.getMessage() : "null";
             if (e instanceof RenException) {
                 throw (RenException) e;
             }
@@ -1157,7 +1167,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
     public Map<String, Object> listChunks(String datasetId, String documentId, String keywords,
             Integer page, Integer pageSize, String chunkId) {
         if (StringUtils.isBlank(datasetId) || StringUtils.isBlank(documentId)) {
-            throw new RenException(ErrorCode.PARAMS_GET_ERROR, "datasetId和documentId不能为空");
+            throw new RenException(ErrorCode.RAG_DATASET_ID_AND_MODEL_ID_NOT_NULL);
         }
 
         log.info("=== 开始列出切片 ===");
@@ -1220,8 +1230,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
             if (!response.getStatusCode().is2xxSuccessful()) {
                 log.error("RAGFlow API调用失败，状态码: {}", response.getStatusCode());
                 String errorDetail = responseBody != null ? responseBody : "无响应内容";
-                throw new RenException(ErrorCode.RAG_API_ERROR,
-                        "RAGFlow API调用失败，HTTP状态码: " + response.getStatusCode() + ", 响应内容: " + errorDetail);
+                throw new RenException(ErrorCode.RAG_API_ERROR, response.getStatusCode() + errorDetail);
             }
 
             // 解析响应
@@ -1243,11 +1252,11 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         } catch (IOException e) {
             log.error("解析RAGFlow API响应失败: {}", e.getMessage(), e);
-            String errorMessage = e.getMessage() != null ? e.getMessage() : "未知错误";
+            String errorMessage = e.getMessage() != null ? e.getMessage() : "null";
             throw new RenException(ErrorCode.RAG_API_ERROR, errorMessage);
         } catch (Exception e) {
             log.error("列出切片失败: {}", e.getMessage(), e);
-            String errorMessage = e.getMessage() != null ? e.getMessage() : "未知错误";
+            String errorMessage = e.getMessage() != null ? e.getMessage() : "null";
             if (e instanceof RenException) {
                 throw (RenException) e;
             }
@@ -1646,8 +1655,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
             if (!response.getStatusCode().is2xxSuccessful()) {
                 log.error("RAGFlow API调用失败，状态码: {}", response.getStatusCode());
                 String errorDetail = responseBody != null ? responseBody : "无响应内容";
-                throw new RenException(ErrorCode.RAG_API_ERROR,
-                        "RAGFlow API调用失败，HTTP状态码: " + response.getStatusCode() + ", 响应内容: " + errorDetail);
+                throw new RenException(ErrorCode.RAG_API_ERROR, response.getStatusCode() + errorDetail);
             }
 
             // 解析响应
@@ -1674,7 +1682,7 @@ public class KnowledgeFilesServiceImpl implements KnowledgeFilesService {
 
         } catch (Exception e) {
             log.error("召回测试失败: {}", e.getMessage(), e);
-            String errorMessage = e.getMessage() != null ? e.getMessage() : "未知错误";
+            String errorMessage = e.getMessage() != null ? e.getMessage() : "null";
             if (e instanceof RenException) {
                 throw (RenException) e;
             }
