@@ -1,4 +1,4 @@
-import { log } from './utils/logger.js';
+import { log } from '../../utils/logger.js';
 
 // ==========================================
 // MCP 工具管理逻辑
@@ -23,7 +23,7 @@ export function setWebSocket(ws) {
  */
 export async function initMcpTools() {
     // 加载默认工具数据
-    const defaultMcpTools = await fetch("js/default-mcp-tools.json").then(res => res.json());
+    const defaultMcpTools = await fetch("js/config/default-mcp-tools.json").then(res => res.json());
 
     const savedTools = localStorage.getItem('mcpTools');
     if (savedTools) {
