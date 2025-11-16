@@ -126,7 +126,12 @@ export class UIController {
         for (let i = 0; i < dataArray.length; i++) {
             barHeight = dataArray[i] / 2;
 
-            this.visualizerContext.fillStyle = `rgb(${barHeight + 100}, 50, 50)`;
+            // 创建渐变色：从紫色到蓝色到青色
+            const hue = 200 + (barHeight / this.visualizerCanvas.height) * 60; // 200-260度，从青色到紫色
+            const saturation = 80 + (barHeight / this.visualizerCanvas.height) * 20; // 饱和度 80-100%
+            const lightness = 45 + (barHeight / this.visualizerCanvas.height) * 15; // 亮度 45-60%
+
+            this.visualizerContext.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
             this.visualizerContext.fillRect(x, this.visualizerCanvas.height - barHeight, barWidth, barHeight);
 
             x += barWidth + 1;

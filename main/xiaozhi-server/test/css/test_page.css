@@ -245,6 +245,7 @@ button:disabled {
 }
 
 @keyframes pulse-speaking {
+
     0%,
     100% {
         opacity: 1;
@@ -357,6 +358,7 @@ span.connection-status.llm-emoji {
     height: 60px;
     width: 100%;
     margin-top: 10px;
+    margin-bottom: 15px;
     border: 1px solid #ddd;
     border-radius: 5px;
     background-color: #fafafa;
