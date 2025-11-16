@@ -130,7 +130,7 @@ export default {
     'chatHistory.loading': 'Đang tải...',
     'chatHistory.noMoreData': 'Không còn dữ liệu',
     'chatHistory.noChatRecords': 'Không có bản ghi trò chuyện',
-    'chatRecordsDescription': 'Bản ghi trò chuyện với đại lý sẽ hiển thị ở đây',
+    'chatHistory.chatRecordsDescription': 'Bản ghi trò chuyện với đại lý sẽ hiển thị ở đây',
     // Trang chi tiết lịch sử trò chuyện
     'chatHistory.pageTitle': 'Chi tiết trò chuyện',
     'chatHistory.assistantName': 'Trợ lý thông minh',
