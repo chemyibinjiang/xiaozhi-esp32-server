@@ -425,7 +425,7 @@ export default {
       });
     },
     getFunctionDisplayChar(name) {
-      if (!name || name.length === 0) return '';
+      if (!name || name.length === 0) return "";
 
       for (let i = 0; i < name.length; i++) {
         const char = name[i];
