@@ -169,7 +169,7 @@ export default {
 
     // Dictionary type dialog related
     'dictTypeDialog.addDictType': 'Wörterbuchtyp hinzufügen',
-    'dictTypeDialog.dictName': 'WWörterbuchtyp-Name',
+    'dictTypeDialog.dictName': 'Wörterbuchtyp-Name',
     'dictTypeDialog.dictNamePlaceholder': 'Bitte Wörterbuchtyp-Namen eingeben',
     'dictTypeDialog.dictType': 'Wörterbuchtyp-Code',
     'dictTypeDialog.dictTypePlaceholder': 'Bitte Wörterbuchtyp-Code eingeben',
