@@ -205,8 +205,27 @@ public interface ErrorCode {
     int RAG_CONFIG_NOT_FOUND = 10164; // RAG配置未找到
     int RAG_CONFIG_TYPE_ERROR = 10165; // RAG配置类型错误
     int RAG_DEFAULT_CONFIG_NOT_FOUND = 10166; // 默认RAG配置未找到
-    int RAG_API_ERROR = 10167; // RAG配置缺少必要参数
+    int RAG_API_ERROR = 10167; // RAG调用失败
     int UPLOAD_FILE_ERROR = 10168; // 上传文件失败
     int NO_PERMISSION = 10169; // 没有权限
     int KNOWLEDGE_BASE_NAME_EXISTS = 10170; // 同名知识库已存在
+    int RAG_API_ERROR_URL_NULL = 10171; // RAG配置中base_url为空，请完善配置
+    int RAG_API_ERROR_API_KEY_NULL = 10172; // RAG配置中api_key为空，请完善配置
+    int RAG_API_ERROR_API_KEY_INVALID = 10173; // RAG配置中api_key包含占位符，请替换为实际的API密钥
+    int RAG_API_ERROR_URL_INVALID = 10174; // RAG配置中base_url格式不正确，请检查协议是否正确
+    int RAG_DATASET_ID_NOT_NULL = 10176; // RAG配置中dataset_id不能为空
+    int RAG_MODEL_ID_NOT_NULL = 10177; // RAG配置中model_id不能为空
+    int RAG_DATASET_ID_AND_MODEL_ID_NOT_NULL = 10178; // RAG配置中dataset_id和model_id不能为空
+    int RAG_FILE_NAME_NOT_NULL = 10179; // 文件名称不能为空
+    int RAG_FILE_CONTENT_EMPTY = 10180; // 文件内容不能为空
+
+    // 设备相关错误码（补充）
+    int MCA_NOT_NULL = 10175; // mac地址不能为空
+
+    // 音色克隆（补充）
+    int VOICE_CLONE_NAME_NOT_NULL = 10181; // 音色克隆名称不能为空
+    int VOICE_CLONE_AUDIO_NOT_FOUND = 10182; // 音色克隆音频不存在
+
+    // 智能体模板相关错误码(补充)
+    int AGENT_TEMPLATE_NOT_FOUND = 10183; // 默认智能体未找到
 }

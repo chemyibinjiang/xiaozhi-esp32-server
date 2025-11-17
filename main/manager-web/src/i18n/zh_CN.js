@@ -639,6 +639,8 @@ export default {
   'language.zhCN': '中文简体',
   'language.zhTW': '中文繁體',
   'language.en': 'English',
+  'language.de': 'Deutsch',
+  'language.vi': 'Tiếng Việt',
 
   // 首页文本
   'home.addAgent': '添加智能体',
@@ -991,8 +993,6 @@ export default {
   'agentTemplateManagement.title': '默认角色管理',
   'agentTemplateManagement.templateName': '模板名称',
   'agentTemplateManagement.action': '操作',
-  'templateQuickConfig.saveSuccess': '配置保存成功',
-  'templateQuickConfig.saveFailed': '配置保存失败',
   'agentTemplateManagement.createTemplate': '创建模板',
   'agentTemplateManagement.editTemplate': '编辑模板',
   'agentTemplateManagement.deleteTemplate': '删除模板',
@@ -1021,13 +1021,14 @@ export default {
   'templateQuickConfig.agentSettings.systemPromptPlaceholder': '请输入角色介绍',
   'templateQuickConfig.saveConfig': '保存配置',
   'templateQuickConfig.resetConfig': '重置配置',
+  'templateQuickConfig.saveSuccess': '保存成功',
+  'templateQuickConfig.resetSuccess': '重置成功',
   'templateQuickConfig.confirmReset': '确定要重置配置吗？',
+  'templateQuickConfig.saveFailed': '配置保存失败',
   'templateQuickConfig.confirm': '确定',
   'templateQuickConfig.cancel': '取消',
   'templateQuickConfig.templateNotFound': '未找到指定模板',
   'templateQuickConfig.newTemplate': '新模板',
-  'templateQuickConfig.saveSuccess': '保存成功',
-  'templateQuickConfig.resetSuccess': '重置成功',
   'warning': '警告',
   'info': '提示',
   'common.networkError': '网络请求失败',
@@ -1183,7 +1184,7 @@ export default {
   'knowledgeBaseDialog.descriptionLengthLimit': '知识库描述不能超过200个字符',
 
   // 知识库管理页面新增查看按钮文本
-  'knowledgeBaseManagement.view': '查看',
+  'knowledgeBaseManagement.view': '管理文件',
 
   // 上传文件页面文本
   'knowledgeFileUpload.back': '返回',
@@ -1215,7 +1216,7 @@ export default {
   'knowledgeFileUpload.statusProcessing': '处理中',
   'knowledgeFileUpload.statusCancelled': '已取消',
   'knowledgeFileUpload.statusCompleted': '已完成',
-  'knowledgeFileUpload.statusFailed': '解析失败',
+  'knowledgeFileUpload.statusFailed': '失败',
   'knowledgeFileUpload.uploadSuccess': '文档上传成功',
   'knowledgeFileUpload.uploadFailed': '文档上传失败',
   'knowledgeFileUpload.parseSuccess': '文档解析成功',
@@ -1259,4 +1260,5 @@ export default {
   'knowledgeFileUpload.comprehensiveSimilarity': '综合相似度',
   'knowledgeFileUpload.content': '内容:',
   'knowledgeFileUpload.testQuestionRequired': '请输入测试问题',
+  'knowledgeBaseDialog.descriptionRequired': '请输入知识库描述',
 }

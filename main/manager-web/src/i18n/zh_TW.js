@@ -639,6 +639,8 @@ export default {
   'language.zhCN': '中文简体',
   'language.zhTW': '中文繁體',
   'language.en': 'English',
+  'language.de': 'Deutsch',
+  'language.vi': 'Tiếng Việt',
 
   // 首頁文本
   'home.addAgent': '添加智能體',
@@ -992,6 +994,7 @@ export default {
   'agentTemplateManagement.templateName': '模板名稱',
   'agentTemplateManagement.action': '操作',
   'templateQuickConfig.saveSuccess': '配置保存成功',
+  'templateQuickConfig.resetSuccess': '配置重置成功',
   'templateQuickConfig.saveFailed': '配置保存失敗',
   'agentTemplateManagement.createTemplate': '建立模板',
   'agentTemplateManagement.editTemplate': '編輯模板',
@@ -1021,8 +1024,6 @@ export default {
   'templateQuickConfig.agentSettings.systemPromptPlaceholder': '請輸入角色介紹',
   'templateQuickConfig.saveConfig': '保存配置',
   'templateQuickConfig.resetConfig': '重置配置',
-  'templateQuickConfig.configSaved': '配置保存成功',
-  'templateQuickConfig.configReset': '配置已重置',
   'templateQuickConfig.confirmReset': '確定要重置配置嗎？',
   'templateQuickConfig.confirm': '確定',
   'templateQuickConfig.cancel': '取消',
@@ -1183,7 +1184,7 @@ export default {
   'knowledgeBaseDialog.descriptionLengthLimit': '知識庫描述不能超過200個字符',
 
   // 知識庫管理頁面查看按鈕文本
-  'knowledgeBaseManagement.view': '查看',
+  'knowledgeBaseManagement.view': '管理文件',
 
   // 知識庫文件上傳頁面文本
   'knowledgeFileUpload.back': '返回',
@@ -1215,6 +1216,7 @@ export default {
   'knowledgeFileUpload.statusProcessing': '處理中',
   'knowledgeFileUpload.statusCancelled': '已取消',
   'knowledgeFileUpload.statusCompleted': '已完成',
+  'knowledgeFileUpload.statusFailed': '失敗',
   'knowledgeFileUpload.uploadSuccess': '文檔上傳成功',
   'knowledgeFileUpload.uploadFailed': '文檔上傳失敗',
   'knowledgeFileUpload.parseSuccess': '文檔解析成功',
@@ -1258,4 +1260,5 @@ export default {
   'knowledgeFileUpload.comprehensiveSimilarity': '綜合相似度',
   'knowledgeFileUpload.content': '內容:',
   'knowledgeFileUpload.testQuestionRequired': '請輸入測試問題',
+  'knowledgeBaseDialog.descriptionRequired': '請輸入知识库描述',
 }

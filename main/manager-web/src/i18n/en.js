@@ -639,10 +639,12 @@ export default {
   'language.zhCN': '中文简体',
   'language.zhTW': '中文繁體',
   'language.en': 'English',
+  'language.de': 'Deutsch',
+  'language.vi': 'Tiếng Việt',
 
   // Home page text
   'home.addAgent': 'Add Agent',
-  'home.greeting': 'Hi Jarvis',
+  'home.greeting': 'Hi XiaoZhi',
   'home.wish': "Let's have a wonderful day!",
   'home.languageModel': 'LLM',
   'home.voiceModel': 'TTS',
@@ -992,7 +994,6 @@ export default {
   'agentTemplateManagement.templateName': 'Template Name',
   'agentTemplateManagement.action': 'Action',
   'agentTemplateManagement.createTemplate': 'Create Template',
-  'templateQuickConfig.newTemplate': 'New Template',
   'agentTemplateManagement.editTemplate': 'Edit Template',
   'agentTemplateManagement.deleteTemplate': 'Delete Template',
   'agentTemplateManagement.deleteSuccess': 'Template deleted successfully',
@@ -1011,7 +1012,6 @@ export default {
   'agentTemplateManagement.deleteFailed': 'Template deletion failed',
   'agentTemplateManagement.batchDeleteFailed': 'Template batch deletion failed',
   'agentTemplateManagement.deleteBackendError': 'Deletion failed, please check if the backend service is normal',
-  'agentTemplateManagement.deleteCancelled': 'Deletion cancelled',
 
   // templateQuickConfig
   'templateQuickConfig.title': 'Module Quick Configuration',
@@ -1021,13 +1021,14 @@ export default {
   'templateQuickConfig.agentSettings.systemPromptPlaceholder': 'Please enter ntroduction',
   'templateQuickConfig.saveConfig': 'Save Configuration',
   'templateQuickConfig.resetConfig': 'Reset Configuration',
-  'templateQuickConfig.configSaved': 'Configuration saved successfully',
-  'templateQuickConfig.configReset': 'Configuration has been reset',
+  'templateQuickConfig.saveSuccess': 'Configuration saved successfully',
+  'templateQuickConfig.resetSuccess': 'Configuration reset successfully',
   'templateQuickConfig.confirmReset': 'Are you sure you want to reset the configuration?',
   'templateQuickConfig.saveFailed': 'Configuration save failed',
   'templateQuickConfig.confirm': 'Confirm',
   'templateQuickConfig.cancel': 'Cancel',
   'templateQuickConfig.templateNotFound': 'Template not found',
+  'templateQuickConfig.newTemplate': 'New Template',
   'warning': 'Warning',
   'info': 'Info',
   'common.networkError': 'Network request failed',
@@ -1183,7 +1184,7 @@ export default {
   'knowledgeBaseDialog.descriptionLengthLimit': 'Knowledge base description cannot exceed 200 characters',
 
   // Knowledge Base Management page new view button text
-  'knowledgeBaseManagement.view': 'View',
+  'knowledgeBaseManagement.view': 'Manage Files',
 
   // Knowledge File Upload page text
   'knowledgeFileUpload.back': 'Back',
@@ -1215,7 +1216,7 @@ export default {
   'knowledgeFileUpload.statusProcessing': 'Processing',
   'knowledgeFileUpload.statusCancelled': 'Cancelled',
   'knowledgeFileUpload.statusCompleted': 'Completed',
-  'knowledgeFileUpload.statusFailed': 'Parse Failed',
+  'knowledgeFileUpload.statusFailed': 'Failed',
   'knowledgeFileUpload.uploadSuccess': 'Document upload successful',
   'knowledgeFileUpload.uploadFailed': 'Document upload failed',
   'knowledgeFileUpload.parseSuccess': 'Document parse successful',
@@ -1259,4 +1260,5 @@ export default {
   'knowledgeFileUpload.comprehensiveSimilarity': 'Comprehensive Similarity',
   'knowledgeFileUpload.content': 'Content:',
   'knowledgeFileUpload.testQuestionRequired': 'Please enter test question',
+  'knowledgeBaseDialog.descriptionRequired': 'Please enter knowledge base description',
 }
