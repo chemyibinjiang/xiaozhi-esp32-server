@@ -10,7 +10,7 @@ export default {
     'header.smartManagement': 'Tác nhân AI',
     'header.modelConfig': 'Mô hình',
     'header.knowledgeBase': 'Kiến thức',
-    'header.voiceCloneManagement': 'Nhân bản giọng',
+    'header.voiceCloneManagement': ' NBAS',
     'header.voiceResourceManagement': 'Tài nguyên giọng nói',
     'header.userManagement': 'Người dùng',
     'header.otaManagement': 'Quản lý OTA',
@@ -1043,7 +1043,7 @@ export default {
     'sm2.publicKeyRetryFailed': 'Thử lấy lại khóa công khai thất bại',
 
     // Voice Clone and Resource Management
-    'voiceClone.title': 'Nhân bản giọng nói',
+    'voiceClone.title': 'Nhân bản âm sắc',
     'voiceResource.title': 'Tài nguyên giọng nói',
     'voiceClone.platformName': 'Tên nền tảng',
     'voiceClone.voiceId': 'ID giọng nói',
@@ -1095,7 +1095,7 @@ export default {
     'voiceClone.totalRecords': 'Tổng cộng {total} bản ghi',
     'voiceClone.noVoiceCloneAssigned': 'Tài khoản của bạn không được chỉ định tài nguyên giọng nói',
     'voiceClone.contactAdmin': 'Vui lòng liên hệ quản trị viên để được chỉ định tài nguyên giọng nói',
-    'voiceClone.dialogTitle': 'Nhân bản giọng nói',
+    'voiceClone.dialogTitle': 'Nhân bản âm sắc',
     'voiceClone.stepUpload': 'Chuẩn bị âm thanh',
     'voiceClone.stepEdit': 'Chỉnh sửa âm thanh',
     'voiceClone.dragOrClick': 'Kéo tệp âm thanh vào đây hoặc nhấp để tải lên',
