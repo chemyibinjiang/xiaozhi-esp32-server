@@ -705,10 +705,10 @@ export default {
     // 检查是否有音频预览
     hasAudioPreview(item) {
       // 检查item中是否包含有效的音频URL字段或克隆音频字段
-      // 克隆音频通过hasCloneAudio标志或特定格式的ID来判断
+      // 克隆音频通过hasCloneAudio标志或ID格式判断（非TTS开头的ID）
       const isCloneAudio =
         item.hasCloneAudio ||
-        (item.id && item.id.startsWith("e") && item.id.length === 14);
+        (item.value && !item.value.startsWith("TTS"));
 
       const audioFields = [
         item.voiceDemo,
@@ -789,13 +789,10 @@ export default {
         let isCloneAudio = false;
 
         if (voiceDetail) {
-          // 首先检查是否是克隆音频（通过train_status字段、hasCloneAudio标志或ID格式判断）
+          // 首先检查是否是克隆音频（通过ID格式判断，非TTS开头的ID）
           isCloneAudio =
-            (voiceDetail.train_status !== undefined && voiceDetail.train_status >= 0) ||
             voiceDetail.hasCloneAudio ||
-            (voiceDetail.id &&
-              voiceDetail.id.startsWith("e") &&
-              voiceDetail.id.length === 14);
+            (voiceDetail.id && !voiceDetail.id.startsWith("TTS"));
           console.log("克隆音频判断结果:", isCloneAudio, "训练状态:", voiceDetail.train_status);
 
           // 获取音频URL
@@ -816,8 +813,11 @@ export default {
                   .method("POST")
                   .success((res) => {
                     if (res.code === 0 && res.data) {
+                      // 处理返回的数据格式，在res.data基础上再套一层.data
+                      const audioId = res.data.data;
+                      console.log("获取到的音频ID:", audioId);
                       // 使用返回的UUID构建播放URL
-                      const playUrl = `${getServiceUrl()}/voiceClone/play/${res.data}`;
+                      const playUrl = `${getServiceUrl()}/voiceClone/play/${audioId}`;
                       console.log("构建克隆音频播放URL:", playUrl);
                       resolve(playUrl);
                     } else {
