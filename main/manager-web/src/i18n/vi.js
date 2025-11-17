@@ -10,7 +10,7 @@ export default {
     'header.smartManagement': 'Tác nhân AI',
     'header.modelConfig': 'Mô hình',
     'header.knowledgeBase': 'Kiến thức',
-    'header.voiceCloneManagement': 'NB giọng',
+    'header.voiceCloneManagement': 'Nhân bản giọng',
     'header.voiceResourceManagement': 'Tài nguyên giọng nói',
     'header.userManagement': 'Người dùng',
     'header.otaManagement': 'Quản lý OTA',

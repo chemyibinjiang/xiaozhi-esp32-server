@@ -649,7 +649,7 @@ export default {
   align-items: center;
   gap: 25px;
   position: absolute;
-  left: 50%;
+  left: 48%;
   transform: translateX(-50%);
 }
 
@@ -807,11 +807,11 @@ export default {
   cursor: pointer;
 }
 
-/* 导航文本样式 - 支持中英文换行 */
+/* 导航文本样式 - 防止文本换行 */
 .nav-text {
-  white-space: normal;
+  white-space: nowrap;
   text-align: center;
-  max-width: 80px;
+  max-width: 120px;
   line-height: 1.2;
 }
 
