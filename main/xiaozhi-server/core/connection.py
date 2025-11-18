@@ -872,20 +872,23 @@ class ConnectionHandler:
                     f"检测到 {len(tool_calls_list)} 个工具调用"
                 )
 
-                # 执行所有工具并收集结果
-                tool_results = []
+                # 收集所有工具调用的 Future
+                futures_with_data = []
                 for tool_call_data in tool_calls_list:
                     self.logger.bind(tag=TAG).debug(
                         f"function_name={tool_call_data['name']}, function_id={tool_call_data['id']}, function_arguments={tool_call_data['arguments']}"
                     )
 
-                    # 使用统一工具处理器处理所有工具调用
-                    result = asyncio.run_coroutine_threadsafe(
-                        self.func_handler.handle_llm_function_call(
-                            self, tool_call_data
-                        ),
+                    future = asyncio.run_coroutine_threadsafe(
+                        self.func_handler.handle_llm_function_call(self, tool_call_data),
                         self.loop,
-                    ).result()
+                    )
+                    futures_with_data.append((future, tool_call_data))
+
+                # 等待协程结束（实际等待时长为最慢的那个）
+                tool_results = []
+                for future, tool_call_data in futures_with_data:
+                    result = future.result()  
                     tool_results.append((result, tool_call_data))
 
                 # 统一处理所有工具调用结果
