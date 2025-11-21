@@ -606,10 +606,10 @@ export default {
       }
       if (type === "Memory") {
         if (value === "Memory_nomem") {
+          // 无记忆功能的模型，默认不记录聊天记录
           this.form.chatHistoryConf = 0;
-        } else if (value === "Memory_mem0ai" || value === "Memory_mem_local_short") {
-          this.form.chatHistoryConf = 2;
-        } else if (this.form.chatHistoryConf === 0 || this.form.chatHistoryConf === null) {
+        } else {
+          // 有记忆功能的模型，默认记录文本和语音
           this.form.chatHistoryConf = 2;
         }
       }
