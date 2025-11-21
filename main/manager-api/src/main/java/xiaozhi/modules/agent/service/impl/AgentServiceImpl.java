@@ -395,7 +395,22 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
             entity.setIntentModelId(template.getIntentModelId());
             entity.setSystemPrompt(template.getSystemPrompt());
             entity.setSummaryMemory(template.getSummaryMemory());
-            entity.setChatHistoryConf(template.getChatHistoryConf());
+
+            // 根据记忆模型类型设置默认的chatHistoryConf值
+            if (template.getMemModelId() != null) {
+                if (template.getMemModelId().equals("Memory_mem0ai")
+                        || template.getMemModelId().equals("Memory_mem_local_short")) {
+                    // 当记忆模型是Memory_mem0ai或Memory_mem_local_short时，默认chatHistoryConf设为2
+                    entity.setChatHistoryConf(2);
+                } else if (template.getMemModelId().equals("Memory_nomem")) {
+                    entity.setChatHistoryConf(0);
+                } else {
+                    entity.setChatHistoryConf(template.getChatHistoryConf());
+                }
+            } else {
+                entity.setChatHistoryConf(template.getChatHistoryConf());
+            }
+
             entity.setLangCode(template.getLangCode());
             entity.setLanguage(template.getLanguage());
         }
