@@ -515,14 +515,14 @@ class ASRProvider(ASRProviderBase):
         self.is_processing = False
         
         # 显式释放decoder资源
-        if hasattr(self, 'decoder') and self.decoder:
+        if hasattr(self, 'decoder') and self.decoder is not None:
             try:
                 del self.decoder
                 self.decoder = None
                 gc.collect()
-                logger.bind(tag=TAG).info("Xunfei decoder resources released")
+                logger.bind(tag=TAG).debug("Xunfei decoder resources released")
             except Exception as e:
-                logger.bind(tag=TAG).error(f"Error releasing Xunfei decoder: {e}")
+                logger.bind(tag=TAG).debug(f"释放Xunfei decoder资源时出错: {e}")
 
         # 清理所有连接的音频缓冲区
         if hasattr(self, "_connections"):

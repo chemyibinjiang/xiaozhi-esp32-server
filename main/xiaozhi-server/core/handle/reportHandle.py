@@ -94,9 +94,12 @@ def opus_to_wav(conn, opus_data):
         # 返回完整的WAV数据
         return bytes(wav_header) + pcm_data_bytes
     finally:
-        if decoder:
-            del decoder
-            gc.collect()
+        if decoder is not None:
+            try:
+                del decoder
+                gc.collect()
+            except Exception as e:
+                conn.logger.bind(tag=TAG).debug(f"释放decoder资源时出错: {e}")
 
 
 def enqueue_tts_report(conn, text, opus_data):

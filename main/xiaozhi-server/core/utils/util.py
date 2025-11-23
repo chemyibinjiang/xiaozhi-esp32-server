@@ -395,8 +395,12 @@ def opus_datas_to_wav_bytes(opus_datas, sample_rate=16000, channels=1):
             wf.writeframes(pcm_bytes)
         return wav_buffer.getvalue()
     finally:
-        del decoder
-        gc.collect()
+        if decoder is not None:
+            try:
+                del decoder
+                gc.collect()
+            except Exception:
+                pass
 
 
 def check_vad_update(before_config, new_config):

@@ -38,9 +38,12 @@ class VADProvider(VADProviderBase):
         self.frame_window_threshold = 3
 
     def __del__(self):
-        if hasattr(self, 'decoder'):
-            del self.decoder
-            gc.collect()
+        if hasattr(self, 'decoder') and self.decoder is not None:
+            try:
+                del self.decoder
+                gc.collect()
+            except Exception:
+                pass
 
     def is_vad(self, conn, opus_packet):
         try:

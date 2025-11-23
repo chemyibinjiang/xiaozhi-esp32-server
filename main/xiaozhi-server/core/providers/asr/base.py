@@ -268,6 +268,9 @@ class ASRProviderBase(ABC):
             logger.bind(tag=TAG).error(f"音频解码过程发生错误: {e}")
             return []
         finally:
-            if decoder:
-                del decoder
-                gc.collect()
+            if decoder is not None:
+                try:
+                    del decoder
+                    gc.collect()
+                except Exception as e:
+                    logger.bind(tag=TAG).debug(f"释放decoder资源时出错: {e}")
