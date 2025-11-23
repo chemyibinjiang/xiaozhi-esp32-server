@@ -2,6 +2,7 @@ import time
 import numpy as np
 import torch
 import opuslib_next
+import gc
 from config.logger import setup_logging
 from core.providers.vad.base import VADProviderBase
 
@@ -35,6 +36,11 @@ class VADProvider(VADProviderBase):
 
         # 至少要多少帧才算有语音
         self.frame_window_threshold = 3
+
+    def __del__(self):
+        if hasattr(self, 'decoder'):
+            del self.decoder
+            gc.collect()
 
     def is_vad(self, conn, opus_packet):
         try:

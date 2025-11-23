@@ -4,6 +4,7 @@ import uuid
 import asyncio
 import websockets
 import opuslib_next
+import gc
 from core.providers.asr.base import ASRProviderBase
 from config.logger import setup_logging
 from core.providers.asr.dto.dto import InterfaceType
@@ -370,6 +371,17 @@ class ASRProvider(ASRProviderBase):
                 pass
             self.forward_task = None
         self.is_processing = False
+        
+        # 显式释放decoder资源
+        if hasattr(self, 'decoder') and self.decoder:
+            try:
+                del self.decoder
+                self.decoder = None
+                gc.collect()
+                logger.bind(tag=TAG).info("Doubao decoder resources released")
+            except Exception as e:
+                logger.bind(tag=TAG).error(f"Error releasing Doubao decoder: {e}")
+
         # 清理所有连接的音频缓冲区
         if hasattr(self, '_connections'):
             for conn in self._connections.values():

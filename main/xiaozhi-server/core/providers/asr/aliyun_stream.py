@@ -5,6 +5,7 @@ import hmac
 import base64
 import hashlib
 import asyncio
+import gc
 import requests
 import websockets
 import opuslib_next
@@ -347,4 +348,7 @@ class ASRProvider(ASRProviderBase):
 
     async def close(self):
         """关闭资源"""
-        await self._cleanup()
+        await self._cleanup(None)
+        if hasattr(self, 'decoder'):
+            del self.decoder
+            gc.collect()
