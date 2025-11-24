@@ -329,7 +329,7 @@ export default {
   'paramDialog.jsonType': 'Đối tượng JSON',
 
   // Login page text
-  'login.title': 'Đăng nhập',
+  'login.title': 'DN',
   'login.welcome': 'CHÀO MỪNG ĐẾN VỚI ĐĂNG NHẬP',
   'login.username': 'Tên đăng nhập',
   'login.usernamePlaceholder': 'Vui lòng nhập tên đăng nhập',
