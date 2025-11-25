@@ -398,7 +398,6 @@ def opus_datas_to_wav_bytes(opus_datas, sample_rate=16000, channels=1):
         if decoder is not None:
             try:
                 del decoder
-                gc.collect()
             except Exception:
                 pass
 

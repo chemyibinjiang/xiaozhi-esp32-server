@@ -1127,6 +1127,9 @@ class ConnectionHandler:
                     )
                 self.executor = None
 
+            import gc
+            gc.collect()
+
             self.logger.bind(tag=TAG).info("连接资源已释放")
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"关闭连接时出错: {e}")
