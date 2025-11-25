@@ -97,7 +97,6 @@ def opus_to_wav(conn, opus_data):
         if decoder is not None:
             try:
                 del decoder
-                gc.collect()
             except Exception as e:
                 conn.logger.bind(tag=TAG).debug(f"释放decoder资源时出错: {e}")
 

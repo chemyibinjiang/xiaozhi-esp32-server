@@ -41,7 +41,6 @@ class VADProvider(VADProviderBase):
         if hasattr(self, 'decoder') and self.decoder is not None:
             try:
                 del self.decoder
-                gc.collect()
             except Exception:
                 pass
 

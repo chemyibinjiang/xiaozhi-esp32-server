@@ -133,6 +133,5 @@ class OpusEncoderUtils:
             try:
                 del self.encoder
                 self.encoder = None
-                gc.collect()
             except Exception as e:
                 logging.error(f"Error releasing Opus encoder: {e}")

@@ -271,6 +271,5 @@ class ASRProviderBase(ABC):
             if decoder is not None:
                 try:
                     del decoder
-                    gc.collect()
                 except Exception as e:
                     logger.bind(tag=TAG).debug(f"释放decoder资源时出错: {e}")
