@@ -377,7 +377,6 @@ class ASRProvider(ASRProviderBase):
             try:
                 del self.decoder
                 self.decoder = None
-                gc.collect()
                 logger.bind(tag=TAG).debug("Doubao decoder resources released")
             except Exception as e:
                 logger.bind(tag=TAG).debug(f"释放Doubao decoder资源时出错: {e}")

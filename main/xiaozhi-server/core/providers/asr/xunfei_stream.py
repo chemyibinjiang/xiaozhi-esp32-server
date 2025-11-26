@@ -519,7 +519,6 @@ class ASRProvider(ASRProviderBase):
             try:
                 del self.decoder
                 self.decoder = None
-                gc.collect()
                 logger.bind(tag=TAG).debug("Xunfei decoder resources released")
             except Exception as e:
                 logger.bind(tag=TAG).debug(f"释放Xunfei decoder资源时出错: {e}")
