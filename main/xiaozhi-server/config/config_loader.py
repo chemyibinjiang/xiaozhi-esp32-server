@@ -32,7 +32,16 @@ def load_config():
     custom_config = read_config(custom_config_path)
 
     if custom_config.get("manager-api", {}).get("url"):
-        config = get_config_from_api(custom_config)
+        import asyncio
+        try:
+            loop = asyncio.get_running_loop()
+            # 如果已经在事件循环中，使用异步版本
+            config = asyncio.run_coroutine_threadsafe(
+                get_config_from_api_async(custom_config), loop
+            ).result()
+        except RuntimeError:
+            # 如果不在事件循环中（启动时），创建新的事件循环
+            config = asyncio.run(get_config_from_api_async(custom_config))
     else:
         # 合并配置
         config = merge_configs(default_config, custom_config)
@@ -44,13 +53,13 @@ def load_config():
     return config
 
 
-def get_config_from_api(config):
-    """从Java API获取配置"""
+async def get_config_from_api_async(config):
+    """从Java API获取配置（异步版本）"""
     # 初始化API客户端
     init_service(config)
 
     # 获取服务器配置
-    config_data = get_server_config()
+    config_data = await get_server_config()
     if config_data is None:
         raise Exception("Failed to fetch server config from API")
 
@@ -74,9 +83,9 @@ def get_config_from_api(config):
     return config_data
 
 
-def get_private_config_from_api(config, device_id, client_id):
+async def get_private_config_from_api(config, device_id, client_id):
     """从Java API获取私有配置"""
-    return get_agent_models(device_id, client_id, config["selected_module"])
+    return await get_agent_models(device_id, client_id, config["selected_module"])
 
 
 def ensure_directories(config):

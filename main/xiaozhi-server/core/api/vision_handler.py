@@ -96,7 +96,7 @@ class VisionHandler:
             current_config = copy.deepcopy(self.config)
             read_config_from_api = current_config.get("read_config_from_api", False)
             if read_config_from_api:
-                current_config = get_private_config_from_api(
+                current_config = await get_private_config_from_api(
                     current_config,
                     device_id,
                     client_id,

@@ -5,6 +5,7 @@ import os
 import yaml
 from config.config_loader import get_project_dir
 from config.manage_api_client import save_mem_local_short
+import asyncio
 from core.utils.util import check_model_key
 
 
@@ -193,7 +194,13 @@ class MemoryProvider(MemoryProviderBase):
                 max_tokens=2000,
                 temperature=0.2,
             )
-            save_mem_local_short(self.role_id, result)
+            # 使用异步版本，需要在事件循环中运行
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(save_mem_local_short(self.role_id, result))
+            except RuntimeError:
+                # 如果没有运行中的事件循环，创建一个新的
+                asyncio.run(save_mem_local_short(self.role_id, result))
         logger.bind(tag=TAG).info(f"Save memory successful - Role: {self.role_id}")
 
         return self.short_memory
