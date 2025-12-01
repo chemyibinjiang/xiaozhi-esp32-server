@@ -71,7 +71,7 @@ class ConnectionHandler:
         self.need_bind = False  # 是否需要绑定设备
         self.bind_code = None  # 绑定设备的验证码
         self.last_bind_prompt_time = 0  # 上次播放绑定提示的时间戳(秒)
-        self.bind_prompt_interval = 30  # 绑定提示播放间隔(秒)
+        self.bind_prompt_interval = 60  # 绑定提示播放间隔(秒)
 
         self.read_config_from_api = self.config.get("read_config_from_api", False)
 
