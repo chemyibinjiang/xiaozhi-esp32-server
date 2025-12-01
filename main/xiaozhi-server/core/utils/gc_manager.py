@@ -2,6 +2,7 @@
 全局GC管理模块
 定期执行垃圾回收，避免频繁触发GC导致的GIL锁问题
 """
+
 import gc
 import asyncio
 import threading
@@ -60,8 +61,7 @@ class GlobalGCManager:
                 # 等待指定间隔
                 try:
                     await asyncio.wait_for(
-                        self._stop_event.wait(),
-                        timeout=self.interval_seconds
+                        self._stop_event.wait(), timeout=self.interval_seconds
                     )
                     # 如果stop_event被设置，退出循环
                     break
@@ -94,7 +94,7 @@ class GlobalGCManager:
                     return before, collected, after
 
             before, collected, after = await loop.run_in_executor(None, do_gc)
-            logger.bind(tag=TAG).info(
+            logger.bind(tag=TAG).debug(
                 f"全局GC执行完成 - 回收对象: {collected}, "
                 f"对象数量: {before} -> {after}"
             )
