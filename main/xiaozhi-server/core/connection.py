@@ -71,7 +71,7 @@ class ConnectionHandler:
         self.need_bind = False  # 是否需要绑定设备
         self.bind_code = None  # 绑定设备的验证码
         self.last_bind_prompt_time = 0  # 上次播放绑定提示的时间戳(秒)
-        self.bind_prompt_interval = 30  # 绑定提示播放间隔(秒)
+        self.bind_prompt_interval = 60  # 绑定提示播放间隔(秒)
 
         self.read_config_from_api = self.config.get("read_config_from_api", False)
 
@@ -91,7 +91,7 @@ class ConnectionHandler:
         self.client_listen_mode = "auto"
 
         # 线程任务相关
-        self.loop = asyncio.get_event_loop()
+        self.loop = None  # 在 handle_connection 中获取运行中的事件循环
         self.stop_event = threading.Event()
         self.executor = ThreadPoolExecutor(max_workers=5)
 
@@ -166,6 +166,9 @@ class ConnectionHandler:
 
     async def handle_connection(self, ws):
         try:
+            # 获取运行中的事件循环（必须在异步上下文中）
+            self.loop = asyncio.get_running_loop()
+
             # 获取并验证headers
             self.headers = dict(ws.request.headers)
             real_ip = self.headers.get("x-real-ip") or self.headers.get(
@@ -200,10 +203,8 @@ class ConnectionHandler:
             self.welcome_msg = self.config["xiaozhi"]
             self.welcome_msg["session_id"] = self.session_id
 
-            # 获取差异化配置
-            self._initialize_private_config()
-            # 异步初始化
-            self.executor.submit(self._initialize_components)
+            # 在后台初始化配置和组件（完全不阻塞主循环）
+            asyncio.create_task(self._background_initialize())
 
             try:
                 async for message in self.websocket:
@@ -522,21 +523,30 @@ class ConnectionHandler:
         except Exception as e:
             self.logger.bind(tag=TAG).warning(f"声纹识别初始化失败: {str(e)}")
 
-    def _initialize_private_config(self):
-        """如果是从配置文件获取，则进行二次实例化"""
+    async def _background_initialize(self):
+        """在后台初始化配置和组件（完全不阻塞主循环）"""
+        try:
+            # 异步获取差异化配置
+            await self._initialize_private_config_async()
+            # 在线程池中初始化组件
+            self.executor.submit(self._initialize_components)
+        except Exception as e:
+            self.logger.bind(tag=TAG).error(f"后台初始化失败: {e}")
+
+    async def _initialize_private_config_async(self):
+        """从接口异步获取差异化配置（异步版本，不阻塞主循环）"""
         if not self.read_config_from_api:
             return
-        """从接口获取差异化的配置进行二次实例化，非全量重新实例化"""
         try:
             begin_time = time.time()
-            private_config = get_private_config_from_api(
+            private_config = await get_private_config_from_api(
                 self.config,
                 self.headers.get("device-id"),
                 self.headers.get("client-id", self.headers.get("device-id")),
             )
             private_config["delete_audio"] = bool(self.config.get("delete_audio", True))
             self.logger.bind(tag=TAG).info(
-                f"{time.time() - begin_time} 秒，获取差异化配置成功: {json.dumps(filter_sensitive_info(private_config), ensure_ascii=False)}"
+                f"{time.time() - begin_time} 秒，异步获取差异化配置成功: {json.dumps(filter_sensitive_info(private_config), ensure_ascii=False)}"
             )
         except DeviceNotFoundException as e:
             self.need_bind = True
@@ -547,7 +557,7 @@ class ConnectionHandler:
             private_config = {}
         except Exception as e:
             self.need_bind = True
-            self.logger.bind(tag=TAG).error(f"获取差异化配置失败: {e}")
+            self.logger.bind(tag=TAG).error(f"异步获取差异化配置失败: {e}")
             private_config = {}
 
         init_llm, init_tts, init_memory, init_intent = (
@@ -620,8 +630,12 @@ class ConnectionHandler:
             self.chat_history_conf = int(private_config["chat_history_conf"])
         if private_config.get("mcp_endpoint", None) is not None:
             self.config["mcp_endpoint"] = private_config["mcp_endpoint"]
+
+        # 使用 run_in_executor 在线程池中执行 initialize_modules，避免阻塞主循环
         try:
-            modules = initialize_modules(
+            modules = await self.loop.run_in_executor(
+                None,  # 使用默认线程池
+                initialize_modules,
                 self.logger,
                 private_config,
                 init_vad,
@@ -1034,8 +1048,8 @@ class ConnectionHandler:
     def _process_report(self, type, text, audio_data, report_time):
         """处理上报任务"""
         try:
-            # 执行上报（传入二进制数据）
-            report(self, type, text, audio_data, report_time)
+            # 执行异步上报（在事件循环中运行）
+            asyncio.run(report(self, type, text, audio_data, report_time))
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"上报处理异常: {e}")
         finally:
@@ -1126,10 +1140,6 @@ class ConnectionHandler:
                         f"关闭线程池时出错: {executor_error}"
                     )
                 self.executor = None
-
-            import gc
-            gc.collect()
-
             self.logger.bind(tag=TAG).info("连接资源已释放")
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"关闭连接时出错: {e}")

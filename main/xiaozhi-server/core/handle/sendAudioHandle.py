@@ -4,6 +4,7 @@ import asyncio
 from core.utils import textUtils
 from core.utils.util import audio_to_data
 from core.providers.tts.dto.dto import SentenceType
+from core.utils.audioRateController import AudioRateController
 
 TAG = __name__
 
@@ -30,31 +31,6 @@ async def sendAudioMessage(conn, sentenceType, audios, text):
             await conn.close()
 
 
-def calculate_timestamp_and_sequence(conn, start_time, packet_index, frame_duration=60):
-    """
-    计算音频数据包的时间戳和序列号
-    Args:
-        conn: 连接对象
-        start_time: 起始时间（性能计数器值）
-        packet_index: 数据包索引
-        frame_duration: 帧时长（毫秒），匹配 Opus 编码
-    Returns:
-        tuple: (timestamp, sequence)
-    """
-    # 计算时间戳（使用播放位置计算）
-    timestamp = int((start_time + packet_index * frame_duration / 1000) * 1000) % (
-        2**32
-    )
-
-    # 计算序列号
-    if hasattr(conn, "audio_flow_control"):
-        sequence = conn.audio_flow_control["sequence"]
-    else:
-        sequence = packet_index  # 如果没有流控状态，直接使用索引
-
-    return timestamp, sequence
-
-
 async def _send_to_mqtt_gateway(conn, opus_packet, timestamp, sequence):
     """
     发送带16字节头部的opus数据包给mqtt_gateway
@@ -77,15 +53,20 @@ async def _send_to_mqtt_gateway(conn, opus_packet, timestamp, sequence):
     await conn.websocket.send(complete_packet)
 
 
-# 播放音频
+# 播放音频 - 使用 AudioRateController 进行精确流控
 async def sendAudio(conn, audios, frame_duration=60):
     """
-    发送单个opus包，支持流控
+    发送音频包，使用 AudioRateController 进行精确的流量控制
+
     Args:
         conn: 连接对象
-        opus_packet: 单个opus数据包
-        pre_buffer: 快速发送音频
-        frame_duration: 帧时长（毫秒），匹配 Opus 编码
+        audios: 单个opus包(bytes) 或 opus包列表
+        frame_duration: 帧时长（毫秒），默认60ms
+
+    改进点：
+    1. 使用单一时间基准，避免累积误差
+    2. 每次检查队列时重新计算 elapsed_ms，更精准
+    3. 支持高并发而不产生时间偏差
     """
     if audios is None or len(audios) == 0:
         return
@@ -94,118 +75,133 @@ async def sendAudio(conn, audios, frame_duration=60):
     send_delay = conn.config.get("tts_audio_send_delay", -1) / 1000.0
 
     if isinstance(audios, bytes):
-        # 重置流控状态,第一次读取和会话发生转变时
-        if not hasattr(conn, "audio_flow_control") or conn.audio_flow_control.get("sentence_id") != conn.sentence_id:
-            conn.audio_flow_control = {
-                "last_send_time": 0,
-                "packet_count": 0,
-                "start_time": time.perf_counter(),
-                "sequence": 0,  # 添加序列号
-                "sentence_id": conn.sentence_id,
-            }
+        # 单个 opus 包处理
+        await _sendAudio_single(conn, audios, send_delay, frame_duration)
+    else:
+        # 音频列表处理（如文件型音频）
+        await _sendAudio_list(conn, audios, send_delay, frame_duration)
 
+
+async def _sendAudio_single(conn, opus_packet, send_delay, frame_duration=60):
+    """
+    发送单个 opus 包
+    使用 AudioRateController 进行流控
+    """
+    # 重置流控状态，第一次读取和会话发生转变时
+    if not hasattr(conn, "audio_rate_controller") or conn.audio_flow_control.get("sentence_id") != conn.sentence_id:
+        if hasattr(conn, "audio_rate_controller"):
+            conn.audio_rate_controller.reset()
+        else:
+            conn.audio_rate_controller = AudioRateController(frame_duration)
+            conn.audio_rate_controller.reset()
+
+        conn.audio_flow_control = {
+            "packet_count": 0,
+            "sequence": 0,
+            "sentence_id": conn.sentence_id,
+        }
+
+    if conn.client_abort:
+        return
+
+    conn.last_activity_time = time.time() * 1000
+
+    rate_controller = conn.audio_rate_controller
+    flow_control = conn.audio_flow_control
+    packet_count = flow_control["packet_count"]
+
+    # 预缓冲：前5个包直接发送，不做延迟
+    pre_buffer_count = 5
+
+    if packet_count < pre_buffer_count or send_delay > 0:
+        # 预缓冲阶段或固定延迟模式，直接发送
+        await _do_send_audio(conn, opus_packet, flow_control, frame_duration)
+
+        if send_delay > 0 and packet_count >= pre_buffer_count:
+            await asyncio.sleep(send_delay)
+    else:
+        # 使用流控器进行精确的速率控制
+        rate_controller.add_audio(opus_packet)
+
+        async def send_callback(packet):
+            await _do_send_audio(conn, packet, flow_control, frame_duration)
+
+        await rate_controller.check_queue(send_callback)
+
+    # 更新流控状态
+    flow_control["packet_count"] += 1
+    flow_control["sequence"] += 1
+
+
+async def _sendAudio_list(conn, audios, send_delay, frame_duration=60):
+    """
+    发送音频列表（如文件型音频）
+    """
+    if not audios:
+        return
+
+    rate_controller = AudioRateController(frame_duration)
+    rate_controller.reset()
+
+    flow_control = {
+        "packet_count": 0,
+        "sequence": 0,
+    }
+
+    # 预缓冲：前5个包直接发送
+    pre_buffer_frames = min(5, len(audios))
+    for i in range(pre_buffer_frames):
         if conn.client_abort:
             return
+        await _do_send_audio(conn, audios[i], flow_control, frame_duration)
+        conn.client_is_speaking = True
+
+    remaining_audios = audios[pre_buffer_frames:]
+
+    # 处理剩余音频帧
+    for i, opus_packet in enumerate(remaining_audios):
+        if conn.client_abort:
+            break
 
         conn.last_activity_time = time.time() * 1000
 
-        # 预缓冲：前5个包直接发送，不做延迟
-        pre_buffer_count = 5
-        flow_control = conn.audio_flow_control
-        current_time = time.perf_counter()
-
-        if flow_control["packet_count"] < pre_buffer_count:
-            # 预缓冲阶段，直接发送不延迟
-            pass
-        elif send_delay > 0:
-            # 使用固定延迟
+        if send_delay > 0:
+            # 固定延迟模式
             await asyncio.sleep(send_delay)
         else:
-            effective_packet = flow_control["packet_count"] - pre_buffer_count
-            expected_time = flow_control["start_time"] + (
-                effective_packet * frame_duration / 1000
-            )
-            delay = expected_time - current_time
-            if delay > 0:
-                await asyncio.sleep(delay)
-            else:
-                # 纠正误差
-                flow_control["start_time"] += abs(delay)
+            # 使用流控器进行精确延迟
+            rate_controller.add_audio(opus_packet)
 
-        if conn.conn_from_mqtt_gateway:
-            # 计算时间戳和序列号
-            timestamp, sequence = calculate_timestamp_and_sequence(
-                conn,
-                flow_control["start_time"],
-                flow_control["packet_count"],
-                frame_duration,
-            )
-            # 调用通用函数发送带头部的数据包
-            await _send_to_mqtt_gateway(conn, audios, timestamp, sequence)
-        else:
-            # 直接发送opus数据包，不添加头部
-            await conn.websocket.send(audios)
+            async def send_callback(packet):
+                await _do_send_audio(conn, packet, flow_control, frame_duration)
+
+            await rate_controller.check_queue(send_callback)
+            conn.client_is_speaking = True
+            continue
+
+        await _do_send_audio(conn, opus_packet, flow_control, frame_duration)
         conn.client_is_speaking = True
 
-        # 更新流控状态
-        flow_control["packet_count"] += 1
-        flow_control["sequence"] += 1
-        flow_control["last_send_time"] = time.perf_counter()
+
+async def _do_send_audio(conn, opus_packet, flow_control, frame_duration=60):
+    """
+    执行实际的音频发送
+    """
+    packet_index = flow_control.get("packet_count", 0)
+    sequence = flow_control.get("sequence", 0)
+
+    if conn.conn_from_mqtt_gateway:
+        # 计算时间戳（基于播放位置）
+        start_time = time.time()
+        timestamp = int(start_time * 1000) % (2**32)
+        await _send_to_mqtt_gateway(conn, opus_packet, timestamp, sequence)
     else:
-        # 文件型音频走普通播放
-        start_time = time.perf_counter()
-        play_position = 0
+        # 直接发送opus数据包
+        await conn.websocket.send(opus_packet)
 
-        # 执行预缓冲
-        pre_buffer_frames = min(5, len(audios))
-        for i in range(pre_buffer_frames):
-            if conn.conn_from_mqtt_gateway:
-                # 计算时间戳和序列号
-                timestamp, sequence = calculate_timestamp_and_sequence(
-                    conn, start_time, i, frame_duration
-                )
-                # 调用通用函数发送带头部的数据包
-                await _send_to_mqtt_gateway(conn, audios[i], timestamp, sequence)
-            else:
-                # 直接发送预缓冲包，不添加头部
-                await conn.websocket.send(audios[i])
-            conn.client_is_speaking = True
-        remaining_audios = audios[pre_buffer_frames:]
-
-        # 播放剩余音频帧
-        for i, opus_packet in enumerate(remaining_audios):
-            if conn.client_abort:
-                break
-
-            # 重置没有声音的状态
-            conn.last_activity_time = time.time() * 1000
-
-            if send_delay > 0:
-                # 固定延迟模式
-                await asyncio.sleep(send_delay)
-            else:
-                 # 计算预期发送时间
-                expected_time = start_time + (play_position / 1000)
-                current_time = time.perf_counter()
-                delay = expected_time - current_time
-                if delay > 0:
-                    await asyncio.sleep(delay)
-
-            if conn.conn_from_mqtt_gateway:
-                # 计算时间戳和序列号（使用当前的数据包索引确保连续性）
-                packet_index = pre_buffer_frames + i
-                timestamp, sequence = calculate_timestamp_and_sequence(
-                    conn, start_time, packet_index, frame_duration
-                )
-                # 调用通用函数发送带头部的数据包
-                await _send_to_mqtt_gateway(conn, opus_packet, timestamp, sequence)
-            else:
-                # 直接发送opus数据包，不添加头部
-                await conn.websocket.send(opus_packet)
-
-            conn.client_is_speaking = True
-
-            play_position += frame_duration
+    # 更新流控状态
+    flow_control["packet_count"] = packet_index + 1
+    flow_control["sequence"] = sequence + 1
 
 
 async def send_tts_message(conn, state, text=None):
