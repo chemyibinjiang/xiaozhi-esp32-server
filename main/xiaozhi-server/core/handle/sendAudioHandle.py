@@ -116,6 +116,7 @@ async def _sendAudio_single(conn, opus_packet, send_delay, frame_duration=60):
     if packet_count < pre_buffer_count or send_delay > 0:
         # 预缓冲阶段或固定延迟模式，直接发送
         await _do_send_audio(conn, opus_packet, flow_control, frame_duration)
+        conn.client_is_speaking = True
 
         if send_delay > 0 and packet_count >= pre_buffer_count:
             await asyncio.sleep(send_delay)
@@ -127,6 +128,7 @@ async def _sendAudio_single(conn, opus_packet, send_delay, frame_duration=60):
             await _do_send_audio(conn, packet, flow_control, frame_duration)
 
         await rate_controller.check_queue(send_callback)
+        conn.client_is_speaking = True
 
     # 更新流控状态
     flow_control["packet_count"] += 1
