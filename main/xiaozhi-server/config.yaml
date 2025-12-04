@@ -113,6 +113,14 @@ wakeup_words:
 # MCP接入点地址，地址格式为：ws://你的mcp接入点ip或者域名:端口号/mcp/?token=你的token
 # 详细教程 https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/mcp-endpoint-integration.md
 mcp_endpoint: 你的接入点 websocket地址
+
+# 数据上下文填充配置
+# 用于在系统提示词中注入动态数据，如健康数据、股票信息等
+context_providers:
+  - url: ""
+    headers:
+      Authorization: ""
+
 # 插件的基础配置
 plugins:
   # 获取天气插件的配置，这里填写你的api_key
