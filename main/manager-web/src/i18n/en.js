@@ -22,6 +22,7 @@ export default {
   'header.clearHistory': 'Clear History',
   'header.providerManagement': 'Provider Management',
   'header.serverSideManagement': 'Server Management',
+  'header.featureManagement': 'System Feature Management',
   'header.changePassword': 'Change Password',
   'header.logout': 'Logout',
   'header.searchPlaceholder': 'Search by name..',
@@ -1262,4 +1263,34 @@ export default {
   'knowledgeFileUpload.content': 'Content:',
   'knowledgeFileUpload.testQuestionRequired': 'Please enter test question',
   'knowledgeBaseDialog.descriptionRequired': 'Please enter knowledge base description',
+
+  // Feature Management page text
+  'featureManagement.selectAll': 'Select All',
+  'featureManagement.deselectAll': 'Deselect All',
+  'featureManagement.save': 'Save Configuration',
+  'featureManagement.reset': 'Reset',
+  'featureManagement.group.featureManagement': 'Enable/Disable the feature/section',
+  'featureManagement.group.voiceManagement': 'Visible to users during agent configuration',
+  'featureManagement.noFeatures': 'No features available',
+  'featureManagement.contactAdmin': 'Please contact administrator to configure features',
+  'featureManagement.saveSuccess': 'Feature configuration saved successfully',
+  'featureManagement.resetConfirm': 'Are you sure you want to reset all feature configurations?',
+  'featureManagement.confirm': 'Confirm',
+  'featureManagement.cancel': 'Cancel',
+  'featureManagement.resetSuccess': 'Feature configuration reset successfully',
+
+  // Feature names and descriptions
+  'feature.voiceprintRecognition.name': 'Voiceprint Recognition',
+  'feature.voiceprintRecognition.description': 'Verify user identity through voiceprint recognition technology, providing secure voice interaction experience',
+  'feature.voiceClone.name': 'Voice Clone',
+  'feature.voiceClone.description': 'Clone specific voice timbre using AI technology to achieve personalized voice synthesis',
+  'feature.knowledgeBase.name': 'Knowledge Base',
+  'feature.knowledgeBase.description': 'Build and manage knowledge base system to provide professional knowledge support for AI assistants',
+  'feature.mcpAccessPoint.name': 'MCP Access Point',
+  'feature.mcpAccessPoint.description': 'Provide MCP protocol access points to support integration of external tools and services',
+  'feature.vad.name': 'Voice Activity Detection',
+  'feature.vad.description': 'Automatically detect voice activity to optimize voice interaction response efficiency',
+  'feature.asr.name': 'Speech Recognition',
+  'feature.asr.description': 'Convert speech to text to enable natural language interaction functionality',
+
 }

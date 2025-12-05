@@ -107,7 +107,11 @@
                   </div>
                   <div class="form-column">
                     <div class="model-row">
-                      <el-form-item :label="$t('roleConfig.vad')" class="model-item">
+                      <el-form-item 
+                        v-if="featureStatus.vad" 
+                        :label="$t('roleConfig.vad')" 
+                        class="model-item"
+                      >
                         <div class="model-select-wrapper">
                           <el-select
                             v-model="form.model.vadModelId"
@@ -125,7 +129,11 @@
                           </el-select>
                         </div>
                       </el-form-item>
-                      <el-form-item :label="$t('roleConfig.asr')" class="model-item">
+                      <el-form-item 
+                        v-if="featureStatus.asr" 
+                        :label="$t('roleConfig.asr')" 
+                        class="model-item"
+                      >
                         <div class="model-select-wrapper">
                           <el-select
                             v-model="form.model.asrModelId"
@@ -277,6 +285,7 @@ import RequestService from "@/apis/httpRequest";
 import FunctionDialog from "@/components/FunctionDialog.vue";
 import HeaderBar from "@/components/HeaderBar.vue";
 import i18n from "@/i18n";
+import featureManager from "@/utils/featureManager"; 
 
 export default {
   name: "RoleConfigPage",
@@ -326,6 +335,11 @@ export default {
       isPaused: false,
       currentAudio: null,
       currentPlayingVoiceId: null,
+      // 功能状态
+      featureStatus: {
+        vad: false, // 语言检测活动功能状态
+        asr: false, // 语音识别功能状态
+      },
     };
   },
   methods: {
@@ -980,6 +994,19 @@ export default {
         this.form.chatHistoryConf = 0;
       }
     },
+    // 加载功能状态
+    async loadFeatureStatus() {
+      try {
+        // 确保featureManager已初始化完成
+        await featureManager.waitForInitialization();
+        const config = featureManager.getConfig();
+        this.featureStatus.voiceprintRecognition = config.voiceprintRecognition || false;
+        this.featureStatus.vad = config.vad || false;
+        this.featureStatus.asr = config.asr || false;
+      } catch (error) {
+        console.error("加载功能状态失败:", error);
+      }
+    },
   },
   watch: {
     "form.model.ttsModelId": {
@@ -1002,7 +1029,7 @@ export default {
       immediate: true,
     },
   },
-  mounted() {
+  async mounted() {
     const agentId = this.$route.query.agentId;
     if (agentId) {
       this.fetchAgentConfig(agentId);
@@ -1010,6 +1037,8 @@ export default {
     }
     this.fetchModelOptions();
     this.fetchTemplates();
+    // 加载功能状态，确保featureManager已初始化
+    await this.loadFeatureStatus();
   },
 };
 </script>

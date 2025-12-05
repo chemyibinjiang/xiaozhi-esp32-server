@@ -22,6 +22,7 @@ export default {
   'header.clearHistory': 'Xóa lịch sử',
   'header.providerManagement': 'Quản lý nhà cung cấp',
   'header.serverSideManagement': 'Quản lý máy chủ',
+  'header.featureManagement': 'Cấu hình chức năng hệ thống',
   'header.changePassword': 'Đổi mật khẩu',
   'header.logout': 'Đăng xuất',
   'header.searchPlaceholder': 'Tìm kiếm theo tên..',
@@ -1262,4 +1263,34 @@ export default {
   'knowledgeFileUpload.content': 'Nội dung:',
   'knowledgeFileUpload.testQuestionRequired': 'Vui lòng nhập câu hỏi kiểm tra',
   'knowledgeBaseDialog.descriptionRequired': 'Vui lòng nhập mô tả cơ sở kiến thức',
+
+  // Feature Management page text
+  'featureManagement.selectAll': 'Chọn tất cả',
+  'featureManagement.deselectAll': 'Bỏ chọn tất cả',
+  'featureManagement.save': 'Lưu cấu hình',
+  'featureManagement.reset': 'Đặt lại',
+  'featureManagement.group.featureManagement': 'Có bật tính năng/khối này lên hay không',
+  'featureManagement.group.voiceManagement': 'Khi cấu hình agent, có hiển thị với người dùng hay không',
+  'featureManagement.noFeatures': 'Chưa có tính năng nào',
+  'featureManagement.contactAdmin': 'Vui lòng liên hệ quản trị viên để cấu hình tính năng',
+  'featureManagement.saveSuccess': 'Cấu hình tính năng đã được lưu thành công',
+  'featureManagement.resetConfirm': 'Bạn có chắc chắn muốn đặt lại tất cả cấu hình tính năng?',
+  'featureManagement.confirm': 'Xác nhận',
+  'featureManagement.cancel': 'Hủy bỏ',
+  'featureManagement.resetSuccess': 'Cấu hình tính năng đã được đặt lại thành công',
+
+  // Feature names and descriptions
+  'feature.voiceprintRecognition.name': 'Nhận dạng giọng nói',
+  'feature.voiceprintRecognition.description': 'Xác minh danh tính người dùng thông qua công nghệ nhận dạng giọng nói, cung cấp trải nghiệm tương tác giọng nói an toàn',
+  'feature.voiceClone.name': 'Nhân bản âm sắc',
+  'feature.voiceClone.description': 'Sử dụng công nghệ AI để nhân bản âm sắc cụ thể, đạt được tổng hợp giọng nói cá nhân hóa',
+  'feature.knowledgeBase.name': 'Cơ sở kiến thức',
+  'feature.knowledgeBase.description': 'Xây dựng và quản lý hệ thống cơ sở kiến thức, cung cấp hỗ trợ kiến thức chuyên môn cho trợ lý AI',
+  'feature.mcpAccessPoint.name': 'Điểm truy cập MCP',
+  'feature.mcpAccessPoint.description': 'Cung cấp điểm truy cập giao thức MCP, hỗ trợ tích hợp các công cụ và dịch vụ bên ngoài',
+  'feature.vad.name': 'Phát hiện hoạt động giọng nói',
+  'feature.vad.description': 'Tự động phát hiện hoạt động giọng nói, tối ưu hóa hiệu suất phản hồi tương tác giọng nói',
+  'feature.asr.name': 'Nhận dạng giọng nói',
+  'feature.asr.description': 'Chuyển đổi giọng nói thành văn bản, thực hiện chức năng tương tác ngôn ngữ tự nhiên',
+
 }
