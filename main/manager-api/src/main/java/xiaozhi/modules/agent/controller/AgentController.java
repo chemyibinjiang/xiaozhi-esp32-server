@@ -44,6 +44,7 @@ import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.entity.AgentTemplateEntity;
 import xiaozhi.modules.agent.service.AgentChatAudioService;
 import xiaozhi.modules.agent.service.AgentChatHistoryService;
+import xiaozhi.modules.agent.service.AgentContextProviderService;
 import xiaozhi.modules.agent.service.AgentPluginMappingService;
 import xiaozhi.modules.agent.service.AgentService;
 import xiaozhi.modules.agent.service.AgentTemplateService;
@@ -64,6 +65,7 @@ public class AgentController {
     private final AgentChatHistoryService agentChatHistoryService;
     private final AgentChatAudioService agentChatAudioService;
     private final AgentPluginMappingService agentPluginMappingService;
+    private final AgentContextProviderService agentContextProviderService;
     private final RedisUtils redisUtils;
 
     @GetMapping("/list")
@@ -135,6 +137,8 @@ public class AgentController {
         agentChatHistoryService.deleteByAgentId(id, true, true);
         // 删除关联的插件
         agentPluginMappingService.deleteByAgentId(id);
+        // 删除关联的上下文源配置
+        agentContextProviderService.deleteByAgentId(id);
         // 再删除智能体
         agentService.deleteById(id);
         return new Result<>();

@@ -191,7 +191,10 @@ class PromptManager:
             
             # 获取配置的上下文数据
             if hasattr(conn, "device_id") and conn.device_id:
-                self.context_data = self.context_provider.fetch_all(conn.device_id)
+                if self.base_prompt_template and "dynamic_context" in self.base_prompt_template:
+                    self.context_data = self.context_provider.fetch_all(conn.device_id)
+                else:
+                    self.context_data = ""
                 
             self.logger.bind(tag=TAG).debug(f"上下文信息更新完成")
 
