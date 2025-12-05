@@ -237,13 +237,9 @@ public class LoginController {
         config.put("sm2PublicKey", publicKey);
 
         // 获取system-web.menu参数配置
-        try {
-            String menuConfig = sysParamsService.getValue("system-web.menu", false);
-            if (StringUtils.isNotBlank(menuConfig)) {
-                config.put("systemWebMenu", JsonUtils.parseObject(menuConfig, Object.class));
-            }
-        } catch (Exception e) {
-            log.warn("获取system-web.menu参数配置失败: {}", e.getMessage());
+        String menuConfig = sysParamsService.getValue("system-web.menu", true);
+        if (StringUtils.isNotBlank(menuConfig)) {
+            config.put("systemWebMenu", JsonUtils.parseObject(menuConfig, Object.class));
         }
 
         return new Result<Map<String, Object>>().ok(config);
