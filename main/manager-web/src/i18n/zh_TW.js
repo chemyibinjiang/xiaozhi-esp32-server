@@ -22,6 +22,7 @@ export default {
   'header.clearHistory': '清空歷史',
   'header.providerManagement': '字段管理',
   'header.serverSideManagement': '服務端管理',
+  'header.featureManagement': '系統功能配置',
   'header.changePassword': '修改密碼',
   'header.logout': '退出登錄',
   'header.searchPlaceholder': '輸入名稱搜索..',
@@ -1262,4 +1263,34 @@ export default {
   'knowledgeFileUpload.content': '內容:',
   'knowledgeFileUpload.testQuestionRequired': '請輸入測試問題',
   'knowledgeBaseDialog.descriptionRequired': '請輸入知识库描述',
+
+  // 功能管理頁面文本
+  'featureManagement.selectAll': '全選',
+  'featureManagement.deselectAll': '取消全選',
+  'featureManagement.save': '儲存配置',
+  'featureManagement.reset': '重置',
+  'featureManagement.group.featureManagement': '是否開啟功能/板块',
+  'featureManagement.group.voiceManagement': '配置智能体時是否對用戶可見',
+  'featureManagement.noFeatures': '暫無功能',
+  'featureManagement.contactAdmin': '請聯繫管理員配置功能',
+  'featureManagement.saveSuccess': '功能配置儲存成功',
+  'featureManagement.resetConfirm': '確定要重置所有功能配置嗎？',
+  'featureManagement.confirm': '確定',
+  'featureManagement.cancel': '取消',
+  'featureManagement.resetSuccess': '功能配置重置成功',
+
+  // 功能名稱和描述
+  'feature.voiceprintRecognition.name': '聲紋識別',
+  'feature.voiceprintRecognition.description': '通過聲紋識別技術驗證用戶身份，提供安全的語音交互體驗',
+  'feature.voiceClone.name': '音色複刻',
+  'feature.voiceClone.description': '使用AI技術複刻特定音色，實現個性化語音合成',
+  'feature.knowledgeBase.name': '知識庫',
+  'feature.knowledgeBase.description': '構建和管理知識庫系統，為AI助手提供專業知識支持',
+  'feature.mcpAccessPoint.name': 'MCP接入點',
+  'feature.mcpAccessPoint.description': '提供MCP協議接入點，支持外部工具和服務的整合',
+  'feature.vad.name': '語音活動檢測',
+  'feature.vad.description': '自動檢測語音活動，優化語音交互的響應效率',
+  'feature.asr.name': '語音識別',
+  'feature.asr.description': '將語音轉換為文本，實現自然語言交互功能',
+
 }

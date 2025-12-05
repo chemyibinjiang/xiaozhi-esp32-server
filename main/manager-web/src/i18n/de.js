@@ -22,6 +22,7 @@ export default {
   'header.clearHistory': 'Verlauf löschen',
   'header.providerManagement': 'Anbieterverwaltung',
   'header.serverSideManagement': 'Serververwaltung',
+  'header.featureManagement': 'Systemfunktionsverwaltung',
   'header.changePassword': 'Passwort ändern',
   'header.logout': 'Abmelden',
   'header.searchPlaceholder': 'Nach Namen suchen..',
@@ -1262,4 +1263,34 @@ export default {
   'knowledgeFileUpload.content': 'Inhalt:',
   'knowledgeFileUpload.testQuestionRequired': 'Bitte Testfrage eingeben',
   'knowledgeBaseDialog.descriptionRequired': 'Bitte Wissensbasis-Beschreibung eingeben',
+
+  // Feature Management page text
+  'featureManagement.selectAll': 'Alle auswählen',
+  'featureManagement.deselectAll': 'Alle abwählen',
+  'featureManagement.save': 'Konfiguration speichern',
+  'featureManagement.reset': 'Zurücksetzen',
+  'featureManagement.group.featureManagement': 'Funktion/Bereich aktivieren oder deaktivieren',
+  'featureManagement.group.voiceManagement': 'Für Benutzer bei der Agenten-Konfiguration sichtbar',
+  'featureManagement.noFeatures': 'Keine Funktionen verfügbar',
+  'featureManagement.contactAdmin': 'Bitte kontaktieren Sie Administrator zur Funktionskonfiguration',
+  'featureManagement.saveSuccess': 'Funktionskonfiguration erfolgreich gespeichert',
+  'featureManagement.resetConfirm': 'Sind Sie sicher, dass Sie alle Funktionskonfigurationen zurücksetzen möchten?',
+  'featureManagement.confirm': 'Bestätigen',
+  'featureManagement.cancel': 'Abbrechen',
+  'featureManagement.resetSuccess': 'Funktionskonfiguration erfolgreich zurückgesetzt',
+
+  // Feature names and descriptions
+  'feature.voiceprintRecognition.name': 'Stimmerkennung',
+  'feature.voiceprintRecognition.description': 'Benutzeridentität durch Stimmerkennungstechnologie verifizieren, bietet sichere Sprachiinteraktion',
+  'feature.voiceClone.name': 'Stimmenklon',
+  'feature.voiceClone.description': 'Spezifische Stimmfarbe mit KI-Technologie klonen, um personalisierte Sprachsynthese zu ermöglichen',
+  'feature.knowledgeBase.name': 'Wissensbasis',
+  'feature.knowledgeBase.description': 'Wissensbasissystem aufbauen und verwalten, um professionelle Wissensunterstützung für KI-Assistenten zu bieten',
+  'feature.mcpAccessPoint.name': 'MCP-Zugangspunkt',
+  'feature.mcpAccessPoint.description': 'MCP-Protokoll-Zugangspunkte bereitstellen, um Integration externer Tools und Dienste zu unterstützen',
+  'feature.vad.name': 'Sprachaktivitätserkennung',
+  'feature.vad.description': 'Sprachaktivität automatisch erkennen, um die Effizienz der Sprachiinteraktion zu optimieren',
+  'feature.asr.name': 'Spracherkennung',
+  'feature.asr.description': 'Sprache in Text umwandeln, um natürliche Sprachinteraktionsfunktionalität zu ermöglichen',
+
 }
