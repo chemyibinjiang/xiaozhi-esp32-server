@@ -1,8 +1,35 @@
 import asyncio
-import json
+import logging
 
 import websockets
 from config.logger import setup_logging
+
+
+class SuppressInvalidHandshakeFilter(logging.Filter):
+    """过滤掉无效握手错误日志（如HTTPS访问WS端口）"""
+
+    def filter(self, record):
+        msg = record.getMessage()
+        suppress_keywords = [
+            "opening handshake failed",
+            "did not receive a valid HTTP request",
+            "connection closed while reading HTTP request",
+            "line without CRLF",
+        ]
+        return not any(keyword in msg for keyword in suppress_keywords)
+
+
+def _setup_websockets_logger():
+    """配置 websockets 相关的所有 logger，过滤无效握手错误"""
+    filter_instance = SuppressInvalidHandshakeFilter()
+    for logger_name in ["websockets", "websockets.server", "websockets.client"]:
+        logger = logging.getLogger(logger_name)
+        logger.addFilter(filter_instance)
+
+
+_setup_websockets_logger()
+
+
 from core.connection import ConnectionHandler
 from config.config_loader import get_config_from_api_async
 from core.auth import AuthManager, AuthenticationError
