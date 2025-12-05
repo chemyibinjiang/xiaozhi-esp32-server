@@ -58,7 +58,7 @@
                     <el-form-item label="上下文源：" class="context-provider-item">
                       <div style="display: flex; align-items: center; justify-content: space-between;">
                         <span style="color: #606266; font-size: 13px;">
-                          已成功添加 {{ currentContextProviders.length }} 个源。<a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/master/docs/context-provider-integration.md" target="_blank" class="doc-link">如何部署上下文源</a>
+                          已成功添加 {{ currentContextProviders.length }} 个源。<a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/context-provider-integration.md" target="_blank" class="doc-link">如何部署上下文源</a>
                         </span>
                         <el-button
                           class="edit-function-btn"
@@ -1359,6 +1359,26 @@ export default {
   justify-content: flex-end;
 }
 
+.chat-history-options ::v-deep .el-radio-button {
+  border-color: #5778ff;
+}
+
+.chat-history-options ::v-deep .el-radio-button .el-radio-button__inner {
+  color: #5778ff;
+  border-color: #5778ff;
+  background-color: transparent;
+}
+
+.chat-history-options ::v-deep .el-radio-button.is-active .el-radio-button__inner {
+  background-color: #5778ff;
+  border-color: #5778ff;
+  color: white;
+}
+
+.chat-history-options ::v-deep .el-radio-button .el-radio-button__inner:hover {
+  color: #5778ff;
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -1412,7 +1432,7 @@ export default {
 }
 
 .doc-link {
-  color: #1677ff;
+  color: #5778ff;
   text-decoration: none;
   margin-left: 4px;
 

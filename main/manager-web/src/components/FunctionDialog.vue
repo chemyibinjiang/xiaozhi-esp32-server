@@ -478,11 +478,18 @@ export default {
 .function-column {
   position: relative;
   width: auto;
+  height:700px; 
   padding: 10px;
   overflow-y: auto;
   border-right: 1px solid #EBEEF5;
   scrollbar-width: none;
   overflow-x: hidden;
+}
+
+.mcp-access-point {
+  position: relative;
+  z-index: 1;
+  background: white;
 }
 
 .function-column::-webkit-scrollbar {

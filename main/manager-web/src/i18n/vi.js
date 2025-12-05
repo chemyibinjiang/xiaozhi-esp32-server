@@ -1278,6 +1278,7 @@ export default {
   'featureManagement.confirm': 'Xác nhận',
   'featureManagement.cancel': 'Hủy bỏ',
   'featureManagement.resetSuccess': 'Cấu hình tính năng đã được đặt lại thành công',
+  'featureManagement.noChanges': 'Không có thay đổi nào để lưu',
 
   // Feature names and descriptions
   'feature.voiceprintRecognition.name': 'Nhận dạng giọng nói',

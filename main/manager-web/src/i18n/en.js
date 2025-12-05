@@ -1278,6 +1278,7 @@ export default {
   'featureManagement.confirm': 'Confirm',
   'featureManagement.cancel': 'Cancel',
   'featureManagement.resetSuccess': 'Feature configuration reset successfully',
+  'featureManagement.noChanges': 'No changes to save',
 
   // Feature names and descriptions
   'feature.voiceprintRecognition.name': 'Voiceprint Recognition',
