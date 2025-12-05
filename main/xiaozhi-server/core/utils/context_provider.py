@@ -59,4 +59,6 @@ class ContextDataProvider:
         
         # 将所有格式化后的行拼接成一个字符串
         self.context_data = "\n".join(formatted_lines)
+        if self.context_data:
+            self.logger.bind(tag=TAG).debug(f"已注入动态上下文数据:\n{self.context_data}")
         return self.context_data
