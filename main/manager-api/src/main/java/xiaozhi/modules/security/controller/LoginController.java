@@ -237,7 +237,7 @@ public class LoginController {
         config.put("sm2PublicKey", publicKey);
 
         // 获取system-web.menu参数配置
-        String menuConfig = sysParamsService.getValue("system-web.menu", true);
+        String menuConfig = sysParamsService.getValue("system-web.menu", false);
         if (StringUtils.isNotBlank(menuConfig)) {
             config.put("systemWebMenu", JsonUtils.parseObject(menuConfig, Object.class));
         }
