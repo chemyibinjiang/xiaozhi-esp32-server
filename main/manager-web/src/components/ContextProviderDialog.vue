@@ -205,27 +205,40 @@ export default {
 .dialog-content {
   max-height: 60vh;
   overflow-y: auto;
-  padding: 10px 20px;
+  padding: 20px 25px;
+}
+
+.dialog-content::-webkit-scrollbar {
+  width: 6px;
+}
+.dialog-content::-webkit-scrollbar-thumb {
+  background: #dcdfe6;
+  border-radius: 3px;
+}
+.dialog-content::-webkit-scrollbar-track {
+  background: #f5f7fa;
 }
 
 .provider-item {
   display: flex;
-  gap: 10px;
-  margin-bottom: 15px;
+  gap: 15px;
+  margin-bottom: 20px;
   align-items: center;
 }
 
 .provider-card {
   flex: 1;
-  border-radius: 15px;
-  border: 1px solid #ebeef5;
-  transition: all 0.3s;
+  border-radius: 12px;
+  border: 1px solid #e4e7ed;
+  border-left: 4px solid #409EFF; /* 左侧强调色 */
+  background-color: #fff;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 }
 
 .provider-card:hover {
-  border-color: #c0c4cc;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
 }
 
 .block-controls {
@@ -237,8 +250,8 @@ export default {
 .input-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 15px;
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
 .label-text {
@@ -248,6 +261,7 @@ export default {
   text-align: right;
   font-size: 13px;
   white-space: nowrap;
+  line-height: 32px; /* 垂直居中对齐 */
 }
 
 .flex-1 {
@@ -256,7 +270,7 @@ export default {
 
 .headers-section {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: flex-start;
 }
 
@@ -264,38 +278,52 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: #f9fafc;
-  padding: 12px;
-  border-radius: 6px;
+  gap: 10px;
+  background: #fcfcfc;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px dashed #dcdfe6;
+  transition: all 0.3s;
+}
+
+.headers-list:hover {
+  border-color: #c0c4cc;
+  background: #fff;
 }
 
 .header-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .separator {
   color: #909399;
   font-weight: bold;
+  margin: 0 2px;
 }
 
 .row-controls {
   display: flex;
-  gap: 5px;
-  margin-left: 5px;
+  gap: 6px;
+  margin-left: 8px;
   flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.header-row:hover .row-controls {
+  opacity: 1;
 }
 
 .empty-header {
   justify-content: center;
-  padding: 5px;
+  padding: 10px;
   color: #909399;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .no-header-text {
-  margin-right: 10px;
+  margin-right: 8px;
 }
 </style>
