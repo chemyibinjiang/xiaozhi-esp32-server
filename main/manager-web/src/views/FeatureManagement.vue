@@ -503,13 +503,13 @@ export default {
 }
 
 .feature-card-item:hover {
-  border-color: #9cc6ef;
+  border-color: #869bf0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
 }
 
 .feature-card-item.feature-enabled {
-  border-color: #409eff;
+  border-color:#5778ff;
   box-shadow: 0 4px 16px rgba(95, 112, 243, 0.2);
   transform: translateY(-2px);
 }
@@ -523,6 +523,15 @@ export default {
 
 .feature-checkbox ::v-deep .el-checkbox__input {
   transform: scale(1.2);
+}
+
+.feature-checkbox ::v-deep .el-checkbox__input.is-checked .el-checkbox__inner {
+  background-color: #5778ff;
+  border-color: #5778ff;
+}
+
+.feature-checkbox ::v-deep .el-checkbox__input.is-checked + .el-checkbox__label {
+  color: #5778ff;
 }
 
 

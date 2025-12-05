@@ -1278,6 +1278,7 @@ export default {
   'featureManagement.confirm': 'Bestätigen',
   'featureManagement.cancel': 'Abbrechen',
   'featureManagement.resetSuccess': 'Funktionskonfiguration erfolgreich zurückgesetzt',
+  'featureManagement.noChanges': 'Keine Änderungen zum Speichern',
 
   // Feature names and descriptions
   'feature.voiceprintRecognition.name': 'Stimmerkennung',

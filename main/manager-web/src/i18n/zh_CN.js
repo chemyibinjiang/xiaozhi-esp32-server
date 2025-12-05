@@ -1278,6 +1278,7 @@ export default {
   'featureManagement.confirm': '确定',
   'featureManagement.cancel': '取消',
   'featureManagement.resetSuccess': '功能配置重置成功',
+  'featureManagement.noChanges': '没有需要保存的更改',
 
   // 功能名称和描述
   'feature.voiceprintRecognition.name': '声纹识别',
