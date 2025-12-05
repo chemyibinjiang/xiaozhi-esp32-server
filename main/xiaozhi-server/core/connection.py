@@ -162,7 +162,7 @@ class ConnectionHandler:
         self.conn_from_mqtt_gateway = False
 
         # 初始化提示词管理器
-        self.prompt_manager = PromptManager(config, self.logger)
+        self.prompt_manager = PromptManager(self.config, self.logger)
 
     async def handle_connection(self, ws):
         try:
@@ -630,6 +630,8 @@ class ConnectionHandler:
             self.chat_history_conf = int(private_config["chat_history_conf"])
         if private_config.get("mcp_endpoint", None) is not None:
             self.config["mcp_endpoint"] = private_config["mcp_endpoint"]
+        if private_config.get("context_providers", None) is not None:
+            self.config["context_providers"] = private_config["context_providers"]
 
         # 使用 run_in_executor 在线程池中执行 initialize_modules，避免阻塞主循环
         try:
