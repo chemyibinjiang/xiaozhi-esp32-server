@@ -55,10 +55,24 @@
                         </div>
                       </div>
                     </el-form-item>
+                    <el-form-item label="上下文源：" class="context-provider-item">
+                      <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="color: #606266; font-size: 13px;">
+                          已成功添加 {{ currentContextProviders.length }} 个源。<a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/master/docs/context-provider-integration.md" target="_blank" class="doc-link">如何部署上下文源</a>
+                        </span>
+                        <el-button
+                          class="edit-function-btn"
+                          size="small"
+                          @click="openContextProviderDialog"
+                        >
+                          编辑源
+                        </el-button>
+                      </div>
+                    </el-form-item>
                     <el-form-item :label="$t('roleConfig.roleIntroduction') + '：'">
                       <el-input
                         type="textarea"
-                        rows="9"
+                        rows="8"
                         resize="none"
                         :placeholder="$t('roleConfig.pleaseEnterContent')"
                         v-model="form.systemPrompt"
@@ -71,7 +85,7 @@
                     <el-form-item :label="$t('roleConfig.memoryHis') + '：'">
                       <el-input
                         type="textarea"
-                        rows="6"
+                        rows="4"
                         resize="none"
                         v-model="form.summaryMemory"
                         maxlength="2000"
@@ -275,6 +289,11 @@
       @update-functions="handleUpdateFunctions"
       @dialog-closed="handleDialogClosed"
     />
+    <context-provider-dialog
+      :visible.sync="showContextProviderDialog"
+      :providers="currentContextProviders"
+      @confirm="handleUpdateContext"
+    />
   </div>
 </template>
 
@@ -283,15 +302,17 @@ import Api from "@/apis/api";
 import { getServiceUrl } from "@/apis/api";
 import RequestService from "@/apis/httpRequest";
 import FunctionDialog from "@/components/FunctionDialog.vue";
+import ContextProviderDialog from "@/components/ContextProviderDialog.vue";
 import HeaderBar from "@/components/HeaderBar.vue";
 import i18n from "@/i18n";
 import featureManager from "@/utils/featureManager"; 
 
 export default {
   name: "RoleConfigPage",
-  components: { HeaderBar, FunctionDialog },
+  components: { HeaderBar, FunctionDialog, ContextProviderDialog },
   data() {
     return {
+      showContextProviderDialog: false,
       form: {
         agentCode: "",
         agentName: "",
@@ -329,6 +350,7 @@ export default {
       voiceDetails: {}, // 保存完整的音色信息
       showFunctionDialog: false,
       currentFunctions: [],
+      currentContextProviders: [],
       allFunctions: [],
       originalFunctions: [],
       playingVoice: false,
@@ -370,6 +392,7 @@ export default {
             paramInfo: item.params,
           };
         }),
+        contextProviders: this.currentContextProviders,
       };
       Api.agent.updateAgentConfig(this.$route.query.agentId, configData, ({ data }) => {
         if (data.code === 0) {
@@ -486,6 +509,9 @@ export default {
           };
           // 后端只给了最小映射：[{ id, agentId, pluginId }, ...]
           const savedMappings = data.data.functions || [];
+          
+          // 加载上下文配置
+          this.currentContextProviders = data.data.contextProviders || [];
 
           // 先保证 allFunctions 已经加载（如果没有，则先 fetchAllFunctions）
           const ensureFuncs = this.allFunctions.length
@@ -659,6 +685,12 @@ export default {
       } else {
         this.showFunctionDialog = true;
       }
+    },
+    openContextProviderDialog() {
+      this.showContextProviderDialog = true;
+    },
+    handleUpdateContext(providers) {
+      this.currentContextProviders = providers;
     },
     handleUpdateFunctions(selected) {
       this.currentFunctions = selected;
@@ -1373,5 +1405,19 @@ export default {
   width: 32px;
   height: 32px;
   margin-left: 8px;
+}
+
+.context-provider-item ::v-deep .el-form-item__label {
+  line-height: 42px !important;
+}
+
+.doc-link {
+  color: #1677ff;
+  text-decoration: none;
+  margin-left: 4px;
+
+  &:hover {
+    text-decoration: underline;
+  }
 }
 </style>

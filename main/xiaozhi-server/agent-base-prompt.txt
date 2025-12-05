@@ -74,6 +74,7 @@
 - **今天农历：** {{lunar_date}}
 - **用户所在城市：** {{local_address}}
 - **当地未来7天天气：** {{weather_info}}
+{{ dynamic_context }}
 </context>
 
 <memory>
