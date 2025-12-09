@@ -10,12 +10,6 @@ class AudioRateController:
     """
     音频速率控制器 - 按照60ms帧时长精确控制音频发送
     解决高并发下的时间累积误差问题
-
-    关键改进：
-    1. 单一时间基准（start_timestamp 只初始化一次）
-    2. 每次检查队列时重新计算 elapsed_ms，避免累积误差
-    3. 分离"检查时间"和"发送"两个操作
-    4. 支持高并发而不产生延迟
     """
 
     def __init__(self, frame_duration=60):
@@ -29,24 +23,34 @@ class AudioRateController:
         self.start_timestamp = None  # 开始时间戳（只读，不修改）
         self.pending_send_task = None
         self.logger = logger
+        self.queue_empty_event = asyncio.Event()  # 队列清空事件
+        self.queue_empty_event.set()  # 初始为空状态
 
     def reset(self):
         """重置控制器状态"""
         if self.pending_send_task and not self.pending_send_task.done():
             self.pending_send_task.cancel()
-            try:
-                # 等待任务取消完成
-                asyncio.get_event_loop().run_until_complete(self.pending_send_task)
-            except asyncio.CancelledError:
-                pass
+            # 取消任务后，任务会在下次事件循环时清理，无需阻塞等待
 
         self.queue.clear()
         self.play_position = 0
         self.start_timestamp = time.time()
+        self.queue_empty_event.set()  # 队列已清空
 
     def add_audio(self, opus_packet):
         """添加音频包到队列"""
         self.queue.append(("audio", opus_packet))
+        self.queue_empty_event.clear()  # 队列非空，清除事件
+
+    def add_message(self, message_callback):
+        """
+        添加消息到队列（立即发送，不占用播放时间）
+
+        Args:
+            message_callback: 消息发送回调函数 async def()
+        """
+        self.queue.append(("message", message_callback))
+        self.queue_empty_event.clear()  # 队列非空，清除事件
 
     def _get_elapsed_ms(self):
         """获取已经过的时间（毫秒）"""
@@ -62,34 +66,47 @@ class AudioRateController:
             send_audio_callback: 发送音频的回调函数 async def(opus_packet)
         """
         if self.start_timestamp is None:
-            self.reset()
+            self.start_timestamp = time.time()
 
         while self.queue:
             item = self.queue[0]
             item_type = item[0]
 
-            if item_type == "audio":
+            if item_type == "message":
+                # 消息类型：立即发送，不占用播放时间
+                _, message_callback = item
+                self.queue.pop(0)
+                try:
+                    await message_callback()
+                except Exception as e:
+                    self.logger.bind(tag=TAG).error(f"发送消息失败: {e}")
+                    raise
+
+            elif item_type == "audio":
                 _, opus_packet = item
 
-                # 计算时间差
-                elapsed_ms = self._get_elapsed_ms()
-                output_ms = self.play_position
+                # 循环等待直到时间到达
+                while True:
+                    # 计算时间差
+                    elapsed_ms = self._get_elapsed_ms()
+                    output_ms = self.play_position
 
-                if elapsed_ms < output_ms:
-                    # 还不到发送时间，计算等待时长
-                    wait_ms = output_ms - elapsed_ms
+                    if elapsed_ms < output_ms:
+                        # 还不到发送时间，计算等待时长
+                        wait_ms = output_ms - elapsed_ms
 
-                    # 等待后继续检查（允许被中断）
-                    try:
-                        await asyncio.sleep(wait_ms / 1000)
-                    except asyncio.CancelledError:
-                        self.logger.bind(tag=TAG).debug("音频发送任务被取消")
-                        raise
+                        # 等待后继续检查（允许被中断）
+                        try:
+                            await asyncio.sleep(wait_ms / 1000)
+                        except asyncio.CancelledError:
+                            self.logger.bind(tag=TAG).debug("音频发送任务被取消")
+                            raise
+                        # 等待结束后重新检查时间（循环回到 while True）
+                    else:
+                        # 时间已到，跳出等待循环
+                        break
 
-                    # 继续循环检查（时间可能已到）
-                    continue
-
-                # 时间已到，发送音频
+                # 时间已到，从队列移除并发送
                 self.queue.pop(0)
                 self.play_position += self.frame_duration
 
@@ -99,14 +116,15 @@ class AudioRateController:
                     self.logger.bind(tag=TAG).error(f"发送音频失败: {e}")
                     raise
 
+        self.queue_empty_event.set()
 
-    async def start_sending(self, send_audio_callback, send_message_callback=None):
+
+    def start_sending(self, send_audio_callback):
         """
         启动异步发送任务
 
         Args:
             send_audio_callback: 发送音频的回调函数
-            send_message_callback: 发送消息的回调函数
 
         Returns:
             asyncio.Task: 发送任务
@@ -114,11 +132,11 @@ class AudioRateController:
         async def _send_loop():
             try:
                 while True:
-                    await self.check_queue(send_audio_callback, send_message_callback)
+                    await self.check_queue(send_audio_callback)
                     # 如果队列空了，短暂等待后再检查（避免 busy loop）
                     await asyncio.sleep(0.01)
             except asyncio.CancelledError:
-                self.logger.bind(tag=TAG).info("音频发送循环已停止")
+                self.logger.bind(tag=TAG).debug("音频发送循环已停止")
             except Exception as e:
                 self.logger.bind(tag=TAG).error(f"音频发送循环异常: {e}")
 
