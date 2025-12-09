@@ -30,7 +30,13 @@ class ListenTextMessageHandler(TextMessageHandler):
             conn.client_have_voice = True
             conn.client_voice_stop = True
             if len(conn.asr_audio) > 0:
-                await handleAudioMessage(conn, b"")
+                # 手动模式下直接触发ASR识别，不需要再调用handleAudioMessage
+                asr_audio_task = conn.asr_audio.copy()
+                conn.asr_audio.clear()
+                conn.reset_vad_states()
+                
+                if len(asr_audio_task) > 0:
+                    await conn.asr.handle_voice_stop(conn, asr_audio_task)
         elif msg_json["state"] == "detect":
             conn.client_have_voice = False
             conn.asr_audio.clear()
