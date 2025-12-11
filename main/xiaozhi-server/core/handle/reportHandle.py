@@ -10,7 +10,6 @@ TTS上报功能已集成到ConnectionHandler类中。
 """
 
 import time
-import gc
 import opuslib_next
 
 from config.manage_api_client import report as manage_report

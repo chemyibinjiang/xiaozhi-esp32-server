@@ -6,7 +6,6 @@ Opus编码工具类
 import logging
 import traceback
 import numpy as np
-import gc
 from opuslib_next import Encoder
 from opuslib_next import constants
 from typing import Optional, Callable, Any

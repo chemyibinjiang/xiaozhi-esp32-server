@@ -10,7 +10,6 @@ import traceback
 import threading
 import opuslib_next
 import concurrent.futures
-import gc
 from abc import ABC, abstractmethod
 from config.logger import setup_logging
 from typing import Optional, Tuple, List
@@ -54,29 +53,25 @@ class ASRProviderBase(ABC):
 
     # 接收音频
     async def receive_audio(self, conn, audio, audio_have_voice):
-        if conn.client_listen_mode == "auto" or conn.client_listen_mode == "realtime":
+        if conn.client_listen_mode == "manual":
+            # 手动模式：缓存音频用于ASR识别
+            conn.asr_audio.append(audio)
+        else:
+            # 自动/实时模式：使用VAD检测
             have_voice = audio_have_voice
-            
+
             conn.asr_audio.append(audio)
             if not have_voice and not conn.client_have_voice:
                 conn.asr_audio = conn.asr_audio[-10:]
                 return
-        else:
-            # 手动模式：总是缓存音频，忽略VAD检测结果
-            conn.asr_audio.append(audio)
 
-        if conn.client_voice_stop:
-            asr_audio_task = conn.asr_audio.copy()
-            conn.asr_audio.clear()
-            conn.reset_vad_states()
+            # 自动模式下通过VAD检测到语音停止时触发识别
+            if conn.client_voice_stop:
+                asr_audio_task = conn.asr_audio.copy()
+                conn.asr_audio.clear()
+                conn.reset_vad_states()
 
-            # 手动模式下允许短语音识别，自动模式保持原有限制
-            if conn.client_listen_mode == "auto" or conn.client_listen_mode == "realtime":
                 if len(asr_audio_task) > 15:
-                    await self.handle_voice_stop(conn, asr_audio_task)
-            else:
-                # 手动模式：只要有音频就进行识别
-                if len(asr_audio_task) > 0:
                     await self.handle_voice_stop(conn, asr_audio_task)
 
     # 处理语音停止

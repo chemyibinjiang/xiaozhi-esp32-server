@@ -13,7 +13,8 @@ logger = setup_logging()
 class ASRProvider(ASRProviderBase):
     def __init__(self, config: dict, delete_audio_file: bool):
         super().__init__()
-        self.interface_type = InterfaceType.STREAM
+        # 音频文件上传类型，流式文本识别输出
+        self.interface_type = InterfaceType.NON_STREAM
         """Qwen3-ASR-Flash ASR初始化"""
         
         # 配置参数
