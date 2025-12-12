@@ -187,7 +187,7 @@ class ASRProvider(ASRProviderBase):
 
                             # 专门处理没有文本的识别结果（手动模式下可能已经识别完成但是没松按键）
                             elif not payload["result"].get("text") and not utterances:
-                                if conn.client_voice_stop and len(audio_data) > 0:
+                                if conn.client_listen_mode == "manual" and conn.client_voice_stop and len(audio_data) > 0:
                                     logger.bind(tag=TAG).debug("消息结束收到停止信号，触发处理")
                                     await self.handle_voice_stop(conn, audio_data)
                                     # 清理音频缓存
