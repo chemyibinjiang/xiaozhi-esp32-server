@@ -8,7 +8,6 @@ import requests
 import subprocess
 import numpy as np
 import opuslib_next
-import gc
 from io import BytesIO
 from core.utils import p3
 from pydub import AudioSegment

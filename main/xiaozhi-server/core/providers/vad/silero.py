@@ -2,7 +2,6 @@ import time
 import numpy as np
 import torch
 import opuslib_next
-import gc
 from config.logger import setup_logging
 from core.providers.vad.base import VADProviderBase
 
@@ -45,6 +44,10 @@ class VADProvider(VADProviderBase):
                 pass
 
     def is_vad(self, conn, opus_packet):
+        # 手动模式：直接返回True，不进行实时VAD检测，所有音频都缓存
+        if conn.client_listen_mode == "manual":
+            return True
+            
         try:
             pcm_frame = self.decoder.decode(opus_packet, 960)
             conn.client_audio_buffer.extend(pcm_frame)  # 将新数据加入缓冲区
