@@ -17,6 +17,7 @@ import xiaozhi.modules.agent.entity.AgentChatHistoryEntity;
 import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.service.AgentChatAudioService;
 import xiaozhi.modules.agent.service.AgentChatHistoryService;
+import xiaozhi.modules.agent.service.AgentChatSummaryService;
 import xiaozhi.modules.agent.service.AgentService;
 import xiaozhi.modules.agent.service.biz.AgentChatHistoryBizService;
 import xiaozhi.modules.device.entity.DeviceEntity;
@@ -36,6 +37,7 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
     private final AgentService agentService;
     private final AgentChatHistoryService agentChatHistoryService;
     private final AgentChatAudioService agentChatAudioService;
+    private final AgentChatSummaryService agentChatSummaryService;
     private final RedisUtils redisUtils;
     private final DeviceService deviceService;
 
@@ -50,7 +52,8 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
     public Boolean report(AgentChatHistoryReportDTO report) {
         String macAddress = report.getMacAddress();
         Byte chatType = report.getChatType();
-        Long reportTimeMillis = null != report.getReportTime() ? report.getReportTime() * 1000 : System.currentTimeMillis();
+        Long reportTimeMillis = null != report.getReportTime() ? report.getReportTime() * 1000
+                : System.currentTimeMillis();
         log.info("小智设备聊天上报请求: macAddress={}, type={} reportTime={}", macAddress, chatType, reportTimeMillis);
 
         // 根据设备MAC地址查询对应的默认智能体，判断是否需要上报
@@ -80,6 +83,9 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
             log.warn("聊天记录上报时，未找到mac地址为 {} 的设备", macAddress);
         }
 
+        // 异步触发聊天记录总结（仅在对话结束时触发）
+        triggerChatSummaryAsync(report.getSessionId(), chatType);
+
         return Boolean.TRUE;
     }
 
@@ -105,7 +111,8 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
     /**
      * 组装上报数据
      */
-    private void saveChatText(AgentChatHistoryReportDTO report, String agentId, String macAddress, String audioId, Long reportTime) {
+    private void saveChatText(AgentChatHistoryReportDTO report, String agentId, String macAddress, String audioId,
+            Long reportTime) {
         // 构建聊天记录实体
         AgentChatHistoryEntity entity = AgentChatHistoryEntity.builder()
                 .macAddress(macAddress)
@@ -122,5 +129,28 @@ public class AgentChatHistoryBizServiceImpl implements AgentChatHistoryBizServic
         agentChatHistoryService.save(entity);
 
         log.info("设备 {} 对应智能体 {} 上报成功", macAddress, agentId);
+    }
+
+    /**
+     * 异步触发聊天记录总结
+     * 仅在对话结束时（chatType=2）触发总结，避免频繁总结
+     */
+    private void triggerChatSummaryAsync(String sessionId, Byte chatType) {
+        // 仅在对话结束时触发总结（chatType=2表示对话结束）
+        if (chatType != null && chatType == 2) {
+            new Thread(() -> {
+                try {
+                    log.info("开始为会话 {} 生成聊天记录总结", sessionId);
+                    boolean success = agentChatSummaryService.generateAndSaveChatSummary(sessionId);
+                    if (success) {
+                        log.info("会话 {} 的聊天记录总结生成并保存成功", sessionId);
+                    } else {
+                        log.warn("会话 {} 的聊天记录总结生成失败", sessionId);
+                    }
+                } catch (Exception e) {
+                    log.error("触发会话 {} 的聊天记录总结时发生异常", sessionId, e);
+                }
+            }).start();
+        }
     }
 }

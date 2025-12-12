@@ -36,6 +36,7 @@ import xiaozhi.common.utils.Result;
 import xiaozhi.common.utils.ResultUtils;
 import xiaozhi.modules.agent.dto.AgentChatHistoryDTO;
 import xiaozhi.modules.agent.dto.AgentChatSessionDTO;
+import xiaozhi.modules.agent.dto.AgentChatSummaryDTO;
 import xiaozhi.modules.agent.dto.AgentCreateDTO;
 import xiaozhi.modules.agent.dto.AgentDTO;
 import xiaozhi.modules.agent.dto.AgentMemoryDTO;
@@ -44,6 +45,7 @@ import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.entity.AgentTemplateEntity;
 import xiaozhi.modules.agent.service.AgentChatAudioService;
 import xiaozhi.modules.agent.service.AgentChatHistoryService;
+import xiaozhi.modules.agent.service.AgentChatSummaryService;
 import xiaozhi.modules.agent.service.AgentContextProviderService;
 import xiaozhi.modules.agent.service.AgentPluginMappingService;
 import xiaozhi.modules.agent.service.AgentService;
@@ -66,6 +68,7 @@ public class AgentController {
     private final AgentChatAudioService agentChatAudioService;
     private final AgentPluginMappingService agentPluginMappingService;
     private final AgentContextProviderService agentContextProviderService;
+    private final AgentChatSummaryService agentChatSummaryService;
     private final RedisUtils redisUtils;
 
     @GetMapping("/list")
@@ -117,6 +120,36 @@ public class AgentController {
         agentUpdateDTO.setSummaryMemory(dto.getSummaryMemory());
         agentService.updateAgentById(device.getAgentId(), agentUpdateDTO);
         return new Result<>();
+    }
+
+    @PostMapping("/chat-summary/{sessionId}")
+    @Operation(summary = "根据会话ID生成聊天记录总结")
+    public Result<AgentChatSummaryDTO> generateChatSummary(@PathVariable String sessionId) {
+        try {
+            AgentChatSummaryDTO summary = agentChatSummaryService.generateChatSummary(sessionId);
+            if (summary.isSuccess()) {
+                return new Result<AgentChatSummaryDTO>().ok(summary);
+            } else {
+                return new Result<AgentChatSummaryDTO>().error(summary.getErrorMessage());
+            }
+        } catch (Exception e) {
+            return new Result<AgentChatSummaryDTO>().error("生成聊天记录总结失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/chat-summary/{sessionId}/save")
+    @Operation(summary = "根据会话ID生成聊天记录总结并保存")
+    public Result<Void> generateAndSaveChatSummary(@PathVariable String sessionId) {
+        try {
+            boolean success = agentChatSummaryService.generateAndSaveChatSummary(sessionId);
+            if (success) {
+                return new Result<Void>().ok(null);
+            } else {
+                return new Result<Void>().error("保存聊天记录总结失败");
+            }
+        } catch (Exception e) {
+            return new Result<Void>().error("生成并保存聊天记录总结失败: " + e.getMessage());
+        }
     }
 
     @PutMapping("/{id}")

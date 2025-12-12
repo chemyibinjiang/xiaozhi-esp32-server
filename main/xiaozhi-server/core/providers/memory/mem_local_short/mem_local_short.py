@@ -4,7 +4,10 @@ import json
 import os
 import yaml
 from config.config_loader import get_project_dir
-from config.manage_api_client import save_mem_local_short
+from config.manage_api_client import (
+    save_mem_local_short,
+    generate_and_save_chat_summary,
+)
 import asyncio
 from core.utils.util import check_model_key
 
@@ -144,7 +147,7 @@ class MemoryProvider(MemoryProviderBase):
         with open(self.memory_path, "w", encoding="utf-8") as f:
             yaml.dump(all_memory, f, allow_unicode=True)
 
-    async def save_memory(self, msgs):
+    async def save_memory(self, msgs, session_id=None):
         # 打印使用的模型信息
         model_info = getattr(self.llm, "model_name", str(self.llm.__class__.__name__))
         logger.bind(tag=TAG).debug(f"使用记忆保存模型: {model_info}")
@@ -188,20 +191,18 @@ class MemoryProvider(MemoryProviderBase):
             except Exception as e:
                 print("Error:", e)
         else:
-            result = self.llm.response_no_stream(
-                short_term_memory_prompt_only_content,
-                msgStr,
-                max_tokens=2000,
-                temperature=0.2,
-            )
+            # 当save_to_file为False时，调用Java端的聊天记录总结接口
+            summary_id = session_id if session_id else self.role_id
             # 使用异步版本，需要在事件循环中运行
             try:
                 loop = asyncio.get_running_loop()
-                loop.create_task(save_mem_local_short(self.role_id, result))
+                loop.create_task(generate_and_save_chat_summary(summary_id))
             except RuntimeError:
                 # 如果没有运行中的事件循环，创建一个新的
-                asyncio.run(save_mem_local_short(self.role_id, result))
-        logger.bind(tag=TAG).info(f"Save memory successful - Role: {self.role_id}")
+                asyncio.run(generate_and_save_chat_summary(summary_id))
+        logger.bind(tag=TAG).info(
+            f"Save memory successful - Role: {self.role_id}, Session: {session_id}"
+        )
 
         return self.short_memory
 

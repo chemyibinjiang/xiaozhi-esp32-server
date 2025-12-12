@@ -53,6 +53,7 @@ class ManageApiClient:
     async def _ensure_async_client(cls):
         """确保异步客户端已创建（为每个事件循环创建独立的客户端）"""
         import asyncio
+
         try:
             loop = asyncio.get_running_loop()
             loop_id = id(loop)
@@ -115,6 +116,7 @@ class ManageApiClient:
     async def _execute_async_request(cls, method: str, endpoint: str, **kwargs) -> Dict:
         """带重试机制的异步请求执行器"""
         import asyncio
+
         retry_count = 0
 
         while retry_count <= cls.max_retries:
@@ -138,6 +140,7 @@ class ManageApiClient:
     def safe_close(cls):
         """安全关闭所有异步连接池"""
         import asyncio
+
         for client in list(cls._async_clients.values()):
             try:
                 asyncio.run(client.aclose())
@@ -149,7 +152,9 @@ class ManageApiClient:
 
 async def get_server_config() -> Optional[Dict]:
     """获取服务器基础配置"""
-    return await ManageApiClient._instance._execute_async_request("POST", "/config/server-base")
+    return await ManageApiClient._instance._execute_async_request(
+        "POST", "/config/server-base"
+    )
 
 
 async def get_agent_models(
@@ -178,6 +183,30 @@ async def save_mem_local_short(mac_address: str, short_momery: str) -> Optional[
         )
     except Exception as e:
         print(f"存储短期记忆到服务器失败: {e}")
+        return None
+
+
+async def generate_chat_summary(session_id: str) -> Optional[Dict]:
+    """生成聊天记录总结"""
+    try:
+        return await ManageApiClient._instance._execute_async_request(
+            "POST",
+            f"/agent/chat-summary/{session_id}",
+        )
+    except Exception as e:
+        print(f"生成聊天记录总结失败: {e}")
+        return None
+
+
+async def generate_and_save_chat_summary(session_id: str) -> Optional[Dict]:
+    """生成并保存聊天记录总结"""
+    try:
+        return await ManageApiClient._instance._execute_async_request(
+            "POST",
+            f"/agent/chat-summary/{session_id}/save",
+        )
+    except Exception as e:
+        print(f"生成并保存聊天记录总结失败: {e}")
         return None
 
 
