@@ -85,26 +85,13 @@ class AudioRateController:
             elif item_type == "audio":
                 _, opus_packet = item
 
-                # 循环等待直到时间到达
-                while True:
-                    # 计算时间差
-                    elapsed_ms = self._get_elapsed_ms()
-                    output_ms = self.play_position
+                # 计算时间差
+                elapsed_ms = self._get_elapsed_ms()
+                output_ms = self.play_position
 
-                    if elapsed_ms < output_ms:
-                        # 还不到发送时间，计算等待时长
-                        wait_ms = output_ms - elapsed_ms
-
-                        # 等待后继续检查（允许被中断）
-                        try:
-                            await asyncio.sleep(wait_ms / 1000)
-                        except asyncio.CancelledError:
-                            self.logger.bind(tag=TAG).debug("音频发送任务被取消")
-                            raise
-                        # 等待结束后重新检查时间（循环回到 while True）
-                    else:
-                        # 时间已到，跳出等待循环
-                        break
+                if elapsed_ms < output_ms:
+                    # 还不到发送时间，返回让出控制权（非阻塞）
+                    break
 
                 # 时间已到，从队列移除并发送
                 self.queue.pop(0)
@@ -132,6 +119,10 @@ class AudioRateController:
         async def _send_loop():
             try:
                 while True:
+                    # 只有当队列非空时才处理，否则等待队列事件
+                    if not self.queue:
+                        await self.queue_empty_event.wait()
+
                     await self.check_queue(send_audio_callback)
                     # 如果队列空了，短暂等待后再检查（避免 busy loop）
                     await asyncio.sleep(0.01)

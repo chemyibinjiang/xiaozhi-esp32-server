@@ -68,7 +68,8 @@ class ConnectionHandler:
         self.logger = setup_logging()
         self.server = server  # 保存server实例的引用
 
-        self.need_bind = False  # 是否需要绑定设备
+        self.need_bind = True  # 是否需要绑定设备
+        self.bind_completed_event = asyncio.Event()
         self.bind_code = None  # 绑定设备的验证码
         self.last_bind_prompt_time = 0  # 上次播放绑定提示的时间戳(秒)
         self.bind_prompt_interval = 60  # 绑定提示播放间隔(秒)
@@ -268,26 +269,28 @@ class ConnectionHandler:
 
     async def _route_message(self, message):
         """消息路由"""
+        try:
+            await asyncio.wait_for(self.bind_completed_event.wait(), timeout=1)
+        except asyncio.TimeoutError:
+            # 未绑定设备直接丢弃所有消息
+            current_time = time.time()
+            # 检查是否需要播放绑定提示
+            if (
+                current_time - self.last_bind_prompt_time
+                >= self.bind_prompt_interval
+            ):
+                self.last_bind_prompt_time = current_time
+                # 复用现有的绑定提示逻辑
+                from core.handle.receiveAudioHandle import check_bind_device
+
+                asyncio.create_task(check_bind_device(self))
+            # 直接丢弃音频，不进行ASR处理
+            return
+
         if isinstance(message, str):
             await handleTextMessage(self, message)
         elif isinstance(message, bytes):
             if self.vad is None or self.asr is None:
-                return
-
-            # 未绑定设备直接丢弃所有音频，不进行ASR处理
-            if self.need_bind:
-                current_time = time.time()
-                # 检查是否需要播放绑定提示
-                if (
-                    current_time - self.last_bind_prompt_time
-                    >= self.bind_prompt_interval
-                ):
-                    self.last_bind_prompt_time = current_time
-                    # 复用现有的绑定提示逻辑
-                    from core.handle.receiveAudioHandle import check_bind_device
-
-                    asyncio.create_task(check_bind_device(self))
-                # 直接丢弃音频，不进行ASR处理
                 return
 
             # 处理来自MQTT网关的音频包
@@ -461,6 +464,9 @@ class ConnectionHandler:
             self.logger.bind(tag=TAG).error(f"实例化组件失败: {e}")
 
     def _init_prompt_enhancement(self):
+        if self.need_bind:
+            return
+
         # 更新上下文信息
         self.prompt_manager.update_context_info(self, self.client_ip)
         enhanced_prompt = self.prompt_manager.build_enhanced_prompt(
@@ -509,6 +515,9 @@ class ConnectionHandler:
 
     def _initialize_voiceprint(self):
         """为当前连接初始化声纹识别"""
+        if self.need_bind:
+            return
+
         try:
             voiceprint_config = self.config.get("voiceprint", {})
             if voiceprint_config:
@@ -548,15 +557,14 @@ class ConnectionHandler:
             self.logger.bind(tag=TAG).info(
                 f"{time.time() - begin_time} 秒，异步获取差异化配置成功: {json.dumps(filter_sensitive_info(private_config), ensure_ascii=False)}"
             )
+            self.need_bind = False
+            self.bind_completed_event.set()
         except DeviceNotFoundException as e:
-            self.need_bind = True
             private_config = {}
         except DeviceBindException as e:
-            self.need_bind = True
             self.bind_code = e.bind_code
             private_config = {}
         except Exception as e:
-            self.need_bind = True
             self.logger.bind(tag=TAG).error(f"异步获取差异化配置失败: {e}")
             private_config = {}
 
