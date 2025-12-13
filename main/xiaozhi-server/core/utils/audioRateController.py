@@ -118,7 +118,6 @@ class AudioRateController:
 
         self.queue_empty_event.set()
 
-
     def start_sending(self, send_audio_callback):
         """
         启动异步发送任务
@@ -129,6 +128,7 @@ class AudioRateController:
         Returns:
             asyncio.Task: 发送任务
         """
+
         async def _send_loop():
             try:
                 while True:

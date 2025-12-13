@@ -17,7 +17,12 @@ async def sendAudioMessage(conn, sentenceType, audios, text):
 
     if sentenceType == SentenceType.FIRST:
         # 同一句子的后续消息加入流控队列，其他情况立即发送
-        if hasattr(conn, "audio_rate_controller") and conn.audio_rate_controller and getattr(conn, "audio_flow_control", {}).get("sentence_id") == conn.sentence_id:
+        if (
+            hasattr(conn, "audio_rate_controller")
+            and conn.audio_rate_controller
+            and getattr(conn, "audio_flow_control", {}).get("sentence_id")
+            == conn.sentence_id
+        ):
             conn.audio_rate_controller.add_message(
                 lambda: send_tts_message(conn, "sentence_start", text)
             )
@@ -120,7 +125,8 @@ def _get_or_create_rate_controller(conn, frame_duration, is_single_packet):
     # 判断是否需要重置：单包模式且 sentence_id 变化，或者控制器不存在
     need_reset = (
         is_single_packet
-        and getattr(conn, "audio_flow_control", {}).get("sentence_id") != conn.sentence_id
+        and getattr(conn, "audio_flow_control", {}).get("sentence_id")
+        != conn.sentence_id
     ) or not hasattr(conn, "audio_rate_controller")
 
     if need_reset:
@@ -138,7 +144,9 @@ def _get_or_create_rate_controller(conn, frame_duration, is_single_packet):
         }
 
         # 启动后台发送循环
-        _start_background_sender(conn, conn.audio_rate_controller, conn.audio_flow_control)
+        _start_background_sender(
+            conn, conn.audio_rate_controller, conn.audio_flow_control
+        )
 
     return conn.audio_rate_controller, conn.audio_flow_control
 
@@ -152,6 +160,7 @@ def _start_background_sender(conn, rate_controller, flow_control):
         rate_controller: 速率控制器
         flow_control: 流控状态
     """
+
     async def send_callback(packet):
         # 检查是否应该中止
         if conn.client_abort:
@@ -165,7 +174,9 @@ def _start_background_sender(conn, rate_controller, flow_control):
     rate_controller.start_sending(send_callback)
 
 
-async def _send_audio_with_rate_control(conn, audio_list, rate_controller, flow_control, send_delay):
+async def _send_audio_with_rate_control(
+    conn, audio_list, rate_controller, flow_control, send_delay
+):
     """
     使用 rate_controller 发送音频包
 
@@ -235,7 +246,7 @@ async def send_tts_message(conn, state, text=None):
             stop_tts_notify_voice = conn.config.get(
                 "stop_tts_notify_voice", "config/assets/tts_notify.mp3"
             )
-            audios = audio_to_data(stop_tts_notify_voice, is_opus=True)
+            audios = await audio_to_data(stop_tts_notify_voice, is_opus=True)
             await sendAudio(conn, audios)
         # 等待所有音频包发送完成
         await _wait_for_audio_completion(conn)
