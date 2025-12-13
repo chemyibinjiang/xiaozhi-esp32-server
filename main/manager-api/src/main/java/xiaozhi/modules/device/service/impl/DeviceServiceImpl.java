@@ -173,7 +173,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
         String wsUrl = sysParamsService.getValue(Constant.SERVER_WEBSOCKET, true);
 
         // 检查是否启用认证并生成token
-        String authEnabled = sysParamsService.getValue(Constant.SERVER_AUTH_ENABLED, false);
+        String authEnabled = sysParamsService.getValue(Constant.SERVER_AUTH_ENABLED, true);
         if ("true".equalsIgnoreCase(authEnabled)) {
             try {
                 // 生成token
@@ -206,7 +206,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
 
         // 添加MQTT UDP配置
         // 从系统参数获取MQTT Gateway地址，仅在配置有效时使用
-        String mqttUdpConfig = sysParamsService.getValue(Constant.SERVER_MQTT_GATEWAY, false);
+        String mqttUdpConfig = sysParamsService.getValue(Constant.SERVER_MQTT_GATEWAY, true);
         if (mqttUdpConfig != null && !mqttUdpConfig.equals("null") && !mqttUdpConfig.isEmpty()) {
             try {
                 String groupId = deviceById != null && deviceById.getBoard() != null ? deviceById.getBoard()
@@ -555,7 +555,7 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
     private DeviceReportRespDTO.MQTT buildMqttConfig(String macAddress, String groupId)
             throws Exception {
         // 从环境变量或系统参数获取签名密钥
-        String signatureKey = sysParamsService.getValue("server.mqtt_signature_key", false);
+        String signatureKey = sysParamsService.getValue("server.mqtt_signature_key", true);
         if (StringUtils.isBlank(signatureKey)) {
             log.warn("缺少MQTT_SIGNATURE_KEY，跳过MQTT配置生成");
             return null;
