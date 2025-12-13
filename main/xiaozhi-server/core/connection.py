@@ -498,7 +498,7 @@ class ConnectionHandler:
 
     def _initialize_asr(self):
         """初始化ASR"""
-        if self._asr.interface_type == InterfaceType.LOCAL:
+        if self._asr is not None and hasattr(self._asr, "interface_type") and self._asr.interface_type == InterfaceType.LOCAL:
             # 如果公共ASR是本地服务，则直接返回
             # 因为本地一个实例ASR，可以被多个连接共享
             asr = self._asr
