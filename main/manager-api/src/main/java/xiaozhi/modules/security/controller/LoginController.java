@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -23,7 +24,9 @@ import xiaozhi.common.exception.ErrorCode;
 import xiaozhi.common.exception.RenException;
 import xiaozhi.common.page.TokenDTO;
 import xiaozhi.common.user.UserDetail;
+import xiaozhi.common.utils.JsonUtils;
 import xiaozhi.common.utils.Result;
+import xiaozhi.common.utils.Sm2DecryptUtil;
 import xiaozhi.common.validator.AssertUtils;
 import xiaozhi.common.validator.ValidatorUtils;
 import xiaozhi.modules.security.dto.LoginDTO;
@@ -32,8 +35,6 @@ import xiaozhi.modules.security.password.PasswordUtils;
 import xiaozhi.modules.security.service.CaptchaService;
 import xiaozhi.modules.security.service.SysUserTokenService;
 import xiaozhi.modules.security.user.SecurityUser;
-import xiaozhi.common.utils.Sm2DecryptUtil;
-import org.apache.commons.lang3.StringUtils;
 import xiaozhi.modules.sys.dto.PasswordDTO;
 import xiaozhi.modules.sys.dto.RetrievePasswordDTO;
 import xiaozhi.modules.sys.dto.SysUserDTO;
@@ -41,7 +42,6 @@ import xiaozhi.modules.sys.service.SysDictDataService;
 import xiaozhi.modules.sys.service.SysParamsService;
 import xiaozhi.modules.sys.service.SysUserService;
 import xiaozhi.modules.sys.vo.SysDictDataItem;
-import xiaozhi.common.utils.JsonUtils;
 
 /**
  * 登录控制层
@@ -237,7 +237,7 @@ public class LoginController {
         config.put("sm2PublicKey", publicKey);
 
         // 获取system-web.menu参数配置
-        String menuConfig = sysParamsService.getValue("system-web.menu", false);
+        String menuConfig = sysParamsService.getValue("system-web.menu", true);
         if (StringUtils.isNotBlank(menuConfig)) {
             config.put("systemWebMenu", JsonUtils.parseObject(menuConfig, Object.class));
         }
