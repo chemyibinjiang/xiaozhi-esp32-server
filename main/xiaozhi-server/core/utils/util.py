@@ -4,6 +4,7 @@ import json
 import copy
 import wave
 import socket
+import asyncio
 import requests
 import subprocess
 import numpy as np
@@ -268,56 +269,62 @@ def audio_to_data_stream(
     pcm_to_data_stream(raw_data, is_opus, callback)
 
 
-def audio_to_data(audio_file_path: str, is_opus: bool = True) -> list[bytes]:
+async def audio_to_data(audio_file_path: str, is_opus: bool = True) -> list[bytes]:
     """
     将音频文件转换为Opus/PCM编码的帧列表
     Args:
         audio_file_path: 音频文件路径
         is_opus: 是否进行Opus编码
     """
-    # 获取文件后缀名
-    file_type = os.path.splitext(audio_file_path)[1]
-    if file_type:
-        file_type = file_type.lstrip(".")
-    # 读取音频文件，-nostdin 参数：不要从标准输入读取数据，否则FFmpeg会阻塞
-    audio = AudioSegment.from_file(
-        audio_file_path, format=file_type, parameters=["-nostdin"]
-    )
 
-    # 转换为单声道/16kHz采样率/16位小端编码（确保与编码器匹配）
-    audio = audio.set_channels(1).set_frame_rate(16000).set_sample_width(2)
+    def _sync_audio_to_data():
+        # 获取文件后缀名
+        file_type = os.path.splitext(audio_file_path)[1]
+        if file_type:
+            file_type = file_type.lstrip(".")
+        # 读取音频文件，-nostdin 参数：不要从标准输入读取数据，否则FFmpeg会阻塞
+        audio = AudioSegment.from_file(
+            audio_file_path, format=file_type, parameters=["-nostdin"]
+        )
 
-    # 获取原始PCM数据（16位小端）
-    raw_data = audio.raw_data
+        # 转换为单声道/16kHz采样率/16位小端编码（确保与编码器匹配）
+        audio = audio.set_channels(1).set_frame_rate(16000).set_sample_width(2)
 
-    # 初始化Opus编码器
-    encoder = opuslib_next.Encoder(16000, 1, opuslib_next.APPLICATION_AUDIO)
+        # 获取原始PCM数据（16位小端）
+        raw_data = audio.raw_data
 
-    # 编码参数
-    frame_duration = 60  # 60ms per frame
-    frame_size = int(16000 * frame_duration / 1000)  # 960 samples/frame
+        # 初始化Opus编码器
+        encoder = opuslib_next.Encoder(16000, 1, opuslib_next.APPLICATION_AUDIO)
 
-    datas = []
-    # 按帧处理所有音频数据（包括最后一帧可能补零）
-    for i in range(0, len(raw_data), frame_size * 2):  # 16bit=2bytes/sample
-        # 获取当前帧的二进制数据
-        chunk = raw_data[i : i + frame_size * 2]
+        # 编码参数
+        frame_duration = 60  # 60ms per frame
+        frame_size = int(16000 * frame_duration / 1000)  # 960 samples/frame
 
-        # 如果最后一帧不足，补零
-        if len(chunk) < frame_size * 2:
-            chunk += b"\x00" * (frame_size * 2 - len(chunk))
+        datas = []
+        # 按帧处理所有音频数据（包括最后一帧可能补零）
+        for i in range(0, len(raw_data), frame_size * 2):  # 16bit=2bytes/sample
+            # 获取当前帧的二进制数据
+            chunk = raw_data[i : i + frame_size * 2]
 
-        if is_opus:
-            # 转换为numpy数组处理
-            np_frame = np.frombuffer(chunk, dtype=np.int16)
-            # 编码Opus数据
-            frame_data = encoder.encode(np_frame.tobytes(), frame_size)
-        else:
-            frame_data = chunk if isinstance(chunk, bytes) else bytes(chunk)
+            # 如果最后一帧不足，补零
+            if len(chunk) < frame_size * 2:
+                chunk += b"\x00" * (frame_size * 2 - len(chunk))
 
-        datas.append(frame_data)
+            if is_opus:
+                # 转换为numpy数组处理
+                np_frame = np.frombuffer(chunk, dtype=np.int16)
+                # 编码Opus数据
+                frame_data = encoder.encode(np_frame.tobytes(), frame_size)
+            else:
+                frame_data = chunk if isinstance(chunk, bytes) else bytes(chunk)
 
-    return datas
+            datas.append(frame_data)
+
+        return datas
+
+    loop = asyncio.get_running_loop()
+    # 在单独的线程中执行同步的音频处理操作
+    return await loop.run_in_executor(None, _sync_audio_to_data)
 
 
 def audio_bytes_to_data_stream(
