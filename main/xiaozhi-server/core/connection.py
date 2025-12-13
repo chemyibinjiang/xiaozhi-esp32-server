@@ -267,22 +267,36 @@ class ConnectionHandler:
                     f"保存记忆后关闭连接失败: {close_error}"
                 )
 
+    async def _discard_message_with_bind_prompt(self):
+        """丢弃消息并检查是否需要播放绑定提示"""
+        current_time = time.time()
+        # 检查是否需要播放绑定提示
+        if current_time - self.last_bind_prompt_time >= self.bind_prompt_interval:
+            self.last_bind_prompt_time = current_time
+            # 复用现有的绑定提示逻辑
+            from core.handle.receiveAudioHandle import check_bind_device
+
+            asyncio.create_task(check_bind_device(self))
+
     async def _route_message(self, message):
         """消息路由"""
-        try:
-            await asyncio.wait_for(self.bind_completed_event.wait(), timeout=2)
-        except asyncio.TimeoutError:
-            # 未绑定设备直接丢弃所有消息
-            current_time = time.time()
-            # 检查是否需要播放绑定提示
-            if current_time - self.last_bind_prompt_time >= self.bind_prompt_interval:
-                self.last_bind_prompt_time = current_time
-                # 复用现有的绑定提示逻辑
-                from core.handle.receiveAudioHandle import check_bind_device
+        # 检查是否已经获取到真实的绑定状态
+        if not self.bind_completed_event.is_set():
+            # 还没有获取到真实状态，等待直到获取到真实状态或超时
+            try:
+                await asyncio.wait_for(self.bind_completed_event.wait(), timeout=1)
+            except asyncio.TimeoutError:
+                # 超时仍未获取到真实状态，丢弃消息
+                await self._discard_message_with_bind_prompt()
+                return
 
-                asyncio.create_task(check_bind_device(self))
-            # 直接丢弃音频，不进行ASR处理
+        # 已经获取到真实状态，检查是否需要绑定
+        if self.need_bind:
+            # 需要绑定，丢弃消息
+            await self._discard_message_with_bind_prompt()
             return
+
+        # 不需要绑定，继续处理消息
 
         if isinstance(message, str):
             await handleTextMessage(self, message)
@@ -498,7 +512,11 @@ class ConnectionHandler:
 
     def _initialize_asr(self):
         """初始化ASR"""
-        if self._asr is not None and hasattr(self._asr, "interface_type") and self._asr.interface_type == InterfaceType.LOCAL:
+        if (
+            self._asr is not None
+            and hasattr(self._asr, "interface_type")
+            and self._asr.interface_type == InterfaceType.LOCAL
+        ):
             # 如果公共ASR是本地服务，则直接返回
             # 因为本地一个实例ASR，可以被多个连接共享
             asr = self._asr
@@ -538,6 +556,7 @@ class ConnectionHandler:
     async def _initialize_private_config_async(self):
         """从接口异步获取差异化配置（异步版本，不阻塞主循环）"""
         if not self.read_config_from_api:
+            self.need_bind = False
             self.bind_completed_event.set()
             return
         try:
@@ -554,11 +573,17 @@ class ConnectionHandler:
             self.need_bind = False
             self.bind_completed_event.set()
         except DeviceNotFoundException as e:
+            self.need_bind = True
+            self.bind_completed_event.set()  # 状态已确定，设置事件
             private_config = {}
         except DeviceBindException as e:
+            self.need_bind = True
             self.bind_code = e.bind_code
+            self.bind_completed_event.set()  # 状态已确定，设置事件
             private_config = {}
         except Exception as e:
+            self.need_bind = True
+            self.bind_completed_event.set()  # 状态已确定，设置事件
             self.logger.bind(tag=TAG).error(f"异步获取差异化配置失败: {e}")
             private_config = {}
 
