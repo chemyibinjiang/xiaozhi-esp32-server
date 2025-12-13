@@ -269,13 +269,27 @@ def audio_to_data_stream(
     pcm_to_data_stream(raw_data, is_opus, callback)
 
 
-async def audio_to_data(audio_file_path: str, is_opus: bool = True) -> list[bytes]:
+async def audio_to_data(
+    audio_file_path: str, is_opus: bool = True, use_cache: bool = True
+) -> list[bytes]:
     """
     将音频文件转换为Opus/PCM编码的帧列表
     Args:
         audio_file_path: 音频文件路径
         is_opus: 是否进行Opus编码
+        use_cache: 是否使用缓存
     """
+    from core.utils.cache.manager import cache_manager
+    from core.utils.cache.config import CacheType
+
+    # 生成缓存键，包含文件路径和编码类型
+    cache_key = f"{audio_file_path}:{is_opus}"
+
+    # 尝试从缓存获取结果
+    if use_cache:
+        cached_result = cache_manager.get(CacheType.AUDIO_DATA, cache_key)
+        if cached_result is not None:
+            return cached_result
 
     def _sync_audio_to_data():
         # 获取文件后缀名
@@ -324,7 +338,13 @@ async def audio_to_data(audio_file_path: str, is_opus: bool = True) -> list[byte
 
     loop = asyncio.get_running_loop()
     # 在单独的线程中执行同步的音频处理操作
-    return await loop.run_in_executor(None, _sync_audio_to_data)
+    result = await loop.run_in_executor(None, _sync_audio_to_data)
+
+    # 将结果存入缓存，使用配置中定义的TTL（10分钟）
+    if use_cache:
+        cache_manager.set(CacheType.AUDIO_DATA, cache_key, result)
+
+    return result
 
 
 def audio_bytes_to_data_stream(
