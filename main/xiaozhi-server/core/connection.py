@@ -434,6 +434,7 @@ class ConnectionHandler:
                 self.tts.open_audio_channels(self), self.loop
             )
             if self.need_bind:
+                self.bind_completed_event.set()
                 return
             self.selected_module_str = build_module_string(
                 self.config.get("selected_module", {})
@@ -574,16 +575,13 @@ class ConnectionHandler:
             self.bind_completed_event.set()
         except DeviceNotFoundException as e:
             self.need_bind = True
-            self.bind_completed_event.set()  # 状态已确定，设置事件
             private_config = {}
         except DeviceBindException as e:
             self.need_bind = True
             self.bind_code = e.bind_code
-            self.bind_completed_event.set()  # 状态已确定，设置事件
             private_config = {}
         except Exception as e:
             self.need_bind = True
-            self.bind_completed_event.set()  # 状态已确定，设置事件
             self.logger.bind(tag=TAG).error(f"异步获取差异化配置失败: {e}")
             private_config = {}
 
