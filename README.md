@@ -211,10 +211,10 @@ Websocket接口地址: wss://2662r3426b.vicp.fun/xiaozhi/v1/
 
 | 模块名称 | 入门全免费设置 | 流式配置 |
 |:---:|:---:|:---:|
-| ASR(语音识别) | FunASR(本地) | 👍FunASR(本地GPU模式) |
-| LLM(大模型) | ChatGLMLLM(智谱glm-4-flash) | 👍AliLLM(qwen3-235b-a22b-instruct-2507) 或 👍DoubaoLLM(doubao-1-5-pro-32k-250115) |
-| VLLM(视觉大模型) | ChatGLMVLLM(智谱glm-4v-flash) | 👍QwenVLVLLM(千问qwen2.5-vl-3b-instructh) |
-| TTS(语音合成) | ✅LinkeraiTTS(灵犀流式) | 👍HuoshanDoubleStreamTTS(火山双流式语音合成) 或 👍AliyunStreamTTS(阿里云流式语音合成) |
+| ASR(语音识别) | FunASR(本地) | 👍XunfeiStreamASR(讯飞流式) |
+| LLM(大模型) | glm-4-flash(智谱) | 👍qwen-flash(阿里百炼) |
+| VLLM(视觉大模型) | glm-4v-flash(智谱) | 👍qwen2.5-vl-3b-instructh(阿里百炼) |
+| TTS(语音合成) | ✅LinkeraiTTS(灵犀流式) | 👍HuoshanDoubleStreamTTS(火山流式) |
 | Intent(意图识别) | function_call(函数调用) | function_call(函数调用) |
 | Memory(记忆功能) | mem_local_short(本地短期记忆） | mem_local_short（本地短期记忆） |
 
@@ -260,7 +260,7 @@ Websocket接口地址: wss://2662r3426b.vicp.fun/xiaozhi/v1/
 ---
 
 ## 产品生态 👬
-小智是一个生态，当你使用这个产品时，也可以看看其他在这个生态圈的[优秀项目](https://github.com/78/xiaozhi-esp32?tab=readme-ov-file#%E7%9B%B8%E5%85%B3%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE)
+小智是一个生态，当你使用这个产品时，也可以看看其他在这个生态圈的[优秀项目](https://github.com/78/xiaozhi-esp32/blob/main/README_zh.md#%E7%9B%B8%E5%85%B3%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE)
 
 ---
 
