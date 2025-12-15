@@ -208,10 +208,10 @@ Websocket Interface Address: wss://2662r3426b.vicp.fun/xiaozhi/v1/
 
 | Module Name | Entry Level Free Settings | Streaming Configuration |
 |:---:|:---:|:---:|
-| ASR(Speech Recognition) | FunASR(Local) | 👍FunASRServer or 👍DoubaoStreamASR |
-| LLM(Large Model) | ChatGLMLLM(Zhipu glm-4-flash) | 👍DoubaoLLM(Volcano doubao-1-5-pro-32k-250115) |
-| VLLM(Vision Large Model) | ChatGLMVLLM(Zhipu glm-4v-flash) | 👍QwenVLVLLM(Qwen qwen2.5-vl-3b-instructh) |
-| TTS(Speech Synthesis) | ✅LinkeraiTTS(Lingxi streaming) | 👍HuoshanDoubleStreamTTS(Volcano dual-stream speech synthesis) |
+| ASR(Speech Recognition) | FunASR(Local) | 👍XunfeiStreamASR(Xunfei Streaming) |
+| LLM(Large Model) | glm-4-flash(Zhipu) | 👍qwen-flash(Alibaba Bailian) |
+| VLLM(Vision Large Model) | glm-4v-flash(Zhipu) | 👍qwen2.5-vl-3b-instructh(Alibaba Bailian) |
+| TTS(Speech Synthesis) | ✅LinkeraiTTS(Lingxi streaming) | 👍HuoshanDoubleStreamTTS(Volcano Streaming) |
 | Intent(Intent Recognition) | function_call(Function calling) | function_call(Function calling) |
 | Memory(Memory function) | mem_local_short(Local short-term memory) | mem_local_short(Local short-term memory) |
 
@@ -256,7 +256,7 @@ If you are a software developer, here is an [Open Letter to Developers](docs/con
 ---
 
 ## Product Ecosystem 👬
-Xiaozhi is an ecosystem. When using this product, you can also check out other [excellent projects](https://github.com/78/xiaozhi-esp32?tab=readme-ov-file#%E7%9B%B8%E5%85%B3%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE) in this ecosystem
+Xiaozhi is an ecosystem. When using this product, you can also check out other [excellent projects](https://github.com/78/xiaozhi-esp32?tab=readme-ov-file#related-open-source-projects) in this ecosystem
 
 | Project Name | Project Address | Project Description |
 |:---------------------|:--------|:--------|

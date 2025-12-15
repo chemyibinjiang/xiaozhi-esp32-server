@@ -209,10 +209,10 @@ Websocket-Schnittstellenadresse: wss://2662r3426b.vicp.fun/xiaozhi/v1/
 
 | Modulname | Einstiegslevel Kostenlose Einstellungen | Streaming-Konfiguration |
 |:---:|:---:|:---:|
-| ASR (Spracherkennung) | FunASR (Lokal) | 👍FunASR (Lokaler GPU-Modus) |
-| LLM (Großes Modell) | ChatGLMLLM (Zhipu glm-4-flash) | 👍AliLLM (qwen3-235b-a22b-instruct-2507) oder 👍DoubaoLLM (doubao-1-5-pro-32k-250115) |
-| VLLM (Vision Large Model) | ChatGLMVLLM (Zhipu glm-4v-flash) | 👍QwenVLVLLM (Qwen qwen2.5-vl-3b-instructh) |
-| TTS (Sprachsynthese) | ✅LinkeraiTTS (Lingxi-Streaming) | 👍HuoshanDoubleStreamTTS (Volcano Dual-Stream-Sprachsynthese) oder 👍AliyunStreamTTS (Alibaba Cloud Streaming-Sprachsynthese) |
+| ASR (Spracherkennung) | FunASR (Lokal) | 👍XunfeiStreamASR (Xunfei-Streaming) |
+| LLM (Großes Modell) | glm-4-flash (Zhipu) | 👍qwen-flash (Alibaba Bailian) |
+| VLLM (Vision Large Model) | glm-4v-flash (Zhipu) | 👍qwen2.5-vl-3b-instructh (Alibaba Bailian) |
+| TTS (Sprachsynthese) | ✅LinkeraiTTS (Lingxi-Streaming) | 👍HuoshanDoubleStreamTTS (Volcano-Streaming) |
 | Intent (Absichtserkennung) | function_call (Funktionsaufruf) | function_call (Funktionsaufruf) |
 | Memory (Gedächtnisfunktion) | mem_local_short (Lokales Kurzzeitgedächtnis) | mem_local_short (Lokales Kurzzeitgedächtnis) |
 
@@ -258,7 +258,7 @@ Wenn Sie ein Softwareentwickler sind, finden Sie hier einen [Offenen Brief an En
 ---
 
 ## Produktökosystem 👬
-Xiaozhi ist ein Ökosystem. Wenn Sie dieses Produkt verwenden, können Sie sich auch andere [hervorragende Projekte](https://github.com/78/xiaozhi-esp32?tab=readme-ov-file#%E7%9B%B8%E5%85%B3%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE) in diesem Ökosystem ansehen
+Xiaozhi ist ein Ökosystem. Wenn Sie dieses Produkt verwenden, können Sie sich auch andere [hervorragende Projekte](https://github.com/78/xiaozhi-esp32?tab=readme-ov-file#related-open-source-projects) in diesem Ökosystem ansehen
 
 ---
 

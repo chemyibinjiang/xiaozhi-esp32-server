@@ -210,10 +210,10 @@ Công cụ kiểm tra dịch vụ: https://2662r3426b.vicp.fun/test/
 
 | Tên module | Cài đặt miễn phí cho người mới | Cấu hình streaming |
 |:---:|:---:|:---:|
-| ASR(Nhận dạng giọng nói) | FunASR(Local) | 👍FunASR(Chế độ GPU cục bộ) |
-| LLM(Mô hình lớn) | ChatGLMLLM(Zhipu glm-4-flash) | 👍AliLLM(qwen3-235b-a22b-instruct-2507) hoặc 👍DoubaoLLM(doubao-1-5-pro-32k-250115) |
-| VLLM(Mô hình lớn thị giác) | ChatGLMVLLM(Zhipu glm-4v-flash) | 👍QwenVLVLLM(Qwen qwen2.5-vl-3b-instructh) |
-| TTS(Tổng hợp giọng nói) | ✅LinkeraiTTS(Lingxi streaming) | 👍HuoshanDoubleStreamTTS(Tổng hợp giọng nói streaming kép Volcano) hoặc 👍AliyunStreamTTS(Tổng hợp giọng nói streaming Alibaba Cloud) |
+| ASR(Nhận dạng giọng nói) | FunASR(Local) | 👍XunfeiStreamASR(Xunfei Streaming) |
+| LLM(Mô hình lớn) | glm-4-flash(Zhipu) | 👍qwen-flash(Alibaba Bailian) |
+| VLLM(Mô hình lớn thị giác) | glm-4v-flash(Zhipu) | 👍qwen2.5-vl-3b-instructh(Alibaba Bailian) |
+| TTS(Tổng hợp giọng nói) | ✅LinkeraiTTS(Lingxi streaming) | 👍HuoshanDoubleStreamTTS(Volcano Streaming) |
 | Intent(Nhận dạng ý định) | function_call(Gọi hàm) | function_call(Gọi hàm) |
 | Memory(Chức năng bộ nhớ) | mem_local_short(Bộ nhớ ngắn hạn cục bộ) | mem_local_short(Bộ nhớ ngắn hạn cục bộ) |
 
@@ -259,7 +259,7 @@ Nếu bạn là một nhà phát triển phần mềm, đây có một [Lá thư
 ---
 
 ## Hệ sinh thái sản phẩm 👬
-Xiaozhi là một hệ sinh thái, khi bạn sử dụng sản phẩm này, bạn cũng có thể xem các [dự án xuất sắc](https://github.com/78/xiaozhi-esp32?tab=readme-ov-file#%E7%9B%B8%E5%85%B3%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE) khác trong hệ sinh thái này
+Xiaozhi là một hệ sinh thái, khi bạn sử dụng sản phẩm này, bạn cũng có thể xem các [dự án xuất sắc](https://github.com/78/xiaozhi-esp32?tab=readme-ov-file#related-open-source-projects) khác trong hệ sinh thái này
 
 ---
 
