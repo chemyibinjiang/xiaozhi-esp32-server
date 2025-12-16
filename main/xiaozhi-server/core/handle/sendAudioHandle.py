@@ -7,6 +7,10 @@ from core.providers.tts.dto.dto import SentenceType
 from core.utils.audioRateController import AudioRateController
 
 TAG = __name__
+# 音频帧时长（毫秒）
+AUDIO_FRAME_DURATION = 60
+# 预缓冲包数量，直接发送以减少延迟
+PRE_BUFFER_COUNT = 5
 
 
 async def sendAudioMessage(conn, sentenceType, audios, text):
@@ -45,7 +49,7 @@ async def sendAudioMessage(conn, sentenceType, audios, text):
 
 async def _wait_for_audio_completion(conn):
     """
-    等待音频队列清空
+    等待音频队列清空并等待预缓冲包播放完成
 
     Args:
         conn: 连接对象
@@ -56,6 +60,13 @@ async def _wait_for_audio_completion(conn):
             f"等待音频发送完成，队列中还有 {len(rate_controller.queue)} 个包"
         )
         await rate_controller.queue_empty_event.wait()
+
+        # 等待预缓冲包播放完成
+        # 前N个包直接发送，增加2个网络抖动包，需要额外等待它们在客户端播放完成
+        frame_duration_ms = rate_controller.frame_duration
+        pre_buffer_playback_time = (PRE_BUFFER_COUNT + 2) * frame_duration_ms / 1000.0
+        await asyncio.sleep(pre_buffer_playback_time)
+
         conn.logger.bind(tag=TAG).debug("音频发送完成")
 
 
@@ -81,14 +92,14 @@ async def _send_to_mqtt_gateway(conn, opus_packet, timestamp, sequence):
     await conn.websocket.send(complete_packet)
 
 
-async def sendAudio(conn, audios, frame_duration=60):
+async def sendAudio(conn, audios, frame_duration=AUDIO_FRAME_DURATION):
     """
     发送音频包，使用 AudioRateController 进行精确的流量控制
 
     Args:
         conn: 连接对象
         audios: 单个opus包(bytes) 或 opus包列表
-        frame_duration: 帧时长（毫秒），默认60ms
+        frame_duration: 帧时长（毫秒），默认使用全局常量AUDIO_FRAME_DURATION
     """
     if audios is None or len(audios) == 0:
         return
@@ -187,16 +198,14 @@ async def _send_audio_with_rate_control(
         flow_control: 流控状态
         send_delay: 固定延迟（秒），-1表示使用动态流控
     """
-    pre_buffer_count = 5
-
     for packet in audio_list:
         if conn.client_abort:
             return
 
         conn.last_activity_time = time.time() * 1000
 
-        # 预缓冲：前5个包直接发送
-        if flow_control["packet_count"] < pre_buffer_count:
+        # 预缓冲：前N个包直接发送
+        if flow_control["packet_count"] < PRE_BUFFER_COUNT:
             await _do_send_audio(conn, packet, flow_control)
             conn.client_is_speaking = True
         elif send_delay > 0:
