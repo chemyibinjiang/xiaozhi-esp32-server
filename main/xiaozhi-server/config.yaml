@@ -69,6 +69,9 @@ enable_greeting: true
 enable_stop_tts_notify: false
 # 说完话是否开启提示音，音效地址
 stop_tts_notify_voice: "config/assets/tts_notify.mp3"
+# 是否启用WebSocket心跳保活机制
+enable_websocket_ping: false
+
 
 # TTS音频发送延迟配置
 # tts_audio_send_delay: 控制音频包发送间隔
