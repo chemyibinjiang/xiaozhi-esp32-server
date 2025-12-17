@@ -821,7 +821,7 @@ export default {
   'modelConfig.rag': '知识库',
   'modelConfig.modelId': '模型ID',
   'modelConfig.modelName': '模型名称',
-  'modelConfig.provider': '提供商',
+  'modelConfig.provider': '接口类型',
   'modelConfig.unknown': '未知',
   'modelConfig.isEnabled': '是否启用',
   'modelConfig.isDefault': '是否默认',

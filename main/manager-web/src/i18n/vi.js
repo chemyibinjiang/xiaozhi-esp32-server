@@ -821,7 +821,7 @@ export default {
   'modelConfig.rag': 'RAG',
   'modelConfig.modelId': 'ID mô hình',
   'modelConfig.modelName': 'Tên mô hình',
-  'modelConfig.provider': 'Nhà cung cấp',
+  'modelConfig.provider': 'Loại giao diện',
   'modelConfig.unknown': 'Không xác định',
   'modelConfig.isEnabled': 'Đã bật',
   'modelConfig.isDefault': 'Mặc định',
