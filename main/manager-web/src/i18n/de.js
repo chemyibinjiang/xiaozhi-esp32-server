@@ -821,7 +821,7 @@ export default {
   'modelConfig.rag': 'RAG',
   'modelConfig.modelId': 'Modell-ID',
   'modelConfig.modelName': 'Modellname',
-  'modelConfig.provider': 'Anbieter',
+  'modelConfig.provider': 'Schnittstellentyp',
   'modelConfig.unknown': 'Unbekannt',
   'modelConfig.isEnabled': 'Aktiviert',
   'modelConfig.isDefault': 'Standard',
