@@ -162,7 +162,6 @@ class OTAHandler(BaseHandler):
             data_json = {}
             try:
                 data_json = json.loads(data) if data else {}
-                self.logger.bind(tag=TAG).info(f"data json:{data_json}")
             except Exception:
                 data_json = {}
 
