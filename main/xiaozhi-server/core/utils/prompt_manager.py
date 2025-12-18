@@ -184,10 +184,25 @@ class PromptManager:
     def update_context_info(self, conn, client_ip: str):
         """同步更新上下文信息"""
         try:
-            # 获取位置信息（使用全局缓存）
-            local_address = self._get_location_info(client_ip)
-            # 获取天气信息（使用全局缓存）
-            self._get_weather_info(conn, local_address)
+            local_address = ""
+            if (
+                client_ip
+                and self.base_prompt_template
+                and (
+                    "local_address" in self.base_prompt_template
+                    or "weather_info" in self.base_prompt_template
+                )
+            ):
+                # 获取位置信息（使用全局缓存）
+                local_address = self._get_location_info(client_ip)
+
+            if (
+                self.base_prompt_template
+                and "weather_info" in self.base_prompt_template
+                and local_address
+            ):
+                # 获取天气信息（使用全局缓存）
+                self._get_weather_info(conn, local_address)
             
             # 获取配置的上下文数据
             if hasattr(conn, "device_id") and conn.device_id:
