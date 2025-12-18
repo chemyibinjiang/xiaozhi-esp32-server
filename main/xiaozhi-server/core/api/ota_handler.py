@@ -9,6 +9,8 @@ import glob
 from typing import Dict, List, Tuple
 from aiohttp import web
 
+from urllib.parse import urlparse
+
 from core.auth import AuthManager
 from core.utils.util import get_local_ip
 from core.api.base_handler import BaseHandler
@@ -172,7 +174,18 @@ class OTAHandler(BaseHandler):
             websocket_port = int(server_config.get("port", 8000))
             http_port = int(server_config.get("http_port", 8003))
             local_ip = get_local_ip()
-            ota_addr = server_config.get("ota_addr", "")
+
+            ota_addr = ""
+            websocket_addr = self._get_websocket_url(local_ip, websocket_port)
+            parsedurl = urlparse(websocket_addr)
+            netloc = parsedurl.netloc
+            if netloc:
+                host_part = netloc.split(":")[0]
+                ota_addr = host_part if host_part else ""
+            if ota_addr == "":
+                ota_addr = server_config.get("ota_addr", "")
+            if ota_addr == "":
+                ota_addr = local_ip
 
             # Determine device model (prefer headers)
             device_model = ""
