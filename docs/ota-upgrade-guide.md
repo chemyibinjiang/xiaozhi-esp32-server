@@ -2,6 +2,8 @@
 
 本教程将指导你如何在**单模块部署**场景下配置固件OTA自动升级功能，实现设备固件的自动更新。
 
+如果你已经使用**全模块部署**，请忽略本教程。
+
 ## 功能介绍
 
 在单模块部署中，xiaozhi-server内置了OTA固件管理功能，可以自动检测设备版本并下发升级固件。系统会根据设备型号和当前版本，自动匹配并推送最新的固件版本。
@@ -44,13 +46,19 @@ lichuang-dev_2.0.0.bin
 
 将准备好的固件文件（.bin文件）复制到`data/bin/`目录下：
 
+重要的事情说三遍：升级的bin文件是`xiaozhi.bin`，不是全量固件文件`merged-binary.bin`!
+
+重要的事情说三遍：升级的bin文件是`xiaozhi.bin`，不是全量固件文件`merged-binary.bin`!
+
+重要的事情说三遍：升级的bin文件是`xiaozhi.bin`，不是全量固件文件`merged-binary.bin`!
+
 ```bash
-cp your_firmware.bin data/bin/设备型号_版本号.bin
+cp xiaozhi.bin data/bin/设备型号_版本号.bin
 ```
 
 例如：
 ```bash
-cp xiaozhi_firmware.bin data/bin/esp32s3_1.6.6.bin
+cp xiaozhi.bin data/bin/bread-compact-wifi_1.6.6.bin
 ```
 
 ## 第二步 配置公网访问地址（仅公网部署需要）
@@ -88,122 +96,12 @@ server:
   vision_explain: http://yourdomain.com:8003/mcp/vision/explain
 ```
 
-公网IP部署：
-```yaml
-server:
-  vision_explain: http://111.111.111.111:8003/mcp/vision/explain
-```
-
-使用HTTPS（推荐公网部署使用）：
-```yaml
-server:
-  vision_explain: https://yourdomain.com:8003/mcp/vision/explain
-```
-
 ### 注意事项
 
 - 域名或IP必须是设备能够访问的地址
 - 如果使用Docker部署，不能使用Docker内部地址（如127.0.0.1或localhost）
-- 端口号默认是8003，如果你修改了`server.http_port`配置，需要同步修改这里的端口号
+- 如果你使用了nginx反向代理，请填写对外的地址和端口号，不是本项目运行的端口号
 
-## 第三步 启动或重启服务
-
-### 源码运行
-
-```bash
-python app.py
-```
-
-### Docker运行
-
-```bash
-docker restart xiaozhi-esp32-server
-```
-
-### 验证服务启动
-
-启动后，查看日志输出，应该能看到类似以下内容：
-
-```
-2025-12-18 **** - OTA接口是           http://192.168.1.100:8003/xiaozhi/ota/
-2025-12-18 **** - 视觉分析接口是        http://192.168.1.100:8003/mcp/vision/explain
-```
-
-使用浏览器访问OTA接口地址，如果显示以下内容说明服务正常：
-
-```
-OTA接口运行正常，向设备发送的websocket地址是：ws://xxx.xxx.xxx.xxx:8000/xiaozhi/v1/
-```
-
-## 第四步 设备自动检测升级
-
-### 升级原理
-
-当设备连接到服务器时（每次开机或定时检查），会自动发送OTA请求。服务器会：
-
-1. 读取设备的型号和当前固件版本
-2. 扫描`data/bin/`目录，查找匹配该型号的所有固件文件
-3. 比较版本号，如果有更高版本，则返回固件下载地址
-4. 设备收到下载地址后，会自动下载并安装新固件
-
-### 版本比较规则
-
-系统使用语义化版本比较方式，按数字段从左到右依次比较：
-
-- `1.6.6` < `1.6.7`
-- `1.6.9` < `1.7.0`
-- `2.0.0` > `1.9.9`
-
-### 查看升级日志
-
-在xiaozhi-server的日志中，你可以看到OTA相关的日志输出：
-
-```
-[ota_handler] - OTA请求设备ID: AA:BB:CC:DD:EE:FF
-[ota_handler] - 查找型号 esp32s3 的固件，找到 3 个候选
-[ota_handler] - 为设备 AA:BB:CC:DD:EE:FF 下发固件 1.6.6 [如果地址前缀有误，请检查配置文件中的server.vision_explain]-> http://yourdomain.com:8003/xiaozhi/ota/download/esp32s3_1.6.6.bin
-```
-
-或者如果设备已是最新版本：
-
-```
-[ota_handler] - 设备 AA:BB:CC:DD:EE:FF 固件已是最新: 1.6.6
-```
-
-## 高级配置
-
-### 固件缓存时间（可选）
-
-系统会缓存`data/bin/`目录的扫描结果以提高性能。默认缓存时间为30秒。你可以在配置文件中调整：
-
-```yaml
-firmware_cache_ttl: 60  # 单位：秒，设置为60秒缓存时间
-```
-
-### 多版本固件管理
-
-你可以同时放置多个版本的固件，系统会自动选择最新版本：
-
-```
-data/bin/
-  ├── esp32s3_1.6.5.bin
-  ├── esp32s3_1.6.6.bin
-  ├── esp32s3_1.7.0-beta.bin
-  └── xiaozhi-v2_2.0.0.bin
-```
-
-系统会为`esp32s3`型号的设备推送`1.7.0-beta`版本（最高版本）。
-
-### 多型号固件管理
-
-不同型号的设备会自动匹配对应型号的固件：
-
-```
-data/bin/
-  ├── esp32s3_1.6.6.bin       # 仅供 esp32s3 型号设备使用
-  ├── xiaozhi-v2_2.0.0.bin    # 仅供 xiaozhi-v2 型号设备使用
-  └── default_1.0.0.bin       # 供未识别型号的设备使用
-```
 
 ## 常见问题
 
@@ -226,6 +124,7 @@ data/bin/
 - 如果是公网部署，确保设备能够访问该公网地址
 - 如果是Docker部署，确保不是使用了内部地址（127.0.0.1）
 - 检查防火墙是否开放了对应端口
+- 如果你使用了nginx反向代理，请填写对外的地址和端口号，不是本项目运行的端口号
 
 ### 3. 如何确认设备当前版本
 
@@ -241,24 +140,3 @@ data/bin/
 - 等待30秒后再让设备发起OTA请求
 - 重启xiaozhi-server服务
 - 调整`firmware_cache_ttl`配置为更短的时间
-
-### 5. 如何回滚到旧版本
-
-系统只会推送更高版本的固件。如果需要回滚：
-1. 删除或重命名`data/bin/`目录中高于目标版本的固件文件
-2. 等待缓存过期或重启服务
-3. 设备下次检查时会收到目标版本
-
-## 安全说明
-
-- 系统会验证固件文件路径，防止目录穿越攻击
-- 固件下载接口只允许访问`data/bin/`目录下的`.bin`文件
-- 建议在生产环境使用HTTPS协议传输固件
-
-## 相关教程
-
-如需了解更多，请参考以下教程：
-
-1. [如何自己编译小智固件](./firmware-build.md)
-2. [如何基于虾哥编译好的固件修改OTA地址](./firmware-setting.md)
-3. [如何进行全模块部署](./Deployment_all.md)
