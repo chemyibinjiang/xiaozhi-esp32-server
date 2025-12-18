@@ -9,10 +9,8 @@ import glob
 from typing import Dict, List, Tuple
 from aiohttp import web
 
-from urllib.parse import urlparse
-
 from core.auth import AuthManager
-from core.utils.util import get_local_ip
+from core.utils.util import get_local_ip, get_vision_url
 from core.api.base_handler import BaseHandler
 
 TAG = __name__
@@ -59,12 +57,18 @@ class OTAHandler(BaseHandler):
         # firmware storage
         self.bin_dir = os.path.join(os.getcwd(), "data", "bin")
         # cache structure: { 'updated_at': timestamp, 'ttl': seconds, 'files_by_model': { model: [(version, filename), ...] } }
-        self._bin_cache: Dict = {"updated_at": 0, "ttl": config.get("firmware_cache_ttl", 30), "files_by_model": {}}
+        self._bin_cache: Dict = {
+            "updated_at": 0,
+            "ttl": config.get("firmware_cache_ttl", 30),
+            "files_by_model": {},
+        }
 
     def _refresh_bin_cache_if_needed(self):
         now = int(time.time())
         ttl = int(self._bin_cache.get("ttl", 30))
-        if now - int(self._bin_cache.get("updated_at", 0)) < ttl and self._bin_cache.get("files_by_model"):
+        if now - int(
+            self._bin_cache.get("updated_at", 0)
+        ) < ttl and self._bin_cache.get("files_by_model"):
             return
 
         files_by_model: Dict[str, List[Tuple[str, str]]] = {}
@@ -91,7 +95,9 @@ class OTAHandler(BaseHandler):
 
             self._bin_cache["files_by_model"] = files_by_model
             self._bin_cache["updated_at"] = now
-            self.logger.bind(tag=TAG).info(f"Firmware cache refreshed: {len(files_by_model)} models")
+            self.logger.bind(tag=TAG).info(
+                f"Firmware cache refreshed: {len(files_by_model)} models"
+            )
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"刷新固件缓存失败: {e}")
             # keep previous cache if any
@@ -175,18 +181,6 @@ class OTAHandler(BaseHandler):
             http_port = int(server_config.get("http_port", 8003))
             local_ip = get_local_ip()
 
-            ota_addr = ""
-            websocket_addr = self._get_websocket_url(local_ip, websocket_port)
-            parsedurl = urlparse(websocket_addr)
-            netloc = parsedurl.netloc
-            if netloc:
-                host_part = netloc.split(":")[0]
-                ota_addr = host_part if host_part else ""
-            if ota_addr == "":
-                ota_addr = server_config.get("ota_addr", "")
-            if ota_addr == "":
-                ota_addr = local_ip
-
             # Determine device model (prefer headers)
             device_model = ""
             # header candidates
@@ -208,7 +202,13 @@ class OTAHandler(BaseHandler):
 
             # Determine device current version (prefer headers)
             device_version = ""
-            for h in ("device-version", "device_version", "firmware-version", "app-version", "application-version"):
+            for h in (
+                "device-version",
+                "device_version",
+                "firmware-version",
+                "app-version",
+                "application-version",
+            ):
                 if h in request.headers:
                     device_version = request.headers.get(h, "").strip()
                     break
@@ -303,7 +303,9 @@ class OTAHandler(BaseHandler):
                 files_by_model = self._bin_cache.get("files_by_model", {})
                 candidates = files_by_model.get(device_model, [])
 
-                self.logger.bind(tag=TAG).info(f"查找型号 {device_model} 的固件，找到 {len(candidates)} 个候选")
+                self.logger.bind(tag=TAG).info(
+                    f"查找型号 {device_model} 的固件，找到 {len(candidates)} 个候选"
+                )
 
                 chosen_url = ""
                 chosen_version = device_version
@@ -313,16 +315,24 @@ class OTAHandler(BaseHandler):
                     if _is_higher_version(ver, device_version):
                         # build download url (only allow download via our download endpoint)
                         chosen_version = ver
-                        # use local_ip and http_port to construct url
-                        chosen_url = f"http://{ota_addr}:{http_port}/xiaozhi/ota/download/{fname}"
+                        # Use get_vision_url to get the base URL and replace the path
+                        vision_url = get_vision_url(self.config)
+                        # Replace the path from "/mcp/vision/explain" to "/xiaozhi/ota/download/{fname}"
+                        chosen_url = vision_url.replace(
+                            "/mcp/vision/explain", f"/xiaozhi/ota/download/{fname}"
+                        )
                         break
 
                 if chosen_url:
                     return_json["firmware"]["version"] = chosen_version
                     return_json["firmware"]["url"] = chosen_url
-                    self.logger.bind(tag=TAG).info(f"为设备 {device_id} 下发固件 {chosen_version} -> {chosen_url}")
+                    self.logger.bind(tag=TAG).info(
+                        f"为设备 {device_id} 下发固件 {chosen_version} [如果地址前缀有误，请检查配置文件中的server.vision_explain]-> {chosen_url} "
+                    )
                 else:
-                    self.logger.bind(tag=TAG).info(f"设备 {device_id} 固件已是最新: {device_version}")
+                    self.logger.bind(tag=TAG).info(
+                        f"设备 {device_id} 固件已是最新: {device_version}"
+                    )
 
             except Exception as e:
                 self.logger.bind(tag=TAG).error(f"检查固件版本时出错: {e}")
@@ -381,7 +391,10 @@ class OTAHandler(BaseHandler):
             # ensure realpath is under bin_dir
             file_real = os.path.realpath(file_path)
             bin_dir_real = os.path.realpath(self.bin_dir)
-            if not file_real.startswith(bin_dir_real + os.sep) and file_real != bin_dir_real:
+            if (
+                not file_real.startswith(bin_dir_real + os.sep)
+                and file_real != bin_dir_real
+            ):
                 raise web.HTTPForbidden(text="forbidden")
 
             if not os.path.isfile(file_real):
