@@ -69,6 +69,7 @@ VAD:
 ### 9、编译固件相关教程
 1、[如何自己编译小智固件](./firmware-build.md)<br/>
 2、[如何基于虾哥编译好的固件修改OTA地址](./firmware-setting.md)<br/>
+3、[单模块部署如何配置固件OTA自动升级](./ota-upgrade-guide.md)<br/>
 
 ### 10、拓展相关教程
 1、[如何开启手机号码注册智控台](./ali-sms-integration.md)<br/>
