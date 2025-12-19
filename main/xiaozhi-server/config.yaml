@@ -69,6 +69,9 @@ enable_greeting: true
 enable_stop_tts_notify: false
 # 说完话是否开启提示音，音效地址
 stop_tts_notify_voice: "config/assets/tts_notify.mp3"
+# 是否启用WebSocket心跳保活机制
+enable_websocket_ping: false
+
 
 # TTS音频发送延迟配置
 # tts_audio_send_delay: 控制音频包发送间隔
@@ -471,7 +474,6 @@ ASR:
     domain: slm # 识别领域，iat:日常用语，medical:医疗，finance:金融等
     language: zh_cn # 语言，zh_cn:中文，en_us:英文
     accent: mandarin # 方言，mandarin:普通话
-    dwa: wpgs # 动态修正，wpgs:实时返回中间结果
     # 调整音频处理参数以提高长语音识别质量
     output_dir: tmp/
   
