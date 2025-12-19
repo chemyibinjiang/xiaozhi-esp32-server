@@ -36,7 +36,6 @@ import xiaozhi.common.utils.Result;
 import xiaozhi.common.utils.ResultUtils;
 import xiaozhi.modules.agent.dto.AgentChatHistoryDTO;
 import xiaozhi.modules.agent.dto.AgentChatSessionDTO;
-import xiaozhi.modules.agent.dto.AgentChatSummaryDTO;
 import xiaozhi.modules.agent.dto.AgentCreateDTO;
 import xiaozhi.modules.agent.dto.AgentDTO;
 import xiaozhi.modules.agent.dto.AgentMemoryDTO;
@@ -122,33 +121,24 @@ public class AgentController {
         return new Result<>();
     }
 
-    @PostMapping("/chat-summary/{sessionId}")
-    @Operation(summary = "根据会话ID生成聊天记录总结")
-    public Result<AgentChatSummaryDTO> generateChatSummary(@PathVariable String sessionId) {
-        try {
-            AgentChatSummaryDTO summary = agentChatSummaryService.generateChatSummary(sessionId);
-            if (summary.isSuccess()) {
-                return new Result<AgentChatSummaryDTO>().ok(summary);
-            } else {
-                return new Result<AgentChatSummaryDTO>().error(summary.getErrorMessage());
-            }
-        } catch (Exception e) {
-            return new Result<AgentChatSummaryDTO>().error("生成聊天记录总结失败: " + e.getMessage());
-        }
-    }
-
     @PostMapping("/chat-summary/{sessionId}/save")
-    @Operation(summary = "根据会话ID生成聊天记录总结并保存")
+    @Operation(summary = "根据会话ID生成聊天记录总结并保存（异步执行）")
     public Result<Void> generateAndSaveChatSummary(@PathVariable String sessionId) {
         try {
-            boolean success = agentChatSummaryService.generateAndSaveChatSummary(sessionId);
-            if (success) {
-                return new Result<Void>().ok(null);
-            } else {
-                return new Result<Void>().error("保存聊天记录总结失败");
-            }
+            // 异步执行总结生成任务，立即返回成功响应
+            new Thread(() -> {
+                try {
+                    agentChatSummaryService.generateAndSaveChatSummary(sessionId);
+                    System.out.println("异步执行会话 " + sessionId + " 的聊天记录总结完成");
+                } catch (Exception e) {
+                    System.err.println("异步执行会话 " + sessionId + " 的聊天记录总结失败: " + e.getMessage());
+                }
+            }).start();
+
+            // 立即返回成功响应，不等待总结生成完成
+            return new Result<Void>().ok(null);
         } catch (Exception e) {
-            return new Result<Void>().error("生成并保存聊天记录总结失败: " + e.getMessage());
+            return new Result<Void>().error("启动异步总结生成任务失败: " + e.getMessage());
         }
     }
 
@@ -219,6 +209,7 @@ public class AgentController {
         List<AgentChatHistoryDTO> result = agentChatHistoryService.getChatHistoryBySessionId(id, sessionId);
         return new Result<List<AgentChatHistoryDTO>>().ok(result);
     }
+
     @GetMapping("/{id}/chat-history/user")
     @Operation(summary = "获取智能体聊天记录（用户）")
     @RequiresPermissions("sys:role:normal")

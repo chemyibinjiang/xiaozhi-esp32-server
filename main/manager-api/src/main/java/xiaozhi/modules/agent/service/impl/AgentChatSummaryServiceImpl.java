@@ -53,8 +53,7 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
     private static final Pattern WEATHER_PATTERN = Pattern.compile("天气|温度|湿度|降雨|气象", Pattern.CASE_INSENSITIVE);
     private static final Pattern DATE_PATTERN = Pattern.compile("日期|时间|星期|月份|年份", Pattern.CASE_INSENSITIVE);
 
-    @Override
-    public AgentChatSummaryDTO generateChatSummary(String sessionId) {
+    private AgentChatSummaryDTO generateChatSummary(String sessionId) {
         try {
             System.out.println("开始生成会话 " + sessionId + " 的聊天记录总结");
 

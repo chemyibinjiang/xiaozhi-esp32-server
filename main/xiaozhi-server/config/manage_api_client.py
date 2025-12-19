@@ -186,18 +186,6 @@ async def save_mem_local_short(mac_address: str, short_momery: str) -> Optional[
         return None
 
 
-async def generate_chat_summary(session_id: str) -> Optional[Dict]:
-    """生成聊天记录总结"""
-    try:
-        return await ManageApiClient._instance._execute_async_request(
-            "POST",
-            f"/agent/chat-summary/{session_id}",
-        )
-    except Exception as e:
-        print(f"生成聊天记录总结失败: {e}")
-        return None
-
-
 async def generate_and_save_chat_summary(session_id: str) -> Optional[Dict]:
     """生成并保存聊天记录总结"""
     try:

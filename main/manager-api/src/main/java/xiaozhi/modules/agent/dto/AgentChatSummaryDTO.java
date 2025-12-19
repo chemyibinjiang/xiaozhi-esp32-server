@@ -3,15 +3,12 @@ package xiaozhi.modules.agent.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
-import java.io.Serializable;
-
 /**
  * 智能体聊天记录总结DTO
  */
 @Data
 @Schema(description = "智能体聊天记录总结对象")
-public class AgentChatSummaryDTO implements Serializable {
-    private static final long serialVersionUID = 1L;
+public class AgentChatSummaryDTO {
 
     @Schema(description = "会话ID")
     private String sessionId;
