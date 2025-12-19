@@ -49,29 +49,47 @@ class ServerMCPManager:
             )
             return {}
 
+    async def _init_server(self, name: str, srv_config: Dict[str, Any]):
+        """初始化单个MCP服务"""
+        client = None
+        try:
+            # 初始化服务端MCP客户端
+            logger.bind(tag=TAG).info(f"初始化服务端MCP客户端: {name}")
+            client = ServerMCPClient(srv_config)
+            # 设置超时时间5秒
+            await asyncio.wait_for(client.initialize(logging_callback=self.logging_callback), timeout=5)
+            self.clients[name] = client
+            client_tools = client.get_available_tools()
+            self.tools.extend(client_tools)
+
+        except asyncio.TimeoutError:
+            logger.bind(tag=TAG).error(
+                f"Failed to initialize MCP server {name}: Timeout"
+            )
+            if client:
+                await client.cleanup()
+        except Exception as e:
+            logger.bind(tag=TAG).error(
+                f"Failed to initialize MCP server {name}: {e}"
+            )
+            if client:
+                await client.cleanup()
+
     async def initialize_servers(self) -> None:
         """初始化所有MCP服务"""
         config = self.load_config()
+        tasks = []
         for name, srv_config in config.items():
             if not srv_config.get("command") and not srv_config.get("url"):
                 logger.bind(tag=TAG).warning(
                     f"Skipping server {name}: neither command nor url specified"
                 )
                 continue
-
-            try:
-                # 初始化服务端MCP客户端
-                logger.bind(tag=TAG).info(f"初始化服务端MCP客户端: {name}")
-                client = ServerMCPClient(srv_config)
-                await client.initialize(logging_callback=self.logging_callback)
-                self.clients[name] = client
-                client_tools = client.get_available_tools()
-                self.tools.extend(client_tools)
-
-            except Exception as e:
-                logger.bind(tag=TAG).error(
-                    f"Failed to initialize MCP server {name}: {e}"
-                )
+            
+            tasks.append(self._init_server(name, srv_config))
+        
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
         # 输出当前支持的服务端MCP工具列表
         if hasattr(self.conn, "func_handler") and self.conn.func_handler:
