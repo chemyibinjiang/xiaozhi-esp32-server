@@ -172,20 +172,6 @@ async def get_agent_models(
     )
 
 
-async def save_mem_local_short(mac_address: str, short_momery: str) -> Optional[Dict]:
-    try:
-        return await ManageApiClient._instance._execute_async_request(
-            "PUT",
-            f"/agent/saveMemory/" + mac_address,
-            json={
-                "summaryMemory": short_momery,
-            },
-        )
-    except Exception as e:
-        print(f"存储短期记忆到服务器失败: {e}")
-        return None
-
-
 async def generate_and_save_chat_summary(session_id: str) -> Optional[Dict]:
     """生成并保存聊天记录总结"""
     try:

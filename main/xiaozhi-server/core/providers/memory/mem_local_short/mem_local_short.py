@@ -4,10 +4,7 @@ import json
 import os
 import yaml
 from config.config_loader import get_project_dir
-from config.manage_api_client import (
-    save_mem_local_short,
-    generate_and_save_chat_summary,
-)
+from config.manage_api_client import generate_and_save_chat_summary
 import asyncio
 from core.utils.util import check_model_key
 
@@ -181,13 +178,7 @@ class MemoryProvider(MemoryProviderBase):
         else:
             # 当save_to_file为False时，调用Java端的聊天记录总结接口
             summary_id = session_id if session_id else self.role_id
-            # 使用异步版本，需要在事件循环中运行
-            try:
-                loop = asyncio.get_running_loop()
-                loop.create_task(generate_and_save_chat_summary(summary_id))
-            except RuntimeError:
-                # 如果没有运行中的事件循环，创建一个新的
-                asyncio.run(generate_and_save_chat_summary(summary_id))
+            await generate_and_save_chat_summary(summary_id)
         logger.bind(tag=TAG).info(
             f"Save memory successful - Role: {self.role_id}, Session: {session_id}"
         )

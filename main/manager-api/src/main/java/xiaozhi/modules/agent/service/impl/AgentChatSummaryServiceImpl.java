@@ -1,11 +1,19 @@
 package xiaozhi.modules.agent.service.impl;
 
-import lombok.RequiredArgsConstructor;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.stereotype.Service;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+
+import lombok.RequiredArgsConstructor;
 import xiaozhi.modules.agent.dto.AgentChatHistoryDTO;
 import xiaozhi.modules.agent.dto.AgentChatSummaryDTO;
 import xiaozhi.modules.agent.dto.AgentMemoryDTO;
@@ -14,19 +22,12 @@ import xiaozhi.modules.agent.entity.AgentChatHistoryEntity;
 import xiaozhi.modules.agent.service.AgentChatHistoryService;
 import xiaozhi.modules.agent.service.AgentChatSummaryService;
 import xiaozhi.modules.agent.service.AgentService;
-import xiaozhi.modules.config.service.ConfigService;
+import xiaozhi.modules.agent.vo.AgentInfoVO;
 import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.llm.service.LLMService;
-import xiaozhi.modules.agent.vo.AgentInfoVO;
 import xiaozhi.modules.model.entity.ModelConfigEntity;
 import xiaozhi.modules.model.service.ModelConfigService;
-import java.util.Map;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * 智能体聊天记录总结服务实现类
@@ -42,7 +43,6 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
     private final AgentService agentService;
     private final DeviceService deviceService;
     private final LLMService llmService;
-    private final ConfigService configService;
     private final ModelConfigService modelConfigService;
 
     // 总结规则常量
