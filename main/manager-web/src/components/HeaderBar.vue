@@ -262,7 +262,7 @@ export default {
       const currentLang = this.currentLanguage;
       switch (currentLang) {
         case "zh_CN":
-          return require("@/assets/xiaozhi-ai_zh_CN.png");
+          return require("@/assets/xiaozhi-ai.png");
         case "zh_TW":
           return require("@/assets/xiaozhi-ai_zh_TW.png");
         case "en":
@@ -272,7 +272,7 @@ export default {
         case "vi":
           return require("@/assets/xiaozhi-ai_vi.png");
         default:
-          return require("@/assets/xiaozhi-ai_zh_CN.png");
+          return require("@/assets/xiaozhi-ai.png");
       }
     },
     // 用户菜单选项
