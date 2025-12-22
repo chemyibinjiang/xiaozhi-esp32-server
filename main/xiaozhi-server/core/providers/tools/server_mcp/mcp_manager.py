@@ -3,12 +3,8 @@
 import asyncio
 import os
 import json
-from datetime import timedelta
 from typing import Dict, Any, List
 
-from mcp import Implementation
-from mcp.client.session import SamplingFnT, ElicitationFnT, ListRootsFnT, LoggingFnT, MessageHandlerFnT
-from mcp.shared.session import ProgressFnT
 from mcp.types import LoggingMessageNotificationParams
 
 from config.config_loader import get_project_dir
@@ -57,8 +53,8 @@ class ServerMCPManager:
             # 初始化服务端MCP客户端
             logger.bind(tag=TAG).info(f"初始化服务端MCP客户端: {name}")
             client = ServerMCPClient(srv_config)
-            # 设置超时时间5秒
-            await asyncio.wait_for(client.initialize(logging_callback=self.logging_callback), timeout=5)
+            # 设置超时时间10秒
+            await asyncio.wait_for(client.initialize(logging_callback=self.logging_callback), timeout=10)
 
             # 使用锁保护共享状态的修改
             async with self._init_lock:
