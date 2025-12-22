@@ -33,6 +33,7 @@ class ServerMCPManager:
             )
         self.clients: Dict[str, ServerMCPClient] = {}
         self.tools = []
+        self._init_lock = asyncio.Lock()
 
     def load_config(self) -> Dict[str, Any]:
         """加载MCP服务配置"""
@@ -58,9 +59,12 @@ class ServerMCPManager:
             client = ServerMCPClient(srv_config)
             # 设置超时时间5秒
             await asyncio.wait_for(client.initialize(logging_callback=self.logging_callback), timeout=5)
-            self.clients[name] = client
-            client_tools = client.get_available_tools()
-            self.tools.extend(client_tools)
+
+            # 使用锁保护共享状态的修改
+            async with self._init_lock:
+                self.clients[name] = client
+                client_tools = client.get_available_tools()
+                self.tools.extend(client_tools)
 
         except asyncio.TimeoutError:
             logger.bind(tag=TAG).error(
@@ -89,7 +93,7 @@ class ServerMCPManager:
             tasks.append(self._init_server(name, srv_config))
         
         if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            await asyncio.gather(*tasks)
 
         # 输出当前支持的服务端MCP工具列表
         if hasattr(self.conn, "func_handler") and self.conn.func_handler:
