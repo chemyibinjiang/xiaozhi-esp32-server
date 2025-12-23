@@ -47,6 +47,8 @@ class ASRProvider(ASRProviderBase):
         self.channel = config.get("channel", 1)
         self.auth_method = config.get("auth_method", "token")
         self.secret = config.get("secret", "access_secret")
+        end_window_size = config.get("end_window_size")
+        self.end_window_size = int(end_window_size) if end_window_size else 200
 
     async def open_audio_channels(self, conn):
         await super().open_audio_channels(conn)
@@ -291,7 +293,7 @@ class ASRProvider(ASRProviderBase):
                 "sequence": 1,
                 "boosting_table_name": self.boosting_table_name,
                 "correct_table_name": self.correct_table_name,
-                "end_window_size": 200,
+                "end_window_size": self.end_window_size,
             },
             "audio": {
                 "format": self.format,
