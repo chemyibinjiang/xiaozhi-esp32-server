@@ -244,7 +244,9 @@ class ConnectionHandler:
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
                         loop.run_until_complete(
-                            self.memory.save_memory(self.dialogue.dialogue)
+                            self.memory.save_memory(
+                                self.dialogue.dialogue, self.session_id
+                            )
                         )
                     except Exception as e:
                         self.logger.bind(tag=TAG).error(f"保存记忆失败: {e}")
