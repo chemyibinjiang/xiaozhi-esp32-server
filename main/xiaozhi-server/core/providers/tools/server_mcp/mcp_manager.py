@@ -3,12 +3,8 @@
 import asyncio
 import os
 import json
-from datetime import timedelta
 from typing import Dict, Any, List
 
-from mcp import Implementation
-from mcp.client.session import SamplingFnT, ElicitationFnT, ListRootsFnT, LoggingFnT, MessageHandlerFnT
-from mcp.shared.session import ProgressFnT
 from mcp.types import LoggingMessageNotificationParams
 
 from config.config_loader import get_project_dir
@@ -33,6 +29,7 @@ class ServerMCPManager:
             )
         self.clients: Dict[str, ServerMCPClient] = {}
         self.tools = []
+        self._init_lock = asyncio.Lock()
 
     def load_config(self) -> Dict[str, Any]:
         """加载MCP服务配置"""
@@ -49,29 +46,50 @@ class ServerMCPManager:
             )
             return {}
 
+    async def _init_server(self, name: str, srv_config: Dict[str, Any]):
+        """初始化单个MCP服务"""
+        client = None
+        try:
+            # 初始化服务端MCP客户端
+            logger.bind(tag=TAG).info(f"初始化服务端MCP客户端: {name}")
+            client = ServerMCPClient(srv_config)
+            # 设置超时时间10秒
+            await asyncio.wait_for(client.initialize(logging_callback=self.logging_callback), timeout=10)
+
+            # 使用锁保护共享状态的修改
+            async with self._init_lock:
+                self.clients[name] = client
+                client_tools = client.get_available_tools()
+                self.tools.extend(client_tools)
+
+        except asyncio.TimeoutError:
+            logger.bind(tag=TAG).error(
+                f"Failed to initialize MCP server {name}: Timeout"
+            )
+            if client:
+                await client.cleanup()
+        except Exception as e:
+            logger.bind(tag=TAG).error(
+                f"Failed to initialize MCP server {name}: {e}"
+            )
+            if client:
+                await client.cleanup()
+
     async def initialize_servers(self) -> None:
         """初始化所有MCP服务"""
         config = self.load_config()
+        tasks = []
         for name, srv_config in config.items():
             if not srv_config.get("command") and not srv_config.get("url"):
                 logger.bind(tag=TAG).warning(
                     f"Skipping server {name}: neither command nor url specified"
                 )
                 continue
-
-            try:
-                # 初始化服务端MCP客户端
-                logger.bind(tag=TAG).info(f"初始化服务端MCP客户端: {name}")
-                client = ServerMCPClient(srv_config)
-                await client.initialize(logging_callback=self.logging_callback)
-                self.clients[name] = client
-                client_tools = client.get_available_tools()
-                self.tools.extend(client_tools)
-
-            except Exception as e:
-                logger.bind(tag=TAG).error(
-                    f"Failed to initialize MCP server {name}: {e}"
-                )
+            
+            tasks.append(self._init_server(name, srv_config))
+        
+        if tasks:
+            await asyncio.gather(*tasks)
 
         # 输出当前支持的服务端MCP工具列表
         if hasattr(self.conn, "func_handler") and self.conn.func_handler:
