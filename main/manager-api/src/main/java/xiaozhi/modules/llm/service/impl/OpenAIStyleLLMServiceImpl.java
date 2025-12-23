@@ -1,9 +1,9 @@
 package xiaozhi.modules.llm.service.impl;
 
-import cn.hutool.json.JSONArray;
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
-import lombok.extern.slf4j.Slf4j;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
@@ -13,13 +13,14 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+
+import cn.hutool.json.JSONArray;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
+import lombok.extern.slf4j.Slf4j;
 import xiaozhi.modules.llm.service.LLMService;
 import xiaozhi.modules.model.entity.ModelConfigEntity;
 import xiaozhi.modules.model.service.ModelConfigService;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * OpenAI风格API的LLM服务实现
@@ -169,8 +170,6 @@ public class OpenAIStyleLLMServiceImpl implements LLMService {
             String baseUrl = configJson.getStr("base_url");
             String model = configJson.getStr("model_name");
             String apiKey = configJson.getStr("api_key");
-            Double temperature = configJson.getDouble("temperature");
-            Integer maxTokens = configJson.getInt("max_tokens");
 
             if (StringUtils.isBlank(baseUrl) || StringUtils.isBlank(apiKey)) {
                 log.error("LLM配置不完整，baseUrl或apiKey为空");
@@ -193,8 +192,8 @@ public class OpenAIStyleLLMServiceImpl implements LLMService {
             messages[0] = message;
 
             requestBody.put("messages", messages);
-            requestBody.put("temperature", temperature != null ? temperature : 0.7);
-            requestBody.put("max_tokens", maxTokens != null ? maxTokens : 2000);
+            requestBody.put("temperature", 0.2);
+            requestBody.put("max_tokens", 2000);
 
             // 发送HTTP请求
             HttpHeaders headers = new HttpHeaders();
