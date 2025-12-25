@@ -106,6 +106,15 @@ public class ConfigServiceImpl implements ConfigService {
 
     @Override
     public Map<String, Object> getAgentModels(String macAddress, Map<String, String> selectedModule) {
+        // 检查是否为管理控制台请求
+        String redisKey = RedisKeys.getTmpRegisterMacKey(macAddress);
+        Object isAdminRequest = redisUtils.get(redisKey);
+        
+        if (isAdminRequest != null && "true".equals(isAdminRequest)) {
+            // 管理控制台请求，返回getConfig的结果
+            redisUtils.delete(redisKey); // 使用后清理
+            return (Map<String, Object>) getConfig(true);
+        }
         // 根据MAC地址查找设备
         DeviceEntity device = deviceService.getDeviceByMacAddress(macAddress);
         if (device == null) {
