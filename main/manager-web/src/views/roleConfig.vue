@@ -55,10 +55,24 @@
                         </div>
                       </div>
                     </el-form-item>
+                    <el-form-item :label="$t('roleConfig.contextProvider') + '：'" class="context-provider-item">
+                      <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="color: #606266; font-size: 13px;">
+                          {{ $t('roleConfig.contextProviderSuccess', { count: currentContextProviders.length }) }}<a href="https://github.com/xinnan-tech/xiaozhi-esp32-server/blob/main/docs/context-provider-integration.md" target="_blank" class="doc-link">{{ $t('roleConfig.contextProviderDocLink') }}</a>
+                        </span>
+                        <el-button
+                          class="edit-function-btn"
+                          size="small"
+                          @click="openContextProviderDialog"
+                        >
+                          {{ $t('roleConfig.editContextProvider') }}
+                        </el-button>
+                      </div>
+                    </el-form-item>
                     <el-form-item :label="$t('roleConfig.roleIntroduction') + '：'">
                       <el-input
                         type="textarea"
-                        rows="9"
+                        rows="8"
                         resize="none"
                         :placeholder="$t('roleConfig.pleaseEnterContent')"
                         v-model="form.systemPrompt"
@@ -71,7 +85,7 @@
                     <el-form-item :label="$t('roleConfig.memoryHis') + '：'">
                       <el-input
                         type="textarea"
-                        rows="6"
+                        rows="4"
                         resize="none"
                         v-model="form.summaryMemory"
                         maxlength="2000"
@@ -107,7 +121,11 @@
                   </div>
                   <div class="form-column">
                     <div class="model-row">
-                      <el-form-item :label="$t('roleConfig.vad')" class="model-item">
+                      <el-form-item 
+                        v-if="featureStatus.vad" 
+                        :label="$t('roleConfig.vad')" 
+                        class="model-item"
+                      >
                         <div class="model-select-wrapper">
                           <el-select
                             v-model="form.model.vadModelId"
@@ -125,7 +143,11 @@
                           </el-select>
                         </div>
                       </el-form-item>
-                      <el-form-item :label="$t('roleConfig.asr')" class="model-item">
+                      <el-form-item 
+                        v-if="featureStatus.asr" 
+                        :label="$t('roleConfig.asr')" 
+                        class="model-item"
+                      >
                         <div class="model-select-wrapper">
                           <el-select
                             v-model="form.model.asrModelId"
@@ -267,6 +289,11 @@
       @update-functions="handleUpdateFunctions"
       @dialog-closed="handleDialogClosed"
     />
+    <context-provider-dialog
+      :visible.sync="showContextProviderDialog"
+      :providers="currentContextProviders"
+      @confirm="handleUpdateContext"
+    />
   </div>
 </template>
 
@@ -275,14 +302,17 @@ import Api from "@/apis/api";
 import { getServiceUrl } from "@/apis/api";
 import RequestService from "@/apis/httpRequest";
 import FunctionDialog from "@/components/FunctionDialog.vue";
+import ContextProviderDialog from "@/components/ContextProviderDialog.vue";
 import HeaderBar from "@/components/HeaderBar.vue";
 import i18n from "@/i18n";
+import featureManager from "@/utils/featureManager"; 
 
 export default {
   name: "RoleConfigPage",
-  components: { HeaderBar, FunctionDialog },
+  components: { HeaderBar, FunctionDialog, ContextProviderDialog },
   data() {
     return {
+      showContextProviderDialog: false,
       form: {
         agentCode: "",
         agentName: "",
@@ -320,12 +350,18 @@ export default {
       voiceDetails: {}, // 保存完整的音色信息
       showFunctionDialog: false,
       currentFunctions: [],
+      currentContextProviders: [],
       allFunctions: [],
       originalFunctions: [],
       playingVoice: false,
       isPaused: false,
       currentAudio: null,
       currentPlayingVoiceId: null,
+      // 功能状态
+      featureStatus: {
+        vad: false, // 语言检测活动功能状态
+        asr: false, // 语音识别功能状态
+      },
     };
   },
   methods: {
@@ -356,6 +392,7 @@ export default {
             paramInfo: item.params,
           };
         }),
+        contextProviders: this.currentContextProviders,
       };
       Api.agent.updateAgentConfig(this.$route.query.agentId, configData, ({ data }) => {
         if (data.code === 0) {
@@ -472,6 +509,9 @@ export default {
           };
           // 后端只给了最小映射：[{ id, agentId, pluginId }, ...]
           const savedMappings = data.data.functions || [];
+          
+          // 加载上下文配置
+          this.currentContextProviders = data.data.contextProviders || [];
 
           // 先保证 allFunctions 已经加载（如果没有，则先 fetchAllFunctions）
           const ensureFuncs = this.allFunctions.length
@@ -645,6 +685,12 @@ export default {
       } else {
         this.showFunctionDialog = true;
       }
+    },
+    openContextProviderDialog() {
+      this.showContextProviderDialog = true;
+    },
+    handleUpdateContext(providers) {
+      this.currentContextProviders = providers;
     },
     handleUpdateFunctions(selected) {
       this.currentFunctions = selected;
@@ -980,6 +1026,19 @@ export default {
         this.form.chatHistoryConf = 0;
       }
     },
+    // 加载功能状态
+    async loadFeatureStatus() {
+      try {
+        // 确保featureManager已初始化完成
+        await featureManager.waitForInitialization();
+        const config = featureManager.getConfig();
+        this.featureStatus.voiceprintRecognition = config.voiceprintRecognition || false;
+        this.featureStatus.vad = config.vad || false;
+        this.featureStatus.asr = config.asr || false;
+      } catch (error) {
+        console.error("加载功能状态失败:", error);
+      }
+    },
   },
   watch: {
     "form.model.ttsModelId": {
@@ -1002,7 +1061,7 @@ export default {
       immediate: true,
     },
   },
-  mounted() {
+  async mounted() {
     const agentId = this.$route.query.agentId;
     if (agentId) {
       this.fetchAgentConfig(agentId);
@@ -1010,6 +1069,8 @@ export default {
     }
     this.fetchModelOptions();
     this.fetchTemplates();
+    // 加载功能状态，确保featureManager已初始化
+    await this.loadFeatureStatus();
   },
 };
 </script>
@@ -1298,6 +1359,26 @@ export default {
   justify-content: flex-end;
 }
 
+.chat-history-options ::v-deep .el-radio-button {
+  border-color: #5778ff;
+}
+
+.chat-history-options ::v-deep .el-radio-button .el-radio-button__inner {
+  color: #5778ff;
+  border-color: #5778ff;
+  background-color: transparent;
+}
+
+.chat-history-options ::v-deep .el-radio-button.is-active .el-radio-button__inner {
+  background-color: #5778ff;
+  border-color: #5778ff;
+  color: white;
+}
+
+.chat-history-options ::v-deep .el-radio-button .el-radio-button__inner:hover {
+  color: #5778ff;
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -1344,5 +1425,19 @@ export default {
   width: 32px;
   height: 32px;
   margin-left: 8px;
+}
+
+.context-provider-item ::v-deep .el-form-item__label {
+  line-height: 42px !important;
+}
+
+.doc-link {
+  color: #5778ff;
+  text-decoration: none;
+  margin-left: 4px;
+
+  &:hover {
+    text-decoration: underline;
+  }
 }
 </style>

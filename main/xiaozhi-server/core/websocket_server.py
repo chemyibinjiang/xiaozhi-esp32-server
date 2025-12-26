@@ -1,10 +1,37 @@
 import asyncio
-import json
+import logging
 
 import websockets
 from config.logger import setup_logging
+
+
+class SuppressInvalidHandshakeFilter(logging.Filter):
+    """过滤掉无效握手错误日志（如HTTPS访问WS端口）"""
+
+    def filter(self, record):
+        msg = record.getMessage()
+        suppress_keywords = [
+            "opening handshake failed",
+            "did not receive a valid HTTP request",
+            "connection closed while reading HTTP request",
+            "line without CRLF",
+        ]
+        return not any(keyword in msg for keyword in suppress_keywords)
+
+
+def _setup_websockets_logger():
+    """配置 websockets 相关的所有 logger，过滤无效握手错误"""
+    filter_instance = SuppressInvalidHandshakeFilter()
+    for logger_name in ["websockets", "websockets.server", "websockets.client"]:
+        logger = logging.getLogger(logger_name)
+        logger.addFilter(filter_instance)
+
+
+_setup_websockets_logger()
+
+
 from core.connection import ConnectionHandler
-from config.config_loader import get_config_from_api
+from config.config_loader import get_config_from_api_async
 from core.auth import AuthManager, AuthenticationError
 from core.utils.modules_initialize import initialize_modules
 from core.utils.util import check_vad_update, check_asr_update
@@ -133,8 +160,8 @@ class WebSocketServer:
         """
         try:
             async with self.config_lock:
-                # 重新获取配置
-                new_config = get_config_from_api(self.config)
+                # 重新获取配置（使用异步版本）
+                new_config = await get_config_from_api_async(self.config)
                 if new_config is None:
                     self.logger.bind(tag=TAG).error("获取新配置失败")
                     return False

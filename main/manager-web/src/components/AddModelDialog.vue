@@ -404,7 +404,7 @@ export default {
 
 .custom-input-bg .el-input__inner,
 .custom-input-bg .el-textarea__inner {
-  background-color: #f6f8fc;
+  background-color: #ffffff;
 }
 
 
