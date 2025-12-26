@@ -478,7 +478,32 @@ ASR:
     accent: mandarin # 方言，mandarin:普通话
     # 调整音频处理参数以提高长语音识别质量
     output_dir: tmp/
-  
+  AliyunBLStreamASR:
+    # 阿里百炼Paraformer实时语音识别服务
+    # WebSocket实时流式语音识别，支持多语言、热词定制、语义断句等高级功能
+    # 平台地址：https://bailian.console.aliyun.com/
+    # API Key地址：https://bailian.console.aliyun.com/#/api-key
+    # 文档地址：https://help.aliyun.com/zh/model-studio/websocket-for-paraformer-real-time-service
+    # 支持模型：paraformer-realtime-v2(推荐), paraformer-realtime-8k-v2, paraformer-realtime-v1, paraformer-realtime-8k-v1
+    type: aliyunbl_stream
+    # 必填参数
+    api_key: 你的阿里云百炼API密钥
+    # 模型选择，推荐使用v2版本
+    model: paraformer-realtime-v2
+    # 音频格式和采样率
+    format: pcm
+    sample_rate: 16000  # v2支持任意采样率，v1仅支持16000，8k版本仅支持8000
+    # 可选参数
+    disfluency_removal_enabled: false  # 是否过滤语气词(如"嗯"、"啊"等)
+    semantic_punctuation_enabled: false  # 语义断句(true:会议场景,准确;false:VAD断句,交互场景,低延迟)
+    max_sentence_silence: 800  # VAD断句静音时长阈值(ms)，范围200-6000，仅VAD断句时生效
+    multi_threshold_mode_enabled: false  # 防止VAD断句切割过长，仅VAD断句时生效
+    punctuation_prediction_enabled: true  # 是否自动添加标点符号
+    heartbeat: false  # 是否开启长连接心跳(持续静音下保持连接)
+    inverse_text_normalization_enabled: true  # 是否开启ITN(中文数字转阿拉伯数字)
+    # vocabulary_id: vocab-xxx-24ee19fa8cfb4d52902170a0xxxxxxxx  # 热词ID(可选)
+    # language_hints: ["zh", "en"]  # 指定语言(可选)，支持zh、en、ja、yue、ko、de、fr、ru
+    output_dir: tmp/  
 VAD:
   SileroVAD:
     type: silero
