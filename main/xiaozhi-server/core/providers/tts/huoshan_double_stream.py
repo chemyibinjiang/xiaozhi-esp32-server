@@ -164,7 +164,7 @@ class TTSProvider(TTSProviderBase):
         self.authorization = config.get("authorization")
         self.header = {"Authorization": f"{self.authorization}{self.access_token}"}
         enable_ws_reuse_value = config.get("enable_ws_reuse", True)
-        self.enable_ws_reuse = False if str(enable_ws_reuse_value).lower() in ('false', 'False') else True
+        self.enable_ws_reuse = False if str(enable_ws_reuse_value).lower() == 'false' else True
         self.tts_text = ""
         self.opus_encoder = opus_encoder_utils.OpusEncoderUtils(
             sample_rate=16000, channels=1, frame_size_ms=60

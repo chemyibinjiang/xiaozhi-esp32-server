@@ -32,15 +32,15 @@ class ASRProvider(ASRProviderBase):
         self.format = config.get("format", "pcm")
 
         # 可选参数
-        self.vocabulary_id = config.get("vocabulary_id")  # 热词ID
-        self.disfluency_removal_enabled = config.get("disfluency_removal_enabled", False)  # 过滤语气词
-        self.language_hints = config.get("language_hints")  # 语言提示,如 ["zh", "en"]
-        self.semantic_punctuation_enabled = config.get("semantic_punctuation_enabled", False)  # 语义断句
-        self.max_sentence_silence = config.get("max_sentence_silence", 800)  # VAD断句静音时长(ms)
-        self.multi_threshold_mode_enabled = config.get("multi_threshold_mode_enabled", False)  # 防止VAD断句切割过长
-        self.punctuation_prediction_enabled = config.get("punctuation_prediction_enabled", True)  # 标点符号预测
-        self.heartbeat = config.get("heartbeat", False)  # 长连接心跳
-        self.inverse_text_normalization_enabled = config.get("inverse_text_normalization_enabled", True)  # ITN
+        self.vocabulary_id = config.get("vocabulary_id")
+        self.disfluency_removal_enabled = config.get("disfluency_removal_enabled", False)
+        self.language_hints = config.get("language_hints")
+        self.semantic_punctuation_enabled = config.get("semantic_punctuation_enabled", False)
+        max_sentence_silence = config.get("max_sentence_silence")
+        self.max_sentence_silence = int(max_sentence_silence) if max_sentence_silence else 200
+        self.multi_threshold_mode_enabled = config.get("multi_threshold_mode_enabled", False)
+        self.punctuation_prediction_enabled = config.get("punctuation_prediction_enabled", True)
+        self.inverse_text_normalization_enabled = config.get("inverse_text_normalization_enabled", True)
 
         # WebSocket URL
         self.ws_url = "wss://dashscope.aliyuncs.com/api-ws/v1/inference"
@@ -85,6 +85,10 @@ class ASRProvider(ASRProviderBase):
     async def _start_recognition(self, conn):
         """开始识别会话"""
         try:
+            # 如果为手动模式,设置超时时长为最大值
+            if conn.client_listen_mode == "manual":
+                self.max_sentence_silence = 6000
+
             self.is_processing = True
             self.task_id = uuid.uuid4().hex
 
@@ -143,21 +147,21 @@ class ASRProvider(ASRProviderBase):
                     "max_sentence_silence": self.max_sentence_silence,
                     "multi_threshold_mode_enabled": self.multi_threshold_mode_enabled,
                     "punctuation_prediction_enabled": self.punctuation_prediction_enabled,
-                    "heartbeat": self.heartbeat,
                     "inverse_text_normalization_enabled": self.inverse_text_normalization_enabled,
                 },
                 "input": {}
             }
         }
 
-        # 添加可选参数
-        if self.vocabulary_id:
+        # 只有当模型名称以v2结尾时才添加vocabulary_id参数
+        if self.model.lower().endswith("v2"):
             message["payload"]["parameters"]["vocabulary_id"] = self.vocabulary_id
 
         if self.language_hints:
             message["payload"]["parameters"]["language_hints"] = self.language_hints
 
         return message
+
     async def _forward_results(self, conn):
         """转发识别结果"""
         try:
@@ -191,20 +195,9 @@ class ASRProvider(ASRProviderBase):
                         output = payload.get("output", {})
                         sentence = output.get("sentence", {})
 
-                        if not sentence:
-                            continue
-
-                        # 跳过心跳消息
-                        if sentence.get("heartbeat", False):
-                            continue
-
                         text = sentence.get("text", "")
                         sentence_end = sentence.get("sentence_end", False)
                         end_time = sentence.get("end_time")
-
-                        # 只处理有文本的结果
-                        if not text:
-                            continue
 
                         # 判断是否为最终结果(sentence_end为True且end_time不为null)
                         is_final = sentence_end and end_time is not None
@@ -272,8 +265,11 @@ class ASRProvider(ASRProviderBase):
 
     async def _send_stop_request(self):
         """发送停止请求(用于手动模式停止录音)"""
-        if self.asr_ws and self.task_id and self.is_processing:
+        if self.asr_ws:
             try:
+                # 先停止音频发送
+                self.is_processing = False
+
                 logger.bind(tag=TAG).debug("收到停止请求，发送finish-task指令")
                 await self._send_finish_task()
             except Exception as e:
