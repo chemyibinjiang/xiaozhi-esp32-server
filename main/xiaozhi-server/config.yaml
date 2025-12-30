@@ -717,6 +717,10 @@ TTS:
     speech_rate: 0
     loudness_rate: 0
     pitch: 0
+    # 多情感音色参数，注意：当前仅部分音色支持设置情感。
+    # 相关音色列表：https://www.volcengine.com/docs/6561/1257544
+    emotion: "neutral"  # 情感类型，可选值为：neutral、happy、sad、angry、fearful、disgusted、surprised
+    emotion_scale: 4  # 情感强度，可选值为：1~5，默认值为4
   CosyVoiceSiliconflow:
     type: siliconflow
     # 硅基流动TTS

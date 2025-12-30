@@ -25,6 +25,7 @@ UPDATE `ai_model_config` SET
    - max_sentence_silence: VAD断句静音时长阈值(200-6000ms)
 ' WHERE `id` = 'ASR_AliyunBLStream';
 
+
 -- 更新豆包流式ASR供应器，增加配置
 delete from `ai_model_provider` where id = 'SYSTEM_ASR_DoubaoStreamASR';
 INSERT INTO `ai_model_provider` (`id`, `model_type`, `provider_code`, `name`, `fields`, `sort`, `creator`, `create_date`, `updater`, `update_date`) VALUES
@@ -46,7 +47,6 @@ UPDATE `ai_model_config` SET
 如开启多语种识别模式，请设置language当该键为空时，该模型支持中英文、上海话、闽南语，四川、陕西、粤语识别。其他语种请参考：https://www.volcengine.com/docs/6561/1354869
 ' WHERE `id` = 'ASR_DoubaoStreamASR';
 
-
 -- 更新豆包流式ASR模型配置，增加enable_multilingual默认值
 UPDATE `ai_model_config` SET
 `config_json` = JSON_SET(
@@ -57,3 +57,38 @@ UPDATE `ai_model_config` SET
 WHERE `id` = 'ASR_DoubaoStreamASR' 
 AND JSON_EXTRACT(`config_json`, '$.enable_multilingual') IS NULL 
 AND JSON_EXTRACT(`config_json`, '$.language') IS NULL;
+
+
+-- 更新HuoshanDoubleStreamTTS供应器配置，增加多情感音色参数
+UPDATE `ai_model_provider`
+SET `fields` = '[{"key": "ws_url", "type": "string", "label": "WebSocket地址"}, {"key": "appid", "type": "string", "label": "应用ID"}, {"key": "access_token", "type": "string", "label": "访问令牌"}, {"key": "resource_id", "type": "string", "label": "资源ID"}, {"key": "speaker", "type": "string", "label": "默认音色"}, {"key": "enable_ws_reuse", "type": "boolean", "label": "是否开启链接复用", "default": true}, {"key": "speech_rate", "type": "number", "label": "语速(-50~100)"}, {"key": "loudness_rate", "type": "number", "label": "音量(-50~100)"}, {"key": "pitch", "type": "number", "label": "音高(-12~12)"}, {"key": "emotion_scale", "type": "number", "label": "情感强度(1-5)"}, {"key": "emotion", "type": "string", "label": "情感类型"}]'
+WHERE `id` = 'SYSTEM_TTS_HSDSTTS';
+
+-- 更新默认值
+UPDATE `ai_model_config` SET
+`config_json` = JSON_SET(
+    `config_json`,
+    '$.emotion', 'neutral',
+    '$.emotion_scale', 4
+)
+WHERE `id` = 'TTS_HuoshanDoubleStreamTTS'
+AND JSON_EXTRACT(`config_json`, '$.emotion') IS NULL 
+AND JSON_EXTRACT(`config_json`, '$.emotion_scale') IS NULL;
+
+-- 增加文档链接和备注
+UPDATE `ai_model_config` SET 
+`doc_link` = 'https://console.volcengine.com/speech/service/10007',
+`remark` = '火山引擎语音合成服务配置说明：
+1. 访问 https://www.volcengine.com/ 注册并开通火山引擎账号
+2. 访问 https://console.volcengine.com/speech/service/10007 开通语音合成大模型，购买音色
+3. 在页面底部获取appid和access_token
+5. 资源ID固定为：volc.service_type.10029（大模型语音合成及混音）
+6. 链接复用：开启WebSocket连接复用，默认true减少链接损耗（注意：复用后设备处于聆听状态时空闲链接会占并发数）
+7. 语速：-50~100，可不填，正常默认值0，可填-50~100
+8. 音量：-50~100，可不填，正常默认值0，可填-50~100
+9. 音高：-12~12，可不填，正常默认值0，可填-12~12
+10. 多情感参数（当前仅部分音色支持设置情感）：
+   相关音色列表：https://www.volcengine.com/docs/6561/1257544
+    - emotion_scale：情感强度，可选值为：1~5，默认值为4
+    - emotion：情感类型，可选值为：neutral、happy、sad、angry、fearful、disgusted、surprised
+' WHERE `id` = 'TTS_HuoshanDoubleStreamTTS';
