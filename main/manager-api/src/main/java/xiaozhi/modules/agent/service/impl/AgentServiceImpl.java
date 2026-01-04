@@ -42,6 +42,7 @@ import xiaozhi.modules.agent.service.AgentPluginMappingService;
 import xiaozhi.modules.agent.service.AgentService;
 import xiaozhi.modules.agent.service.AgentTemplateService;
 import xiaozhi.modules.agent.vo.AgentInfoVO;
+import xiaozhi.modules.device.entity.DeviceEntity;
 import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.model.dto.ModelProviderDTO;
 import xiaozhi.modules.model.dto.VoiceDTO;
@@ -157,6 +158,15 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
 
             // 获取设备数量
             dto.setDeviceCount(getDeviceCountByAgentId(agent.getId()));
+            
+            // 获取关联设备的MAC地址列表
+            List<DeviceEntity> devices = deviceService.getUserDevices(agent.getUserId(), agent.getId());
+            List<String> macAddresses = devices.stream()
+                .map(DeviceEntity::getMacAddress)
+                .filter(StringUtils::isNotBlank)
+                .collect(Collectors.toList());
+            dto.setMacAddresses(macAddresses);
+            
             return dto;
         }).collect(Collectors.toList());
     }

@@ -136,7 +136,15 @@ export default {
       }
 
       this.devices = this.originalDevices.filter(device => {
-        return this.searchRegex.test(device.agentName);
+        // 搜索智能体名称
+        if (this.searchRegex.test(device.agentName)) {
+          return true;
+        }
+        // 搜索关联设备的MAC地址
+        if (device.macAddresses && device.macAddresses.length > 0) {
+          return device.macAddresses.some(macAddress => this.searchRegex.test(macAddress));
+        }
+        return false;
       });
     },
     // 搜索更新智能体列表

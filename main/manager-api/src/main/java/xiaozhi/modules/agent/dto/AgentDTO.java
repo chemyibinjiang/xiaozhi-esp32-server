@@ -1,6 +1,7 @@
 package xiaozhi.modules.agent.dto;
 
 import java.util.Date;
+import java.util.List;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -45,4 +46,7 @@ public class AgentDTO {
 
     @Schema(description = "设备数量", example = "10")
     private Integer deviceCount;
+    
+    @Schema(description = "关联设备的MAC地址列表", example = "[\"00:11:22:33:44:55\", \"66:77:88:99:AA:BB\"]")
+    private List<String> macAddresses;
 }
