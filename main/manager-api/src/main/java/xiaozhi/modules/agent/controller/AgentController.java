@@ -271,4 +271,15 @@ public class AgentController {
                 .body(audioData);
     }
 
+    @GetMapping("/search")
+    @Operation(summary = "搜索智能体")
+    @RequiresPermissions("sys:role:normal")
+    public Result<List<AgentDTO>> searchAgent(
+            @RequestParam("keyword") String keyword,
+            @RequestParam(value = "searchType", defaultValue = "name") String searchType) {
+        UserDetail user = SecurityUser.getUser();
+        List<AgentDTO> agents = agentService.searchAgent(keyword, searchType, user.getId());
+        return new Result<List<AgentDTO>>().ok(agents);
+    }
+
 }

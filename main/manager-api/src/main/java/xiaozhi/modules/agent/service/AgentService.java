@@ -98,4 +98,14 @@ public interface AgentService extends BaseService<AgentEntity> {
      * @return 创建的智能体ID
      */
     String createAgent(AgentCreateDTO dto);
+
+    /**
+     * 搜索智能体
+     *
+     * @param keyword 搜索关键词
+     * @param searchType 搜索类型：name（按名称搜索）或mac（按MAC地址搜索）
+     * @param userId 用户ID
+     * @return 智能体列表
+     */
+    List<AgentDTO> searchAgent(String keyword, String searchType, Long userId);
 }
