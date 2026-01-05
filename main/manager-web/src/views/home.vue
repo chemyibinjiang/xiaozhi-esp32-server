@@ -141,7 +141,8 @@ export default {
     },
     handleSearchReset() {
       this.isSearching = false;
-      this.fetchAgentList();
+      // 直接将原始设备列表赋值给显示设备列表，避免重新加载数据
+      this.devices = [...this.originalDevices];
     },
 
     // 搜索更新智能体列表
@@ -164,7 +165,8 @@ export default {
             10 // 最多10个
           );
 
-          this.handleSearchReset();
+          // 将原始设备列表赋值给显示设备列表
+          this.devices = [...this.originalDevices];
         }
         this.isLoading = false;
       }, (error) => {
