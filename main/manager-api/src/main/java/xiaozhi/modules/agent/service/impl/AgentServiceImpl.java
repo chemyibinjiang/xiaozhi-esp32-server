@@ -31,6 +31,7 @@ import xiaozhi.common.utils.JsonUtils;
 import xiaozhi.modules.agent.dao.AgentDao;
 import xiaozhi.modules.agent.dto.AgentCreateDTO;
 import xiaozhi.modules.agent.dto.AgentDTO;
+import xiaozhi.modules.agent.dto.AgentSearchDTO;
 import xiaozhi.modules.agent.dto.AgentUpdateDTO;
 import xiaozhi.modules.agent.entity.AgentContextProviderEntity;
 import xiaozhi.modules.agent.entity.AgentEntity;
@@ -89,13 +90,13 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
                 agent.setChatHistoryConf(Constant.ChatHistoryConfEnum.RECORD_TEXT_AUDIO.getCode());
             }
         }
-        
+
         // 查询上下文源配置
         AgentContextProviderEntity contextProviderEntity = agentContextProviderService.getByAgentId(id);
         if (contextProviderEntity != null) {
             agent.setContextProviders(contextProviderEntity.getContextProviders());
         }
-        
+
         // 无需额外查询插件列表，已通过SQL查询出来
         return agent;
     }
@@ -158,15 +159,7 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
 
             // 获取设备数量
             dto.setDeviceCount(getDeviceCountByAgentId(agent.getId()));
-            
-            // 获取关联设备的MAC地址列表
-            List<DeviceEntity> devices = deviceService.getUserDevices(agent.getUserId(), agent.getId());
-            List<String> macAddresses = devices.stream()
-                .map(DeviceEntity::getMacAddress)
-                .filter(StringUtils::isNotBlank)
-                .collect(Collectors.toList());
-            dto.setMacAddresses(macAddresses);
-            
+
             return dto;
         }).collect(Collectors.toList());
     }
@@ -480,42 +473,43 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
     }
 
     @Override
-    public List<AgentDTO> searchAgent(String keyword, String searchType, Long userId) {
-        if (StringUtils.isBlank(keyword)) {
+    public List<AgentDTO> searchAgent(AgentSearchDTO searchDTO) {
+        if (StringUtils.isBlank(searchDTO.getKeyword())) {
             return new ArrayList<>();
         }
 
         QueryWrapper<AgentEntity> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("user_id", userId);
+        queryWrapper.eq("user_id", searchDTO.getUserId());
 
-        if ("mac".equals(searchType)) {
+        if ("mac".equals(searchDTO.getSearchType())) {
             // 按MAC地址搜索：先搜索设备，再获取对应的智能体
-            List<DeviceEntity> devices = deviceService.searchDevicesByMacAddress(keyword, userId);
-            
+            List<DeviceEntity> devices = deviceService.searchDevicesByMacAddress(searchDTO.getKeyword(),
+                    searchDTO.getUserId());
+
             if (devices.isEmpty()) {
                 return new ArrayList<>();
             }
-            
+
             // 获取设备对应的智能体ID列表
             List<String> agentIds = devices.stream()
                     .map(DeviceEntity::getAgentId)
                     .distinct()
                     .collect(Collectors.toList());
-            
+
             if (agentIds.isEmpty()) {
                 return new ArrayList<>();
             }
-            
+
             // 查询智能体
             queryWrapper.in("id", agentIds);
         } else {
             // 按名称搜索
-            queryWrapper.like("agent_name", keyword);
+            queryWrapper.like("agent_name", searchDTO.getKeyword());
         }
 
         // 执行查询
         List<AgentEntity> agentEntities = baseDao.selectList(queryWrapper);
-        
+
         // 转换为DTO并设置所有必要字段
         return agentEntities.stream().map(agent -> {
             AgentDTO dto = new AgentDTO();
@@ -543,15 +537,7 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
 
             // 获取设备数量
             dto.setDeviceCount(getDeviceCountByAgentId(agent.getId()));
-            
-            // 获取关联设备的MAC地址列表
-            List<DeviceEntity> devices = deviceService.getUserDevices(agent.getUserId(), agent.getId());
-            List<String> macAddresses = devices.stream()
-                .map(DeviceEntity::getMacAddress)
-                .filter(StringUtils::isNotBlank)
-                .collect(Collectors.toList());
-            dto.setMacAddresses(macAddresses);
-            
+
             return dto;
         }).collect(Collectors.toList());
     }

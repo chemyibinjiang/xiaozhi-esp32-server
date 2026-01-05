@@ -7,6 +7,7 @@ import xiaozhi.common.page.PageData;
 import xiaozhi.common.service.BaseService;
 import xiaozhi.modules.agent.dto.AgentCreateDTO;
 import xiaozhi.modules.agent.dto.AgentDTO;
+import xiaozhi.modules.agent.dto.AgentSearchDTO;
 import xiaozhi.modules.agent.dto.AgentUpdateDTO;
 import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.vo.AgentInfoVO;
@@ -102,10 +103,8 @@ public interface AgentService extends BaseService<AgentEntity> {
     /**
      * 搜索智能体
      *
-     * @param keyword 搜索关键词
-     * @param searchType 搜索类型：name（按名称搜索）或mac（按MAC地址搜索）
-     * @param userId 用户ID
+     * @param searchDTO 搜索条件DTO
      * @return 智能体列表
      */
-    List<AgentDTO> searchAgent(String keyword, String searchType, Long userId);
+    List<AgentDTO> searchAgent(AgentSearchDTO searchDTO);
 }

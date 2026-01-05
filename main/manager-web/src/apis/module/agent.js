@@ -386,7 +386,7 @@ export default {
     // 搜索智能体
     searchAgent(keyword, searchType, callback) {
         RequestService.sendRequest()
-            .url(`${getServiceUrl()}/agent/search`)
+            .url(`${getServiceUrl()}/agent/list`)
             .method('GET')
             .data({ 
                 keyword: keyword, 
