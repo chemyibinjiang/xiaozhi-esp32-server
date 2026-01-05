@@ -123,7 +123,7 @@ export default {
       this.isSearching = true;
       this.isLoading = true;
       // 检测MAC地址格式：包含4个冒号
-      const isMac = /(:.*?){4}/.test(keyword);
+      const isMac = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(keyword)
       const searchType = isMac ? 'mac' : 'name';
       Api.agent.searchAgent(keyword, searchType, ({ data }) => {
         if (data?.data) {
