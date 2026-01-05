@@ -6,11 +6,10 @@ import shutil
 import psutil
 import asyncio
 
+from funasr import AutoModel
 from config.logger import setup_logging
 from typing import Optional, Tuple, List
-from core.providers.asr.base import ASRProviderBase
 from core.providers.asr.utils import lang_tag_filter
-from funasr import AutoModel
 from core.providers.asr.base import ASRProviderBase
 from core.providers.asr.dto.dto import InterfaceType
 
@@ -103,11 +102,9 @@ class ASRProvider(ASRProviderBase):
                     use_itn=True,
                     batch_size_s=60,
                 )
-                # text = await asyncio.to_thread(rich_transcription_postprocess, result[0]["text"])
-                # 使用lang_tag_filter处理识别结果
-                text = await asyncio.to_thread(lang_tag_filter, result[0]["text"])
+                text = lang_tag_filter(result[0]["text"])
                 logger.bind(tag=TAG).debug(
-                    f"语音识别耗时: {time.time() - start_time:.3f}s | 结果: {text}"
+                    f"语音识别耗时: {time.time() - start_time:.3f}s | 结果: {text['content']}"
                 )
 
                 return text, file_path

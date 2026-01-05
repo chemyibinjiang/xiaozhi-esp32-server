@@ -1,12 +1,13 @@
+import ssl
+import json
+import asyncio
+import websockets
+
+from config.logger import setup_logging
 from typing import Optional, Tuple, List
 from core.providers.asr.base import ASRProviderBase
 from core.providers.asr.utils import lang_tag_filter
 from core.providers.asr.dto.dto import InterfaceType
-import ssl
-import json
-import websockets
-from config.logger import setup_logging
-import asyncio
 
 TAG = __name__
 logger = setup_logging()
@@ -156,7 +157,7 @@ class ASRProvider(ASRProviderBase):
                 # if match:
                 #     result = match.group(4).strip()
 
-                # Handle language tags
+                # Handle tags
                 result = lang_tag_filter(result)
                 return (
                     result,

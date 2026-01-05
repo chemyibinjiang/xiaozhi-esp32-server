@@ -4,40 +4,76 @@ from config.logger import setup_logging
 TAG = __name__
 logger = setup_logging()
 
+EMOTION_EMOJI_MAP = {
+    "HAPPY": "🙂",
+    "SAD": "😔",
+    "ANGRY": "😡",
+    "NEUTRAL": "😶",
+    "FEARFUL": "😰",
+    "DISGUSTED": "🤢",
+    "SURPRISED": "😲",
+    "EMO_UNKNOWN": "😶",  # 未知情绪默认用中性表情
+}
+# EVENT_EMOJI_MAP = {
+#     "<|BGM|>": "🎼",
+#     "<|Speech|>": "",
+#     "<|Applause|>": "👏",
+#     "<|Laughter|>": "😀",
+#     "<|Cry|>": "😭",
+#     "<|Sneeze|>": "🤧",
+#     "<|Breath|>": "",
+#     "<|Cough|>": "🤧",
+# }
 
-def lang_tag_filter(text):
+def lang_tag_filter(text: str) -> dict | str:
     """
-    过滤函数：只保留语言标签，移除其他所有标签
-    
-    用于FunASR识别结果的处理，保留语言标签（如<|zh|>、<|en|>等），
-    但移除其他所有格式的标签（如时间戳、情感标签等）
-    
+    解析 FunASR 识别结果，按顺序提取标签和纯文本内容
+
     Args:
-        text: ASR识别的原始文本，可能包含多种标签
-        
+        text: ASR 识别的原始文本，可能包含多种标签
+
     Returns:
-        str: 处理后的文本，只保留语言标签（如果存在）
-        
+        dict: {"language": "zh", "emotion": "SAD", "emoji": "😔", "content": "你好"} 如果有标签
+        str: 纯文本，如果没有标签
+
     Examples:
-        >>> lang_tag_filter("<|zh|><|emotion:happy|>你好")
-        '<|zh|>你好'
-        >>> lang_tag_filter("<|en|>hello world")
-        '<|en|>hello world'
+        FunASR 输出格式：<|语种|><|情绪|><|事件|><|其他选项|>原文
+        >>> lang_tag_filter("<|zh|><|SAD|><|Speech|><|withitn|>你好啊，测试测试。")
+        {"language": "zh", "emotion": "SAD", "emoji": "😔", "content": "你好啊，测试测试。"}
+        >>> lang_tag_filter("<|en|><|HAPPY|><|Speech|><|withitn|>Hello hello.")
+        {"language": "en", "emotion": "HAPPY", "emoji": "🙂", "content": "Hello hello."}
+        >>> lang_tag_filter("plain text")
+        "plain text"
     """
-    # 定义语言标签模式
-    lang_pattern = r"<\|(zh|en|yue|ja|ko|nospeech)\|>"
-    lang_tags = re.findall(lang_pattern, text)
+    # 提取所有标签（按顺序）
+    tag_pattern = r"<\|([^|]+)\|>"
+    all_tags = re.findall(tag_pattern, text)
 
-    # 移除所有 < | ... | > 格式的标签
-    clean_text = re.sub(r"<\|.*?\|>", "", text)
+    # 移除所有 <|...|> 格式的标签，获取纯文本
+    clean_text = re.sub(tag_pattern, "", text).strip()
 
-    # 在开头添加语言标签（如果存在）
-    if lang_tags:
-        if len(lang_tags) > 1:
-            logger.bind(tag=TAG).warning(
-                f"检测到多个语言标签: {lang_tags}，仅使用第一个: {lang_tags[0]}"
-            )
-        clean_text = f"<|{lang_tags[0]}|>{clean_text}"
+    # 如果没有标签，直接返回纯文本
+    if not all_tags:
+        return clean_text
 
-    return clean_text.strip()
+    # 按照 FunASR 的固定顺序提取标签，返回 dict
+    language = all_tags[0] if len(all_tags) > 0 else "zh"
+    emotion = all_tags[1] if len(all_tags) > 1 else "NEUTRAL"
+    # event = all_tags[2] if len(all_tags) > 2 else "Speech"  # 事件标签暂不使用
+
+    result = {
+        "content": clean_text,
+        "language": language,
+        "emotion": emotion,
+        # "event": event,
+    }
+
+    # 添加 emoji 映射
+    if emotion in EMOTION_EMOJI_MAP:
+        result["emotion"] = EMOTION_EMOJI_MAP[emotion]
+    # 事件标签暂不使用
+    # if event in EVENT_EMOJI_MAP:
+    #     result["event"] = EVENT_EMOJI_MAP[event]
+
+    return result
 
