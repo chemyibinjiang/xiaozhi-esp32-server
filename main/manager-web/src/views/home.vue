@@ -165,8 +165,7 @@ export default {
             10 // 最多10个
           );
 
-          // 将原始设备列表赋值给显示设备列表
-          this.devices = [...this.originalDevices];
+          this.handleSearchReset();
         }
         this.isLoading = false;
       }, (error) => {
