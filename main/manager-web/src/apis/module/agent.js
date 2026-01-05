@@ -386,12 +386,8 @@ export default {
     // 搜索智能体
     searchAgent(keyword, searchType, callback) {
         RequestService.sendRequest()
-            .url(`${getServiceUrl()}/agent/list`)
+            .url(`${getServiceUrl()}/agent/list?keyword=${encodeURIComponent(keyword)}&searchType=${searchType}`)
             .method('GET')
-            .data({ 
-                keyword: keyword, 
-                searchType: searchType // searchType: 'name' 或 'mac'
-            })
             .success((res) => {
                 RequestService.clearRequestTime();
                 callback(res);

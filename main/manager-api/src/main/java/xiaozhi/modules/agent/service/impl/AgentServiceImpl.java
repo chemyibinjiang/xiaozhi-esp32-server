@@ -133,35 +133,40 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
         QueryWrapper<AgentEntity> wrapper = new QueryWrapper<>();
         wrapper.eq("user_id", userId);
         List<AgentEntity> agents = agentDao.selectList(wrapper);
-        return agents.stream().map(agent -> {
-            AgentDTO dto = new AgentDTO();
-            dto.setId(agent.getId());
-            dto.setAgentName(agent.getAgentName());
-            dto.setSystemPrompt(agent.getSystemPrompt());
+        return agents.stream().map(this::buildAgentDTO).collect(Collectors.toList());
+    }
 
-            // 获取 TTS 模型名称
-            dto.setTtsModelName(modelConfigService.getModelNameById(agent.getTtsModelId()));
+    /**
+     * 将AgentEntity转换为AgentDTO
+     */
+    private AgentDTO buildAgentDTO(AgentEntity agent) {
+        AgentDTO dto = new AgentDTO();
+        dto.setId(agent.getId());
+        dto.setAgentName(agent.getAgentName());
+        dto.setSystemPrompt(agent.getSystemPrompt());
 
-            // 获取 LLM 模型名称
-            dto.setLlmModelName(modelConfigService.getModelNameById(agent.getLlmModelId()));
+        // 获取 TTS 模型名称
+        dto.setTtsModelName(modelConfigService.getModelNameById(agent.getTtsModelId()));
 
-            // 获取 VLLM 模型名称
-            dto.setVllmModelName(modelConfigService.getModelNameById(agent.getVllmModelId()));
+        // 获取 LLM 模型名称
+        dto.setLlmModelName(modelConfigService.getModelNameById(agent.getLlmModelId()));
 
-            // 获取记忆模型名称
-            dto.setMemModelId(agent.getMemModelId());
+        // 获取 VLLM 模型名称
+        dto.setVllmModelName(modelConfigService.getModelNameById(agent.getVllmModelId()));
 
-            // 获取 TTS 音色名称
-            dto.setTtsVoiceName(timbreModelService.getTimbreNameById(agent.getTtsVoiceId()));
+        // 获取记忆模型名称
+        dto.setMemModelId(agent.getMemModelId());
 
-            // 获取智能体最近的最后连接时长
-            dto.setLastConnectedAt(deviceService.getLatestLastConnectionTime(agent.getId()));
+        // 获取 TTS 音色名称
+        dto.setTtsVoiceName(timbreModelService.getTimbreNameById(agent.getTtsVoiceId()));
 
-            // 获取设备数量
-            dto.setDeviceCount(getDeviceCountByAgentId(agent.getId()));
+        // 获取智能体最近的最后连接时长
+        dto.setLastConnectedAt(deviceService.getLatestLastConnectionTime(agent.getId()));
 
-            return dto;
-        }).collect(Collectors.toList());
+        // 获取设备数量
+        dto.setDeviceCount(getDeviceCountByAgentId(agent.getId()));
+
+        return dto;
     }
 
     @Override
@@ -511,34 +516,6 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
         List<AgentEntity> agentEntities = baseDao.selectList(queryWrapper);
 
         // 转换为DTO并设置所有必要字段
-        return agentEntities.stream().map(agent -> {
-            AgentDTO dto = new AgentDTO();
-            dto.setId(agent.getId());
-            dto.setAgentName(agent.getAgentName());
-            dto.setSystemPrompt(agent.getSystemPrompt());
-
-            // 获取 TTS 模型名称
-            dto.setTtsModelName(modelConfigService.getModelNameById(agent.getTtsModelId()));
-
-            // 获取 LLM 模型名称
-            dto.setLlmModelName(modelConfigService.getModelNameById(agent.getLlmModelId()));
-
-            // 获取 VLLM 模型名称
-            dto.setVllmModelName(modelConfigService.getModelNameById(agent.getVllmModelId()));
-
-            // 获取记忆模型名称
-            dto.setMemModelId(agent.getMemModelId());
-
-            // 获取 TTS 音色名称
-            dto.setTtsVoiceName(timbreModelService.getTimbreNameById(agent.getTtsVoiceId()));
-
-            // 获取智能体最近的最后连接时长
-            dto.setLastConnectedAt(deviceService.getLatestLastConnectionTime(agent.getId()));
-
-            // 获取设备数量
-            dto.setDeviceCount(getDeviceCountByAgentId(agent.getId()));
-
-            return dto;
-        }).collect(Collectors.toList());
+        return agentEntities.stream().map(this::buildAgentDTO).collect(Collectors.toList());
     }
 }
