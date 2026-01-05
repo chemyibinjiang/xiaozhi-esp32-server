@@ -39,7 +39,6 @@ import xiaozhi.modules.agent.dto.AgentChatSessionDTO;
 import xiaozhi.modules.agent.dto.AgentCreateDTO;
 import xiaozhi.modules.agent.dto.AgentDTO;
 import xiaozhi.modules.agent.dto.AgentMemoryDTO;
-import xiaozhi.modules.agent.dto.AgentSearchDTO;
 import xiaozhi.modules.agent.dto.AgentUpdateDTO;
 import xiaozhi.modules.agent.entity.AgentEntity;
 import xiaozhi.modules.agent.entity.AgentTemplateEntity;
@@ -79,19 +78,9 @@ public class AgentController {
             @RequestParam(value = "searchType", defaultValue = "name") String searchType) {
         UserDetail user = SecurityUser.getUser();
         
-        // 如果有搜索关键词，则使用搜索功能
-        if (StringUtils.isNotBlank(keyword)) {
-            AgentSearchDTO searchDTO = new AgentSearchDTO();
-            searchDTO.setKeyword(keyword);
-            searchDTO.setSearchType(searchType);
-            searchDTO.setUserId(user.getId());
-            List<AgentDTO> agents = agentService.searchAgent(searchDTO);
-            return new Result<List<AgentDTO>>().ok(agents);
-        } else {
-            // 否则返回所有智能体
-            List<AgentDTO> agents = agentService.getUserAgents(user.getId());
-            return new Result<List<AgentDTO>>().ok(agents);
-        }
+        // 直接调用整合后的getUserAgents方法，无需再区分搜索和普通查询
+        List<AgentDTO> agents = agentService.getUserAgents(user.getId(), keyword, searchType);
+        return new Result<List<AgentDTO>>().ok(agents);
     }
 
     @GetMapping("/all")

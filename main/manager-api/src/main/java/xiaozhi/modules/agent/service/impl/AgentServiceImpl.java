@@ -31,7 +31,6 @@ import xiaozhi.common.utils.JsonUtils;
 import xiaozhi.modules.agent.dao.AgentDao;
 import xiaozhi.modules.agent.dto.AgentCreateDTO;
 import xiaozhi.modules.agent.dto.AgentDTO;
-import xiaozhi.modules.agent.dto.AgentSearchDTO;
 import xiaozhi.modules.agent.dto.AgentUpdateDTO;
 import xiaozhi.modules.agent.entity.AgentContextProviderEntity;
 import xiaozhi.modules.agent.entity.AgentEntity;
@@ -129,11 +128,42 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
     }
 
     @Override
-    public List<AgentDTO> getUserAgents(Long userId) {
-        QueryWrapper<AgentEntity> wrapper = new QueryWrapper<>();
-        wrapper.eq("user_id", userId);
-        List<AgentEntity> agents = agentDao.selectList(wrapper);
-        return agents.stream().map(this::buildAgentDTO).collect(Collectors.toList());
+    public List<AgentDTO> getUserAgents(Long userId, String keyword, String searchType) {
+        QueryWrapper<AgentEntity> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("user_id", userId);
+
+        // 如果有搜索关键词，根据搜索类型添加相应的查询条件
+        if (StringUtils.isNotBlank(keyword)) {
+            if ("mac".equals(searchType)) {
+                // 按MAC地址搜索：先搜索设备，再获取对应的智能体
+                List<DeviceEntity> devices = deviceService.searchDevicesByMacAddress(keyword, userId);
+
+                if (!devices.isEmpty()) {
+                    // 获取设备对应的智能体ID列表
+                    List<String> agentIds = devices.stream()
+                            .map(DeviceEntity::getAgentId)
+                            .distinct()
+                            .collect(Collectors.toList());
+
+                    if (!agentIds.isEmpty()) {
+                        queryWrapper.in("id", agentIds);
+                    } else {
+                        return new ArrayList<>();
+                    }
+                } else {
+                    return new ArrayList<>();
+                }
+            } else {
+                // 按名称搜索
+                queryWrapper.like("agent_name", keyword);
+            }
+        }
+
+        // 执行查询
+        List<AgentEntity> agentEntities = baseDao.selectList(queryWrapper);
+
+        // 转换为DTO并设置所有必要字段
+        return agentEntities.stream().map(this::buildAgentDTO).collect(Collectors.toList());
     }
 
     /**
@@ -477,45 +507,4 @@ public class AgentServiceImpl extends BaseServiceImpl<AgentDao, AgentEntity> imp
         return entity.getId();
     }
 
-    @Override
-    public List<AgentDTO> searchAgent(AgentSearchDTO searchDTO) {
-        if (StringUtils.isBlank(searchDTO.getKeyword())) {
-            return new ArrayList<>();
-        }
-
-        QueryWrapper<AgentEntity> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("user_id", searchDTO.getUserId());
-
-        if ("mac".equals(searchDTO.getSearchType())) {
-            // 按MAC地址搜索：先搜索设备，再获取对应的智能体
-            List<DeviceEntity> devices = deviceService.searchDevicesByMacAddress(searchDTO.getKeyword(),
-                    searchDTO.getUserId());
-
-            if (devices.isEmpty()) {
-                return new ArrayList<>();
-            }
-
-            // 获取设备对应的智能体ID列表
-            List<String> agentIds = devices.stream()
-                    .map(DeviceEntity::getAgentId)
-                    .distinct()
-                    .collect(Collectors.toList());
-
-            if (agentIds.isEmpty()) {
-                return new ArrayList<>();
-            }
-
-            // 查询智能体
-            queryWrapper.in("id", agentIds);
-        } else {
-            // 按名称搜索
-            queryWrapper.like("agent_name", searchDTO.getKeyword());
-        }
-
-        // 执行查询
-        List<AgentEntity> agentEntities = baseDao.selectList(queryWrapper);
-
-        // 转换为DTO并设置所有必要字段
-        return agentEntities.stream().map(this::buildAgentDTO).collect(Collectors.toList());
-    }
 }
