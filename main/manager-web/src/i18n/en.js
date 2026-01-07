@@ -919,6 +919,10 @@ export default {
   'ttsModel.selectVoiceToDelete': 'Please select voices to delete',
   'ttsModel.warning': 'Warning',
   'ttsModel.confirmDeleteVoice': 'Are you sure to delete {count} voices?',
+  'ttsModel.voiceCodeNameLanguageRequired': 'Voice code, voice name and language type cannot be empty',
+  'ttsModel.deleteCancelled': 'Deletion cancelled',
+  'ttsModel.updateSuccess': 'Update successful',
+  'ttsModel.saveSuccess': 'Save successful',
 
   // OTA Management Page Text
   'otaManagement.firmwareManagement': 'Firmware Management',

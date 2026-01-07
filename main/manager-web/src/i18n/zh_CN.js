@@ -919,6 +919,10 @@ export default {
   'ttsModel.selectVoiceToDelete': '请选择要删除的音色',
   'ttsModel.warning': '警告',
   'ttsModel.confirmDeleteVoice': '确定要删除{count}个音色吗？',
+  'ttsModel.voiceCodeNameLanguageRequired': '音色编码、音色名称和语言类型不能为空',
+  'ttsModel.deleteCancelled': '删除已取消',
+  'ttsModel.updateSuccess': '更新成功',
+  'ttsModel.saveSuccess': '保存成功',
 
   // OTA管理页面文本
   'otaManagement.firmwareManagement': '固件管理',

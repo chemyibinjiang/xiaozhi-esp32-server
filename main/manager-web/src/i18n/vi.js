@@ -919,6 +919,10 @@ export default {
   'ttsModel.selectVoiceToDelete': 'Vui lòng chọn giọng nói để xóa',
   'ttsModel.warning': 'Cảnh báo',
   'ttsModel.confirmDeleteVoice': 'Bạn có chắc chắn muốn xóa {count} giọng nói?',
+  'ttsModel.voiceCodeNameLanguageRequired': 'Mã giọng nói, tên giọng nói và loại ngôn ngữ không được để trống',
+  'ttsModel.deleteCancelled': 'Xóa đã bị hủy',
+  'ttsModel.updateSuccess': 'Cập nhật thành công',
+  'ttsModel.saveSuccess': 'Lưu thành công',
 
   // OTA Management Page Text
   'otaManagement.firmwareManagement': 'Quản lý firmware',
