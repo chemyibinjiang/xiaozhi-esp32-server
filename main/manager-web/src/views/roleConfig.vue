@@ -746,32 +746,17 @@ export default {
     },
     // 检查是否有音频预览
     hasAudioPreview(item) {
-      // 检查item中是否包含有效的音频URL字段或克隆音频字段
-      // 克隆音频通过hasCloneAudio标志或ID格式判断（非TTS开头的ID）
-      const isCloneAudio =
-        item.hasCloneAudio || (item.value && !item.value.startsWith("TTS"));
-
-      const audioFields = [
-        item.voiceDemo,
-        item.demoUrl,
-        item.audioUrl,
-        item.voice_demo,
-        item.sample_voice,
-        item.referenceAudio,
-        item.cloneAudioUrl, // 克隆音频的URL
-      ];
-
-      // 检查是否有任何音频字段是有效的URL
-      const hasUrlAudio = audioFields.some(
-        (field) =>
-          field !== undefined &&
-          field !== null &&
-          typeof field === "string" &&
-          field.trim() !== "" &&
-          field.toLowerCase().startsWith("http")
-      );
-
-      return hasUrlAudio || isCloneAudio;
+      // 使用新增的isClone字段来判断是否为克隆音色
+      const isCloneAudio = item.isClone === true;
+      
+      // 普通音色的音频检查：同时检查voiceDemo和voice_demo两种命名格式
+      const audioField = item.voice_demo || item.voiceDemo;
+      const hasManualAudio = audioField && 
+                            typeof audioField === "string" && 
+                            audioField.trim() !== "" && 
+                            audioField.toLowerCase().startsWith("http");
+      
+      return isCloneAudio || hasManualAudio;
     },
 
     // 播放/暂停音频切换
