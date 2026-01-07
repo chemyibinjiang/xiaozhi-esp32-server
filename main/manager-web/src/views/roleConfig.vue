@@ -746,17 +746,11 @@ export default {
     },
     // 检查是否有音频预览
     hasAudioPreview(item) {
-      // 使用新增的isClone字段来判断是否为克隆音色
-      const isCloneAudio = item.isClone === true;
-      
-      // 普通音色的音频检查：同时检查voiceDemo和voice_demo两种命名格式
-      const audioField = item.voice_demo || item.voiceDemo;
-      const hasManualAudio = audioField && 
-                            typeof audioField === "string" && 
-                            audioField.trim() !== "" && 
-                            audioField.toLowerCase().startsWith("http");
-      
-      return isCloneAudio || hasManualAudio;
+      // 极度简化逻辑：
+      // 1. 如果hasCloneAudio字段存在且不为false/0，就显示播放按钮
+      // 2. 否则检查是否有有效的音频URL
+      return (item.hasCloneAudio && item.hasCloneAudio !== 'false' && item.hasCloneAudio !== '0') || 
+             !!((item.voice_demo || item.voiceDemo || item.demoUrl || item.audioUrl || item.sample_voice || item.referenceAudio || item.cloneAudioUrl)?.trim());
     },
 
     // 播放/暂停音频切换
