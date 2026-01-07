@@ -779,6 +779,16 @@ export default {
   'roleConfig.fetchConfigFailed': 'Konfiguration konnte nicht abgerufen werden',
   'roleConfig.fetchModelsFailed': 'Modellliste konnte nicht abgerufen werden',
   'roleConfig.fetchPluginsFailed': 'Plugin-Liste konnte nicht abgerufen werden',
+  'roleConfig.cannotResumeAudio': 'Audio-Wiedergabe kann nicht fortgesetzt werden',
+  'roleConfig.selectVoiceFirst': 'Bitte wählen Sie zuerst eine Stimme aus',
+  'roleConfig.audioLoadTimeout': 'Audio-Laden dauert zu lange, bitte versuchen Sie es später erneut',
+  'roleConfig.cloneAudioPlayFailed': 'Klon-Audio-Wiedergabe fehlgeschlagen',
+  'roleConfig.cannotPlayCloneAudio': 'Klon-Audio kann nicht abgespielt werden',
+  'roleConfig.getCloneAudioFailed': 'Klon-Audio konnte nicht abgerufen werden',
+  'roleConfig.noPreviewAudio': 'Diese Stimme hat keine Vorschau-Audio-Datei',
+  'roleConfig.audioPlayFailed': 'Audio-Wiedergabe fehlgeschlagen',
+  'roleConfig.cannotPlayAudio': 'Audio kann nicht abgespielt werden',
+  'roleConfig.audioPlayError': 'Fehler bei der Audio-Wiedergabe',
 
   // Function management dialog text
   'functionDialog.title': 'Funktionsverwaltung',

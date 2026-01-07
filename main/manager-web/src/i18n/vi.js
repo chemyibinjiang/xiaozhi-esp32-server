@@ -779,6 +779,16 @@ export default {
   'roleConfig.fetchConfigFailed': 'Không thể lấy cấu hình',
   'roleConfig.fetchModelsFailed': 'Không thể tải danh sách mô hình',
   'roleConfig.fetchPluginsFailed': 'Không thể tải danh sách plugin',
+  'roleConfig.cannotResumeAudio': 'Không thể tiếp tục phát âm thanh',
+  'roleConfig.selectVoiceFirst': 'Vui lòng chọn giọng nói trước',
+  'roleConfig.audioLoadTimeout': 'Tải âm thanh mất quá nhiều thời gian, vui lòng thử lại sau',
+  'roleConfig.cloneAudioPlayFailed': 'Phát âm thanh sao chép thất bại',
+  'roleConfig.cannotPlayCloneAudio': 'Không thể phát âm thanh sao chép',
+  'roleConfig.getCloneAudioFailed': 'Không thể lấy âm thanh sao chép',
+  'roleConfig.noPreviewAudio': 'Giọng nói này không có âm thanh xem trước',
+  'roleConfig.audioPlayFailed': 'Phát âm thanh thất bại',
+  'roleConfig.cannotPlayAudio': 'Không thể phát âm thanh',
+  'roleConfig.audioPlayError': 'Lỗi trong quá trình phát âm thanh',
 
   // Function management dialog text
   'functionDialog.title': 'Quản lý chức năng',

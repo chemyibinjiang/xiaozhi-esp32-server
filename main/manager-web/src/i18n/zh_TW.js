@@ -779,6 +779,16 @@ export default {
   'roleConfig.fetchConfigFailed': '獲取配置失敗',
   'roleConfig.fetchModelsFailed': '獲取模型列表失敗',
   'roleConfig.fetchPluginsFailed': '獲取插件列表失敗',
+  'roleConfig.cannotResumeAudio': '無法恢復播放音訊',
+  'roleConfig.selectVoiceFirst': '請先選擇一個音色',
+  'roleConfig.audioLoadTimeout': '音訊載入時間較長，請稍後重試',
+  'roleConfig.cloneAudioPlayFailed': '克隆音訊播放失敗',
+  'roleConfig.cannotPlayCloneAudio': '無法播放克隆音訊',
+  'roleConfig.getCloneAudioFailed': '獲取克隆音訊失敗',
+  'roleConfig.noPreviewAudio': '該音色暫無可預覽的音訊',
+  'roleConfig.audioPlayFailed': '音訊播放失敗',
+  'roleConfig.cannotPlayAudio': '無法播放音訊',
+  'roleConfig.audioPlayError': '播放音訊過程出錯',
 
   // 功能管理對話框文本
   'functionDialog.title': '功能管理',

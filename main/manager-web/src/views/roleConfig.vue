@@ -767,7 +767,7 @@ export default {
           // 从暂停状态恢复播放
           this.currentAudio.play().catch((error) => {
             console.error("恢复播放失败:", error);
-            this.$message.warning("无法恢复播放音频");
+            this.$message.warning(this.$t('roleConfig.cannotResumeAudio'));
           });
           this.isPaused = false;
         } else {
@@ -788,7 +788,7 @@ export default {
       const targetVoiceId = voiceId || this.form.ttsVoiceId;
 
       if (!targetVoiceId) {
-        this.$message.warning("请先选择一个音色");
+        this.$message.warning(this.$t('roleConfig.selectVoiceFirst'));
         return;
       }
 
@@ -874,7 +874,7 @@ export default {
             // 设置超时，防止加载过长时间
             const timeoutId = setTimeout(() => {
               if (this.currentAudio && this.playingVoice) {
-                this.$message.warning("音频加载时间较长，请稍后重试");
+                this.$message.warning(this.$t('roleConfig.audioLoadTimeout'));
                 this.playingVoice = false;
               }
             }, 10000); // 10秒超时
@@ -883,7 +883,7 @@ export default {
             this.currentAudio.onerror = () => {
               clearTimeout(timeoutId);
               console.error("克隆音频播放错误");
-              this.$message.warning("克隆音频播放失败");
+              this.$message.warning(this.$t('roleConfig.cloneAudioPlayFailed'));
               this.playingVoice = false;
             };
 
@@ -905,12 +905,12 @@ export default {
                 this.currentAudio.play().catch((error) => {
                   clearTimeout(timeoutId);
                   console.error("播放克隆音频失败:", error);
-                  this.$message.warning("无法播放克隆音频");
+                  this.$message.warning(this.$t('roleConfig.cannotPlayCloneAudio'));
                   this.playingVoice = false;
                 });
               } else {
                 clearTimeout(timeoutId);
-                this.$message.warning("获取克隆音频失败");
+                this.$message.warning(this.$t('roleConfig.getCloneAudioFailed'));
                 this.playingVoice = false;
               }
             });
@@ -950,7 +950,7 @@ export default {
 
         if (!audioUrl) {
           // 如果没有音频URL，显示友好的提示
-          this.$message.warning("该音色暂无可预览的音频");
+          this.$message.warning(this.$t('roleConfig.noPreviewAudio'));
           return;
         }
 
@@ -969,7 +969,7 @@ export default {
           // 设置超时，防止加载过长时间
           const timeoutId = setTimeout(() => {
             if (this.currentAudio && this.playingVoice) {
-              this.$message.warning("音频加载时间较长，请稍后重试");
+              this.$message.warning(this.$t('roleConfig.audioLoadTimeout'));
               this.playingVoice = false;
             }
           }, 10000); // 10秒超时
@@ -978,7 +978,7 @@ export default {
           this.currentAudio.onerror = () => {
             clearTimeout(timeoutId);
             console.error("音频播放错误");
-            this.$message.warning("音频播放失败");
+            this.$message.warning(this.$t('roleConfig.audioPlayFailed'));
             this.playingVoice = false;
           };
 
@@ -996,13 +996,13 @@ export default {
           this.currentAudio.play().catch((error) => {
             clearTimeout(timeoutId);
             console.error("播放失败:", error);
-            this.$message.warning("无法播放音频");
+            this.$message.warning(this.$t('roleConfig.cannotPlayAudio'));
             this.playingVoice = false;
           });
         }
       } catch (error) {
         console.error("播放音频过程出错:", error);
-        this.$message.error("播放音频过程出错");
+        this.$message.error(this.$t('roleConfig.audioPlayError'));
         this.playingVoice = false;
       }
     },
