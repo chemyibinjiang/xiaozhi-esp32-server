@@ -919,6 +919,8 @@ export default {
   'ttsModel.confirmDeleteVoice': '確定要刪除{count}個音色嗎？',
   'ttsModel.voiceCodeNameLanguageRequired': '音色編碼、音色名稱和語言類型不能為空',
   'ttsModel.deleteCancelled': '刪除已取消',
+  'ttsModel.updateSuccess': '更新成功',
+  'ttsModel.saveSuccess': '保存成功',
   'ttsModel.operationFailed': '操作失敗',
   'ttsModel.operationClosed': '操作已關閉',
 
