@@ -148,10 +148,9 @@ def _get_or_create_rate_controller(conn, frame_duration, is_single_packet):
             or rate_controller.pending_send_task.done()
         ):
             need_reset = True
-        # 流式单包模式下, sentence_id 变化, 需要重置
+        # 当sentence_id 变化，需要重置
         elif (
-            is_single_packet
-            and getattr(conn, "audio_flow_control", {}).get("sentence_id")
+            getattr(conn, "audio_flow_control", {}).get("sentence_id")
             != conn.sentence_id
         ):
             need_reset = True
