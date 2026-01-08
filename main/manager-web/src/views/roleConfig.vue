@@ -599,17 +599,12 @@ export default {
           this.voiceOptions = data.data.map((voice) => ({
             value: voice.id,
             label: voice.name,
-            // 复制音频相关字段，确保hasAudioPreview能检测到
+            // 只保留后端实际返回的音频相关字段
             voiceDemo: voice.voiceDemo,
-            demoUrl: voice.demoUrl,
-            audioUrl: voice.audioUrl,
             voice_demo: voice.voice_demo,
-            sample_voice: voice.sample_voice,
-            referenceAudio: voice.referenceAudio,
-            // 新增：添加克隆音频相关字段
-            cloneAudioUrl: voice.cloneAudioUrl,
-            hasCloneAudio: voice.hasCloneAudio || false,
-            // 保存训练状态字段，用于判断是否为克隆音频
+            // 使用后端实际返回的 isClone 字段
+            isClone: Boolean(voice.isClone),
+            // 保存训练状态字段
             train_status: voice.trainStatus,
           }));
           // 保存完整的音色信息，添加调试信息
@@ -746,11 +741,15 @@ export default {
     },
     // 检查是否有音频预览
     hasAudioPreview(item) {
-      // 极度简化逻辑：
-      // 1. 如果hasCloneAudio字段存在且不为false/0，就显示播放按钮
-      // 2. 否则检查是否有有效的音频URL
-      return (item.hasCloneAudio && item.hasCloneAudio !== 'false' && item.hasCloneAudio !== '0') || 
-             !!((item.voice_demo || item.voiceDemo || item.demoUrl || item.audioUrl || item.sample_voice || item.referenceAudio || item.cloneAudioUrl)?.trim());
+      // 检查是否为克隆音频
+      // 使用后端实际返回的 isClone 字段
+      const isCloneAudio = Boolean(item.isClone);
+      
+      // 检查是否有有效的音频URL，只使用后端实际返回的字段
+      const hasValidAudioUrl = !!((item.voice_demo || item.voiceDemo)?.trim());
+      
+      // 克隆音频始终显示播放按钮，普通音频需要有有效URL才显示
+      return isCloneAudio || hasValidAudioUrl;
     },
 
     // 播放/暂停音频切换
@@ -809,10 +808,8 @@ export default {
         let isCloneAudio = false;
 
         if (voiceDetail) {
-          // 首先检查是否是克隆音频（通过ID格式判断，非TTS开头的ID）
-          isCloneAudio =
-            voiceDetail.hasCloneAudio ||
-            (voiceDetail.id && !voiceDetail.id.startsWith("TTS"));
+          // 使用后端实际返回的 isClone 字段判断是否为克隆音频
+          isCloneAudio = Boolean(voiceDetail.isClone);
           console.log(
             "克隆音频判断结果:",
             isCloneAudio,
@@ -912,14 +909,10 @@ export default {
             // 返回，避免继续执行下面的普通音频播放逻辑
             return;
           } else {
-            // 对于普通音频，尝试各种可能的URL字段
+            // 对于普通音频，只使用后端实际返回的字段
             audioUrl =
               voiceDetail.voiceDemo ||
-              voiceDetail.demoUrl ||
-              voiceDetail.audioUrl ||
-              voiceDetail.voice_demo ||
-              voiceDetail.sample_voice ||
-              voiceDetail.cloneAudioUrl; // 克隆音频URL
+              voiceDetail.voice_demo;
           }
 
           // 如果没有找到，尝试检查是否有URL格式的字段
