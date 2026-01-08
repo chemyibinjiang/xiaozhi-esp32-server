@@ -608,7 +608,6 @@ export default {
             train_status: voice.trainStatus,
           }));
           // 保存完整的音色信息，添加调试信息
-          console.log("获取到的音色数据:", data.data);
           this.voiceDetails = data.data.reduce((acc, voice) => {
             acc[voice.id] = voice;
             return acc;
