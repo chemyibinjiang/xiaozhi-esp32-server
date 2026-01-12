@@ -62,8 +62,13 @@ class Live2DManager {
                 backgroundAlpha: 0,
             });
 
-            // 加载 Live2D 模型 - 使用正确的相对路径
-            this.live2dModel = await PIXI.live2d.Live2DModel.from('../hiyori_pro_zh/runtime/hiyori_pro_t11.model3.json');
+            // 加载 Live2D 模型 - 动态检测当前目录，适配不同环境
+            // 获取当前HTML文件所在的目录路径
+            const currentPath = window.location.pathname;
+            const lastSlashIndex = currentPath.lastIndexOf('/');
+            const basePath = currentPath.substring(0, lastSlashIndex + 1);
+            const modelPath = basePath + 'hiyori_pro_zh/runtime/hiyori_pro_t11.model3.json';
+            this.live2dModel = await PIXI.live2d.Live2DModel.from(modelPath);
             this.live2dApp.stage.addChild(this.live2dModel);
 
             // 设置模型属性
