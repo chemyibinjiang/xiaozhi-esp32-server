@@ -275,7 +275,7 @@ class UIController {
         this.currentBackgroundIndex = (this.currentBackgroundIndex + 1) % this.backgroundImages.length;
         const backgroundContainer = document.querySelector('.background-container');
         if (backgroundContainer) {
-            backgroundContainer.style.backgroundImage = `url('../images/${this.backgroundImages[this.currentBackgroundIndex]}')`;
+            backgroundContainer.style.backgroundImage = `url('./images/${this.backgroundImages[this.currentBackgroundIndex]}')`;
         }
     }
 
