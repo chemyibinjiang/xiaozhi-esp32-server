@@ -83,6 +83,12 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => app.init());
 } else {
     app.init();
+    window.addEventListener('beforeunload', () => {
+        // 销毁定时器
+        if (app.uiController && app.uiController.wsTimer) {
+            clearInterval(app.uiController.wsTimer);
+        }
+    });
 }
 
 export default app;
