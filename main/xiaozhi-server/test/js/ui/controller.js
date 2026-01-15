@@ -11,6 +11,7 @@ class UIController {
         this.visualizerCanvas = null;
         this.visualizerContext = null;
         this.audioStatsTimer = null;
+        this.wsTimer = null;
         this.currentBackgroundIndex = 0;
         this.backgroundImages = ['1.png', '2.png', '3.png'];
 
@@ -275,7 +276,7 @@ class UIController {
         this.currentBackgroundIndex = (this.currentBackgroundIndex + 1) % this.backgroundImages.length;
         const backgroundContainer = document.querySelector('.background-container');
         if (backgroundContainer) {
-            backgroundContainer.style.backgroundImage = `url('../images/${this.backgroundImages[this.currentBackgroundIndex]}')`;
+            backgroundContainer.style.backgroundImage = `url('./images/${this.backgroundImages[this.currentBackgroundIndex]}')`;
         }
     }
 
@@ -329,6 +330,20 @@ class UIController {
 
         // 显示保存成功消息
         this.addChatMessage('配置已保存', false);
+    }
+
+    // 拨号成功后直接开始录音
+    dialAndRecord() {
+        const recordBtn = document.getElementById('recordBtn');
+        const wsHandler = getWebSocketHandler();
+        this.wsTimer = setInterval(() => {
+            if (wsHandler.isConnected() && wsHandler.websocket.onopen) {
+                clearInterval(this.wsTimer);
+                this.wsTimer = null;
+                recordBtn.click();
+                return;
+            }
+        }, 500);
     }
 
     // 处理连接按钮点击
@@ -415,6 +430,8 @@ class UIController {
                     dialBtn.disabled = false;
                     dialBtn.querySelector('.btn-text').textContent = '挂断';
                     dialBtn.classList.add('dial-active');
+
+                   this.dialAndRecord();
                 }
 
                 this.hideModal('settingsModal');

@@ -37,7 +37,18 @@ class App {
         // 初始化Live2D
         await this.initLive2D();
 
+        // 关闭加载loading
+        this.setModelLoadingStatus(false);
+
         log('应用初始化完成', 'success');
+    }
+
+    // 设置model加载状态
+    setModelLoadingStatus(isLoading) {
+        const modelLoading = document.getElementById('modelLoading');
+        if (modelLoading) {
+            modelLoading.style.display = isLoading ? 'flex' : 'none';
+        }
     }
 
     // 初始化Live2D
@@ -83,6 +94,12 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => app.init());
 } else {
     app.init();
+    window.addEventListener('beforeunload', () => {
+        // 销毁定时器
+        if (app.uiController && app.uiController.wsTimer) {
+            clearInterval(app.uiController.wsTimer);
+        }
+    });
 }
 
 export default app;
