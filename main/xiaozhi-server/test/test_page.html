@@ -38,7 +38,7 @@
 
 <body>
     <!-- 背景容器 -->
-    <div class="background-container">
+    <div class="background-container" id="backgroundContainer">
         <div class="background-overlay"></div>
     </div>
 
@@ -49,6 +49,18 @@
             <div class="status-indicator">
                 <span class="status-dot status-disconnected"></span>
                 <span id="connectionStatus">离线</span>
+            </div>
+        </div>
+
+        <!-- 模型加载提示 -->
+        <div class="model-container">
+            <div class="model-loading" id="modelLoading">
+                <div class="loading-char-float">
+                    <div class="main-char">
+                        <span>模</span><span>型</span><span>加</span><span>载</span><span>中</span><span>✨</span>
+                    </div>
+                    <div class="shadow-char">模型加载中✨</div>
+                </div>
             </div>
         </div>
 
@@ -218,6 +230,9 @@
             </div>
         </div>
     </div>
+
+    <!-- 背景图加载检测 -->
+    <script src="js/ui/bg-image-load-detector.js"></script>
 
     <!-- PIXI.js 2D渲染引擎 -->
     <script src="js/live2d/pixi.js"></script>

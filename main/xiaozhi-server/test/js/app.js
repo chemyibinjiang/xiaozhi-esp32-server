@@ -37,7 +37,18 @@ class App {
         // 初始化Live2D
         await this.initLive2D();
 
+        // 关闭加载loading
+        this.setModelLoadingStatus(false);
+
         log('应用初始化完成', 'success');
+    }
+
+    // 设置model加载状态
+    setModelLoadingStatus(isLoading) {
+        const modelLoading = document.getElementById('modelLoading');
+        if (modelLoading) {
+            modelLoading.style.display = isLoading ? 'flex' : 'none';
+        }
     }
 
     // 初始化Live2D
