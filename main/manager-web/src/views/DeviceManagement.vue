@@ -338,8 +338,11 @@ export default {
       });
     },
     handleGenertor() {
+      const pathname = window.location.pathname;
+      const basePath = pathname.split('/').slice(0, -1).join('/');
+      const url = `${window.location.origin}${basePath}/generator/`;
       sessionStorage.setItem('devicePath', window.location.href);
-      window.location.href = `${window.location.origin}/generator/index.html`;
+      window.location.href = url;
     },
     goFirst() {
       this.currentPage = 1;
