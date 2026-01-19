@@ -192,7 +192,7 @@ public class VoiceCloneServiceImpl extends BaseServiceImpl<VoiceCloneDao, VoiceC
         List<VoiceCloneResponseDTO> dtoList = new ArrayList<>(entityList.size());
 
         // 获取用户名称ID集合
-        List<Long> userIdList = entityList.stream().map(VoiceCloneEntity::getUserId).collect(Collectors.toList());
+        Set<Long> userIdList = entityList.stream().map(VoiceCloneEntity::getUserId).collect(Collectors.toSet());
         List<SysUserEntity> userList = sysUserDao.selectList(new QueryWrapper<SysUserEntity>().in("id", userIdList));
         Map<Long, String> userMap = userList.stream().collect(Collectors.toMap(SysUserEntity::getId, SysUserEntity::getUsername));
 
