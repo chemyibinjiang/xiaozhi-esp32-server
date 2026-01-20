@@ -68,8 +68,13 @@
         <canvas id="live2d-stage"></canvas>
 
         <!-- 聊天消息流（弹幕样式） -->
-        <div class="chat-stream" id="chatStream">
-            <!-- 聊天消息将动态插入这里 -->
+        <div class="chat-container">
+            <div class="chat-stream" id="chatStream">
+                <!-- 聊天消息将动态插入这里 -->
+            </div>
+            <div class="chat-ipt" id="chatIpt">
+                <input type="text" id="messageInput" autocomplete="off" placeholder="输入消息，按Enter发送">
+            </div>
         </div>
 
         <!-- 底部控制栏 -->
