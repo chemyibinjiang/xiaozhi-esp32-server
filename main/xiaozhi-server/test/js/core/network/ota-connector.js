@@ -62,18 +62,6 @@ function validateConfig(config) {
     return true;
 }
 
-// 判断wsUrl路径是否存在错误
-function validateWsUrl(wsUrl) {
-    if (wsUrl === '') return false;
-    // 检查URL格式
-    if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
-        log('URL格式错误，必须以ws://或wss://开头', 'error');
-        return false;
-    }
-    return true
-}
-
-
 // OTA发送请求，验证状态，并返回响应数据
 async function sendOTA(otaUrl, config) {
     try {

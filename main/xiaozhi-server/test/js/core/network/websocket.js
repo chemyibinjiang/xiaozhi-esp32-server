@@ -421,7 +421,6 @@ export class WebSocketHandler {
 
             const listenMessage = {
                 type: 'listen',
-                mode: 'manual',
                 state: 'detect',
                 text: text
             };

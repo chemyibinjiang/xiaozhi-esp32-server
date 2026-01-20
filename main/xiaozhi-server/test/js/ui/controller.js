@@ -133,6 +133,21 @@ class UIController {
             });
         }
 
+        // 消息输入框事件
+        const chatIpt = document.getElementById('chatIpt');
+        if (chatIpt) {
+            const wsHandler = getWebSocketHandler();
+            chatIpt.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    if (e.target.value) {
+                        wsHandler.sendTextMessage(e.target.value);
+                        e.target.value = '';
+                        return;
+                    }
+                }
+            });
+        }
+
         // 关闭按钮
         const closeButtons = document.querySelectorAll('.close-btn');
         closeButtons.forEach(btn => {
@@ -247,7 +262,7 @@ class UIController {
         const recordBtn = document.getElementById('recordBtn');
         if (recordBtn) {
             if (isRecording) {
-                recordBtn.querySelector('.btn-text').textContent = `录音中 ${seconds.toFixed(1)}秒`;
+                recordBtn.querySelector('.btn-text').textContent = `录音中`;
                 recordBtn.classList.add('recording');
             } else {
                 recordBtn.querySelector('.btn-text').textContent = '录音';
@@ -378,6 +393,11 @@ class UIController {
 
         // 显示连接中消息
         this.addChatMessage('正在连接服务器...', false);
+
+        const chatIpt = document.getElementById('chatIpt');
+        if (chatIpt) {
+            chatIpt.style.display = 'flex';
+        }
 
         try {
             // 获取配置信息
