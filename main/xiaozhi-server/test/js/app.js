@@ -40,15 +40,10 @@ class App {
         // 关闭加载loading
         this.setModelLoadingStatus(false);
 
-        log('应用初始化完成', 'success');
-    }
+        // 绑定页面卸载事件
+        this.bindUnload();
 
-    // 设置model加载状态
-    setModelLoadingStatus(isLoading) {
-        const modelLoading = document.getElementById('modelLoading');
-        if (modelLoading) {
-            modelLoading.style.display = isLoading ? 'flex' : 'none';
-        }
+        log('应用初始化完成', 'success');
     }
 
     // 初始化Live2D
@@ -81,6 +76,24 @@ class App {
             }
         }
     }
+
+    // 设置model加载状态
+    setModelLoadingStatus(isLoading) {
+        const modelLoading = document.getElementById('modelLoading');
+        if (modelLoading) {
+            modelLoading.style.display = isLoading ? 'flex' : 'none';
+        }
+    }
+
+    // 绑定页面卸载事件
+    bindUnload() {
+        window.addEventListener('beforeunload', () => {
+            // 销毁定时器
+            if (this.uiController && this.uiController.wsTimer) {
+                clearInterval(this.uiController.wsTimer);
+            }
+        });
+    }
 }
 
 // 创建并启动应用
@@ -89,17 +102,10 @@ const app = new App();
 // 将应用实例暴露到全局，供其他模块访问
 window.chatApp = app;
 
-// DOM加载完成后初始化
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => app.init());
-} else {
+document.addEventListener('DOMContentLoaded', () => {
+    // 初始化应用
     app.init();
-    window.addEventListener('beforeunload', () => {
-        // 销毁定时器
-        if (app.uiController && app.uiController.wsTimer) {
-            clearInterval(app.uiController.wsTimer);
-        }
-    });
-}
+});
+
 
 export default app;
