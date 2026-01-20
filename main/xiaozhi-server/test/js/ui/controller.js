@@ -347,6 +347,14 @@ class UIController {
         this.addChatMessage('配置已保存', false);
     }
 
+    // 处理未绑定设备事件
+    handleUnboundDevice() {
+        const dialBtn = document.getElementById('dialBtn');
+        if (dialBtn) {
+            dialBtn.click();
+        }
+    }
+
     // 拨号成功后直接开始录音
     dialAndRecord() {
         const recordBtn = document.getElementById('recordBtn');
@@ -355,7 +363,11 @@ class UIController {
             if (wsHandler.isConnected() && wsHandler.websocket.onopen) {
                 clearInterval(this.wsTimer);
                 this.wsTimer = null;
-                recordBtn.click();
+                if (wsHandler.isEstablishConnection) {
+                    recordBtn.click();
+                } else {
+                    this.handleUnboundDevice();
+                }
                 return;
             }
         }, 500);
@@ -451,7 +463,7 @@ class UIController {
                     dialBtn.querySelector('.btn-text').textContent = '挂断';
                     dialBtn.classList.add('dial-active');
 
-                   this.dialAndRecord();
+                    this.dialAndRecord();
                 }
 
                 this.hideModal('settingsModal');
