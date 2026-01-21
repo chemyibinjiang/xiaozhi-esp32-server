@@ -240,4 +240,8 @@ public interface ErrorCode {
     int RAG_ADAPTER_CACHE_ERROR = 10191; // 适配器缓存错误
     int RAG_ADAPTER_TYPE_NOT_FOUND = 10192; // 适配器类型未找到
 
+    // 设备工具相关错误码
+    int DEVICE_ID_NOT_NULL = 10193; // 设备ID不能为空
+    int DEVICE_NOT_EXIST = 10194; // 设备不存在
+
 }

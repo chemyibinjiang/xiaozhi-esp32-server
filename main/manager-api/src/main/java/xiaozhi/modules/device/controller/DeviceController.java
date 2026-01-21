@@ -1,6 +1,8 @@
 package xiaozhi.modules.device.controller;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.BeanUtils;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -124,5 +127,22 @@ public class DeviceController {
         UserDetail user = SecurityUser.getUser();
         deviceService.manualAddDevice(user.getId(), dto);
         return new Result<>();
+    }
+
+    @PostMapping("/tools/list")
+    @Operation(summary = "获取设备工具列表")
+    @RequiresPermissions("sys:role:normal")
+    public Result<Object> getDeviceTools(@RequestBody Map<String, String> requestBody) {
+        String deviceId = requestBody.get("deviceId");
+        if (StringUtils.isBlank(deviceId)) {
+            return new Result<Object>().error(ErrorCode.DEVICE_ID_NOT_NULL);
+        }
+
+        Object toolsData = deviceService.getDeviceTools(deviceId);
+        if (toolsData == null) {
+            return new Result<Object>().error(ErrorCode.DEVICE_NOT_EXIST);
+        }
+
+        return new Result<Object>().ok(toolsData);
     }
 }
