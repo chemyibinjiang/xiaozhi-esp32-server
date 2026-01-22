@@ -243,5 +243,6 @@ public interface ErrorCode {
     // 设备工具相关错误码
     int DEVICE_ID_NOT_NULL = 10193; // 设备ID不能为空
     int DEVICE_NOT_EXIST = 10194; // 设备不存在
+    int OTA_UPLOAD_COUNT_EXCEED = 10195; // OTA上传次数超过限制
 
 }

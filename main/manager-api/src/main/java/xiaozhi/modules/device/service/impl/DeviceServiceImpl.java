@@ -735,4 +735,83 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
 
         return null;
     }
+
+    @Override
+    public Object callDeviceTool(String deviceId, String toolName, Map<String, Object> arguments) {
+        // 从系统参数中获取MQTT网关地址
+        String mqttGatewayUrl = sysParamsService.getValue("server.mqtt_manager_api", true);
+        if (StringUtils.isBlank(mqttGatewayUrl) || "null".equals(mqttGatewayUrl)) {
+            return null;
+        }
+
+        // 获取设备信息
+        DeviceEntity device = baseDao.selectById(deviceId);
+        if (device == null) {
+            return null;
+        }
+
+        // 检查设备是否属于当前用户
+        UserDetail user = SecurityUser.getUser();
+        if (!device.getUserId().equals(user.getId())) {
+            return null;
+        }
+
+        // 构建clientId
+        String macAddress = Optional.ofNullable(device.getMacAddress()).orElse("unknown").replace(":", "_");
+        String groupId = Optional.ofNullable(device.getBoard()).orElse("GID_default").replace(":", "_");
+        String clientId = StrUtil.format("{}@@@{}@@@{}", groupId, macAddress, macAddress);
+
+        // 构建完整的URL
+        String url = StrUtil.format("http://{}/api/commands/{}", mqttGatewayUrl, clientId);
+
+        // 构建请求体
+        Map<String, Object> params = MapUtil
+                .builder(new HashMap<String, Object>())
+                .put("name", toolName)
+                .put("arguments", arguments)
+                .build();
+
+        Map<String, Object> payload = MapUtil
+                .builder(new HashMap<String, Object>())
+                .put("jsonrpc", "2.0")
+                .put("id", 2)
+                .put("method", "tools/call")
+                .put("params", params)
+                .build();
+
+        Map<String, Object> requestBody = MapUtil
+                .builder(new HashMap<String, Object>())
+                .put("type", "mcp")
+                .put("payload", payload)
+                .build();
+
+        // 发送请求
+        String resultMessage = HttpRequest.post(url)
+                .header(Header.CONTENT_TYPE, ContentType.JSON.getValue())
+                .header(Header.AUTHORIZATION, "Bearer " + generateBearerToken())
+                .body(JSONUtil.toJsonStr(requestBody))
+                .timeout(10000) // 超时，毫秒
+                .execute().body();
+
+        // 解析响应
+        if (StringUtils.isNotBlank(resultMessage)) {
+            cn.hutool.json.JSONObject jsonObject = JSONUtil.parseObj(resultMessage);
+            if (jsonObject.getBool("success", false)) {
+                cn.hutool.json.JSONObject data = jsonObject.getJSONObject("data");
+                if (data != null) {
+                    cn.hutool.json.JSONArray content = data.getJSONArray("content");
+                    if (content != null && content.size() > 0) {
+                        cn.hutool.json.JSONObject firstContent = content.getJSONObject(0);
+                        if (firstContent != null && "text".equals(firstContent.getStr("type"))) {
+                            String text = firstContent.getStr("text");
+                            if (StringUtils.isNotBlank(text)) {
+                                return JSONUtil.parseObj(text);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
 }

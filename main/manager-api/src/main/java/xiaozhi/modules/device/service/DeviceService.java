@@ -2,6 +2,7 @@ package xiaozhi.modules.device.service;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import xiaozhi.common.page.PageData;
 import xiaozhi.common.service.BaseService;
@@ -126,5 +127,10 @@ public interface DeviceService extends BaseService<DeviceEntity> {
      * 获取设备工具列表
      */
     Object getDeviceTools(String deviceId);
+
+    /**
+     * 调用设备工具
+     */
+    Object callDeviceTool(String deviceId, String toolName, Map<String, Object> arguments);
 
 }

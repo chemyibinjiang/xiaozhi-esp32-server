@@ -24,6 +24,7 @@ import xiaozhi.common.user.UserDetail;
 import xiaozhi.common.utils.Result;
 import xiaozhi.modules.device.dto.DeviceManualAddDTO;
 import xiaozhi.modules.device.dto.DeviceRegisterDTO;
+import xiaozhi.modules.device.dto.DeviceToolsCallReqDTO;
 import xiaozhi.modules.device.dto.DeviceUnBindDTO;
 import xiaozhi.modules.device.dto.DeviceUpdateDTO;
 import xiaozhi.modules.device.entity.DeviceEntity;
@@ -129,20 +130,33 @@ public class DeviceController {
         return new Result<>();
     }
 
-    @PostMapping("/tools/list")
+    @PostMapping("/tools/list/{deviceId}")
     @Operation(summary = "获取设备工具列表")
     @RequiresPermissions("sys:role:normal")
-    public Result<Object> getDeviceTools(@RequestBody Map<String, String> requestBody) {
-        String deviceId = requestBody.get("deviceId");
-        if (StringUtils.isBlank(deviceId)) {
-            return new Result<Object>().error(ErrorCode.DEVICE_ID_NOT_NULL);
-        }
-
+    public Result<Object> getDeviceTools(@PathVariable String deviceId) {
         Object toolsData = deviceService.getDeviceTools(deviceId);
         if (toolsData == null) {
             return new Result<Object>().error(ErrorCode.DEVICE_NOT_EXIST);
         }
 
         return new Result<Object>().ok(toolsData);
+    }
+
+    @PostMapping("/tools/call/{deviceId}")
+    @Operation(summary = "调用设备工具")
+    @RequiresPermissions("sys:role:normal")
+    public Result<Object> callDeviceTool(@PathVariable String deviceId,
+            @Valid @RequestBody DeviceToolsCallReqDTO request) {
+        String toolName = request.getName();
+        Map<String, Object> arguments = request.getArguments();
+
+        Object result = deviceService.callDeviceTool(deviceId, toolName, arguments);
+        if (result == null) {
+            return new Result<Object>().error(ErrorCode.DEVICE_NOT_EXIST);
+        }
+
+        Result<Object> response = new Result<Object>();
+        response.setMsg("Tools called successfully");
+        return response.ok(result);
     }
 }
