@@ -805,7 +805,20 @@ public class DeviceServiceImpl extends BaseServiceImpl<DeviceDao, DeviceEntity> 
                         if (firstContent != null && "text".equals(firstContent.getStr("type"))) {
                             String text = firstContent.getStr("text");
                             if (StringUtils.isNotBlank(text)) {
-                                return JSONUtil.parseObj(text);
+                                String trimmedText = text.trim();
+                                if (trimmedText.startsWith("{") || trimmedText.startsWith("[")) {
+                                    try {
+                                        return JSONUtil.parseObj(trimmedText);
+                                    } catch (Exception e) {
+                                        return trimmedText;
+                                    }
+                                } else if ("true".equals(trimmedText)) {
+                                    return true;
+                                } else if ("false".equals(trimmedText)) {
+                                    return false;
+                                } else {
+                                    return trimmedText;
+                                }
                             }
                         }
                     }
