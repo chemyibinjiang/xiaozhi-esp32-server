@@ -5,6 +5,7 @@ import { getConfig, saveConnectionUrls } from '../../config/manager.js';
 import { getAudioPlayer } from '../audio/player.js';
 import { getAudioRecorder } from '../audio/recorder.js';
 import { getMcpTools, executeMcpTool, setWebSocket as setMcpWebSocket } from '../mcp/tools.js';
+import { uiController } from '../../ui/controller.js'
 
 // WebSocket处理器类
 export class WebSocketHandler {
@@ -17,7 +18,6 @@ export class WebSocketHandler {
         this.onChatMessage = null; // 新增：聊天消息回调
         this.currentSessionId = null;
         this.isRemoteSpeaking = false;
-        this.isEstablishConnection = false; // 新增：是否已建立连接
     }
 
     // 发送hello握手消息
@@ -74,7 +74,7 @@ export class WebSocketHandler {
     handleTextMessage(message) {
         if (message.type === 'hello') {
             log(`服务器回应：${JSON.stringify(message, null, 2)}`, 'success');
-            this.isEstablishConnection = true;
+            uiController.startAIChatSession();
         } else if (message.type === 'tts') {
             this.handleTTSMessage(message);
         } else if (message.type === 'audio') {

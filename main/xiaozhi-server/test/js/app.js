@@ -40,9 +40,6 @@ class App {
         // 关闭加载loading
         this.setModelLoadingStatus(false);
 
-        // 绑定页面卸载事件
-        this.bindUnload();
-
         log('应用初始化完成', 'success');
     }
 
@@ -83,16 +80,6 @@ class App {
         if (modelLoading) {
             modelLoading.style.display = isLoading ? 'flex' : 'none';
         }
-    }
-
-    // 绑定页面卸载事件
-    bindUnload() {
-        window.addEventListener('beforeunload', () => {
-            // 销毁定时器
-            if (this.uiController && this.uiController.wsTimer) {
-                clearInterval(this.uiController.wsTimer);
-            }
-        });
     }
 }
 
