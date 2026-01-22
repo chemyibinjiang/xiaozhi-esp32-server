@@ -152,8 +152,12 @@ class UIController {
         const closeButtons = document.querySelectorAll('.close-btn');
         closeButtons.forEach(btn => {
             btn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const modal = e.target.closest('.modal');
                 if (modal) {
+                    if (modal.id === 'settingsModal') {
+                        saveConfig();
+                    }
                     this.hideModal(modal.id);
                 }
             });
@@ -172,23 +176,19 @@ class UIController {
         modals.forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
+                    if (modal.id === 'settingsModal') {
+                        saveConfig();
+                    }
                     this.hideModal(modal.id);
                 }
             });
         });
 
-        // 保存配置按钮
-        const saveConfigBtn = document.getElementById('saveConfigBtn');
-        if (saveConfigBtn) {
-            saveConfigBtn.addEventListener('click', () => {
-                this.saveConfig();
-            });
-        }
-
         // 添加MCP工具按钮
         const addMCPToolBtn = document.getElementById('addMCPToolBtn');
         if (addMCPToolBtn) {
-            addMCPToolBtn.addEventListener('click', () => {
+            addMCPToolBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 this.addMCPTool();
             });
         }
@@ -328,23 +328,6 @@ class UIController {
             activeTabBtn.classList.add('active');
             activeTabContent.classList.add('active');
         }
-    }
-
-    // 保存配置
-    saveConfig() {
-        const config = {
-            serverUrl: document.getElementById('serverUrl').value,
-            serverPort: document.getElementById('serverPort').value,
-            audioDevice: document.getElementById('audioDevice').value,
-            audioSampleRate: document.getElementById('audioSampleRate').value,
-            audioChannels: document.getElementById('audioChannels').value
-        };
-
-        saveConfig(config);
-        this.hideModal('settingsModal');
-
-        // 显示保存成功消息
-        this.addChatMessage('配置已保存', false);
     }
 
     // 连接成功后开始对话

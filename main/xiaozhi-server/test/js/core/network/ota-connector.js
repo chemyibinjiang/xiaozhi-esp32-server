@@ -83,7 +83,7 @@ async function sendOTA(otaUrl, config) {
                 },
                 ota: { label: 'xiaozhi-web-test' },
                 board: {
-                    type: 'xiaozhi-web-test',
+                    type: config.deviceName,
                     ssid: 'xiaozhi-web-test',
                     rssi: 0,
                     channel: 0,
