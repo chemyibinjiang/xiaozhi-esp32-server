@@ -580,9 +580,10 @@ LLM:
       - exec
       - --json
       - -
-    prompt_mode: full_dialogue
+    prompt_mode: last_user
     stderr_summary_enabled: true
     stderr_summary_min_interval: 0.5
+    resume_session: true
   DifyLLM:
     # 定义LLM API类型
     type: dify

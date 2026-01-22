@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 import threading
 import time
@@ -13,6 +14,11 @@ from .stderr_summary import summarize
 
 TAG = __name__
 logger = setup_logging()
+_UUID_RE = re.compile(
+    r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{12}\b"
+)
 
 
 class LLMProvider(LLMProviderBase):
@@ -35,9 +41,34 @@ class LLMProvider(LLMProviderBase):
         self.stderr_summary_min_interval = float(
             config.get("stderr_summary_min_interval", 0)
         )
+        self.resume_session = str(config.get("resume_session", False)).lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+        self._session_map = {}
+        self._session_lock = threading.Lock()
 
-    def _build_command(self) -> list:
+    def _filter_args(self, args):
+        filtered = []
+        for arg in args:
+            if arg in ("exec", "resume", "e"):
+                continue
+            if arg == "-":
+                continue
+            filtered.append(arg)
+        return filtered
+
+    def _build_command(self, resume_id: str = None) -> list:
         args = list(self.args)
+        if resume_id:
+            args = self._filter_args(args)
+            if "--json" not in args:
+                args.append("--json")
+            if self.prompt_via_stdin and "-" not in args:
+                args.append("-")
+            return [self.command, "exec", "resume", resume_id] + args
+
         if not any(arg in ("exec", "e") for arg in args):
             args.insert(0, "exec")
         if "--json" not in args:
@@ -81,6 +112,59 @@ class LLMProvider(LLMProviderBase):
             return json.loads(payload)
         except json.JSONDecodeError:
             return payload
+
+    def _find_uuid(self, value):
+        if not value:
+            return None
+        if isinstance(value, str):
+            match = _UUID_RE.search(value)
+            return match.group(0) if match else None
+        return None
+
+    def _extract_session_id(self, event):
+        if not event:
+            return None
+        if isinstance(event, str):
+            return self._find_uuid(event)
+
+        if isinstance(event, dict):
+            for key in (
+                "session_id",
+                "sessionId",
+                "conversation_id",
+                "conversationId",
+                "session",
+                "conversation",
+            ):
+                candidate = self._extract_session_id(event.get(key))
+                if candidate:
+                    return candidate
+            candidate = self._extract_session_id(event.get("id"))
+            if candidate:
+                return candidate
+            return self._find_uuid(json.dumps(event, ensure_ascii=False))
+
+        if isinstance(event, list):
+            for item in event:
+                candidate = self._extract_session_id(item)
+                if candidate:
+                    return candidate
+        return None
+
+    def _store_session_id(self, session_id: str, event) -> None:
+        if not session_id or not event:
+            return
+        candidate = self._extract_session_id(event)
+        if not candidate:
+            return
+        with self._session_lock:
+            self._session_map[session_id] = candidate
+
+    def _get_resume_id(self, session_id: str):
+        if not session_id:
+            return None
+        with self._session_lock:
+            return self._session_map.get(session_id)
 
     def _collect_text(self, value, items):
         if value is None:
@@ -137,7 +221,8 @@ class LLMProvider(LLMProviderBase):
 
     def response(self, session_id, dialogue, **kwargs):
         prompt = self._build_prompt(dialogue)
-        command = self._build_command()
+        resume_id = self._get_resume_id(session_id) if self.resume_session else None
+        command = self._build_command(resume_id=resume_id)
         if not self.prompt_via_stdin and prompt:
             command = command + [prompt]
 
@@ -211,6 +296,8 @@ class LLMProvider(LLMProviderBase):
                     continue
 
                 event = self._parse_event(line)
+                if event is not None:
+                    self._store_session_id(session_id, event)
                 if name == "stderr":
                     if stdout_started or not self.stderr_summary_enabled:
                         continue
