@@ -58,10 +58,9 @@ export function saveConfig() {
 
 // 获取配置值
 export function getConfig() {
-    // 从DOM获取值
-    const deviceMac = document.getElementById('deviceMac')?.value.trim() || '';
-    const deviceName = document.getElementById('deviceName')?.value.trim() || '';
-    const clientId = document.getElementById('clientId')?.value.trim() || '';
+    const deviceMac = localStorage.getItem('xz_tester_deviceMac');
+    const deviceName = localStorage.getItem('xz_tester_deviceName');
+    const clientId = localStorage.getItem('xz_tester_clientId');
 
     return {
         deviceId: deviceMac,  // 使用MAC地址作为deviceId
