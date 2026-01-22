@@ -1,4 +1,3 @@
-import { otaStatusStyle } from '../../ui/dom-helper.js';
 import { log } from '../../utils/logger.js';
 
 // WebSocket 连接
@@ -103,10 +102,8 @@ async function sendOTA(otaUrl, config) {
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
 
         const result = await res.json();
-        otaStatusStyle(true)
         return result; // 返回完整的响应数据
     } catch (err) {
-        otaStatusStyle(false)
         return null; // 失败返回null
     }
 }
