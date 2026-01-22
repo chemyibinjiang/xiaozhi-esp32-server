@@ -573,6 +573,16 @@ LLM:
     type: ollama
     model_name: qwen2.5 #  使用的模型名称，需要预先使用ollama pull下载
     base_url: http://localhost:11434  # Ollama服务地址
+  CodexCLI:
+    type: codex
+    command: codex
+    args:
+      - exec
+      - --json
+      - -
+    prompt_mode: full_dialogue
+    stderr_summary_enabled: true
+    stderr_summary_min_interval: 0.5
   DifyLLM:
     # 定义LLM API类型
     type: dify

@@ -1,9 +1,14 @@
 import json
 
+from core.utils.llm_runtime import is_abort_blocked
+
 TAG = __name__
 
 
 async def handleAbortMessage(conn):
+    if is_abort_blocked(conn.session_id):
+        conn.logger.bind(tag=TAG).info("Abort blocked for active LLM status output")
+        return
     conn.logger.bind(tag=TAG).info("Abort message received")
     # 设置成打断状态，会自动打断llm、tts任务
     conn.client_abort = True

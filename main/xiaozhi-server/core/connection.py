@@ -41,6 +41,8 @@ from config.manage_api_client import DeviceNotFoundException, DeviceBindExceptio
 from core.utils.prompt_manager import PromptManager
 from core.utils.voiceprint_provider import VoiceprintProvider
 from core.utils import textUtils
+from core.utils.llm_runtime import clear_session
+from core.utils.llm_stream import extract_status
 
 TAG = __name__
 
@@ -877,6 +879,19 @@ class ConnectionHandler:
                 if "content" in response:
                     content = response["content"]
                     tools_call = None
+                status_text = extract_status(content)
+                if status_text is not None:
+                    status_text = status_text.strip()
+                    if status_text:
+                        self.tts.tts_text_queue.put(
+                            TTSMessageDTO(
+                                sentence_id=self.sentence_id,
+                                sentence_type=SentenceType.MIDDLE,
+                                content_type=ContentType.TEXT,
+                                content_detail=status_text,
+                            )
+                        )
+                    continue
                 if content is not None and len(content) > 0:
                     content_arguments += content
 
@@ -889,6 +904,19 @@ class ConnectionHandler:
                     self._merge_tool_calls(tool_calls_list, tools_call)
             else:
                 content = response
+                status_text = extract_status(content)
+                if status_text is not None:
+                    status_text = status_text.strip()
+                    if status_text:
+                        self.tts.tts_text_queue.put(
+                            TTSMessageDTO(
+                                sentence_id=self.sentence_id,
+                                sentence_type=SentenceType.MIDDLE,
+                                content_type=ContentType.TEXT,
+                                content_detail=status_text,
+                            )
+                        )
+                    continue
 
             # 在llm回复中获取情绪表情，一轮对话只在开头获取一次
             if emotion_flag and content is not None and content.strip():
@@ -1119,6 +1147,7 @@ class ConnectionHandler:
             # 触发停止事件
             if self.stop_event:
                 self.stop_event.set()
+            clear_session(self.session_id)
 
             # 清空任务队列
             self.clear_queues()
