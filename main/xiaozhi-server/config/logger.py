@@ -54,6 +54,13 @@ def setup_logging():
 
     # 第一次初始化时配置日志
     if not _logger_initialized:
+        if os.name == "nt":
+            for stream in (sys.stdout, sys.stderr):
+                if hasattr(stream, "reconfigure"):
+                    try:
+                        stream.reconfigure(encoding="utf-8")
+                    except Exception:
+                        pass
         # 使用默认的模块字符串进行初始化
         logger.configure(
             extra={

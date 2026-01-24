@@ -6,6 +6,7 @@ from datetime import timedelta
 import asyncio
 import os
 import shutil
+import sys
 import concurrent.futures
 from contextlib import AsyncExitStack
 from typing import Optional, List, Dict, Any
@@ -186,7 +187,7 @@ class ServerMCPClient:
                         env=env,
                     )
                     stdio_r, stdio_w = await stack.enter_async_context(
-                        stdio_client(params)
+                        stdio_client(params, errlog=sys.__stderr__)
                     )
                     read_stream, write_stream = stdio_r, stdio_w
 

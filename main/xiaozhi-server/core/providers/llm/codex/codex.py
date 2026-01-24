@@ -35,6 +35,18 @@ class LLMProvider(LLMProviderBase):
         )
         self.cwd = config.get("cwd") or config.get("workdir")
         self.env = config.get("env") or {}
+        self.debug_events = str(config.get("debug_events", False)).lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+        self.debug_event_target = str(config.get("debug_event_target", "log")).lower()
+        self.debug_command_output = str(
+            config.get("debug_command_output", False)
+        ).lower() in ("true", "1", "yes")
+        self.debug_command_output_max_chars = int(
+            config.get("debug_command_output_max_chars", 2000)
+        )
         self.stderr_summary_enabled = str(
             config.get("stderr_summary_enabled", True)
         ).lower() in ("true", "1", "yes")
@@ -48,6 +60,9 @@ class LLMProvider(LLMProviderBase):
         )
         self._session_map = {}
         self._session_lock = threading.Lock()
+        self._prompt_mode_state = {}
+        self._prompt_mode_lock = threading.Lock()
+        self._warned_missing_resume = False
 
     def _filter_args(self, args):
         filtered = []
@@ -77,8 +92,10 @@ class LLMProvider(LLMProviderBase):
             args.append("-")
         return [self.command] + args
 
-    def _build_prompt(self, dialogue) -> str:
-        if self.prompt_mode == "last_user":
+    def _build_prompt(self, dialogue, prompt_mode: str = None) -> str:
+        if prompt_mode is None:
+            prompt_mode = self.prompt_mode
+        if prompt_mode == "last_user":
             for msg in reversed(dialogue):
                 if msg.get("role") == "user":
                     return msg.get("content", "")
@@ -99,6 +116,30 @@ class LLMProvider(LLMProviderBase):
             else:
                 parts.append(f"User: {content}")
         return "\n".join(parts)
+
+    def _get_effective_prompt_mode(self, session_id: str) -> str:
+        if self.prompt_mode != "first_full_then_last":
+            return self.prompt_mode
+        if not self.resume_session and not self._warned_missing_resume:
+            logger.bind(tag=TAG).warning(
+                "prompt_mode=first_full_then_last but resume_session is disabled; "
+                "context will be lost after the first turn."
+            )
+            self._warned_missing_resume = True
+        if not session_id:
+            return "full_dialogue"
+        with self._prompt_mode_lock:
+            if not self._prompt_mode_state.get(session_id):
+                return "full_dialogue"
+            return "last_user"
+
+    def _mark_prompt_sent(self, session_id: str) -> None:
+        if self.prompt_mode != "first_full_then_last":
+            return
+        if not session_id:
+            return
+        with self._prompt_mode_lock:
+            self._prompt_mode_state[session_id] = True
 
     def _parse_event(self, line: str):
         if not line:
@@ -193,6 +234,59 @@ class LLMProvider(LLMProviderBase):
                     self._collect_text(value[key], items)
             return
 
+    def _extract_codex_item_text(self, event):
+        if not isinstance(event, dict):
+            return []
+        event_type = event.get("type", "")
+        if not event_type.startswith("item."):
+            return []
+        item = event.get("item") or event.get("delta") or {}
+        if not isinstance(item, dict):
+            return []
+        item_type = item.get("type", "")
+        if item_type not in ("agent_message", "assistant_message", "message"):
+            return []
+        items = []
+        self._collect_text(item, items)
+        return items
+
+    def _format_debug_event(self, event):
+        if not self.debug_events or not isinstance(event, dict):
+            return []
+        event_type = event.get("type", "")
+        if not event_type.startswith("item."):
+            return []
+        item = event.get("item") or event.get("delta") or {}
+        if not isinstance(item, dict):
+            return []
+        item_type = item.get("type", "")
+        if item_type == "reasoning":
+            text = item.get("text")
+            if text:
+                return [f"[codex.reasoning] {text.strip()}"]
+            return []
+        if item_type != "command_execution":
+            return []
+        command = item.get("command") or ""
+        status = (item.get("status") or "").strip()
+        exit_code = item.get("exit_code")
+        exit_text = f" exit={exit_code}" if exit_code is not None else ""
+        prefix = f"[codex.command] {status}{exit_text}".strip()
+        messages = [f"{prefix}: {command}" if command else prefix]
+        if self.debug_command_output:
+            output = item.get("aggregated_output") or ""
+            output = output.strip()
+            if output:
+                if (
+                    self.debug_command_output_max_chars > 0
+                    and len(output) > self.debug_command_output_max_chars
+                ):
+                    output = (
+                        output[: self.debug_command_output_max_chars] + "...(truncated)"
+                    )
+                messages.append(f"[codex.command.output] {output}")
+        return messages
+
     def _extract_text_chunks(self, event):
         if event is None:
             return []
@@ -201,6 +295,9 @@ class LLMProvider(LLMProviderBase):
 
         items = []
         if isinstance(event, dict):
+            codex_items = self._extract_codex_item_text(event)
+            if codex_items:
+                return codex_items
             event_type = event.get("type")
             if event_type:
                 if event_type.endswith(".delta") or event_type.endswith(".text.delta"):
@@ -220,7 +317,8 @@ class LLMProvider(LLMProviderBase):
         return "\n".join(chunks).strip()
 
     def response(self, session_id, dialogue, **kwargs):
-        prompt = self._build_prompt(dialogue)
+        effective_prompt_mode = self._get_effective_prompt_mode(session_id)
+        prompt = self._build_prompt(dialogue, prompt_mode=effective_prompt_mode)
         resume_id = self._get_resume_id(session_id) if self.resume_session else None
         command = self._build_command(resume_id=resume_id)
         if not self.prompt_via_stdin and prompt:
@@ -249,6 +347,8 @@ class LLMProvider(LLMProviderBase):
             logger.bind(tag=TAG).error(f"Failed to start Codex CLI: {e}")
             yield "[Codex CLI error: failed to start]"
             return
+        if effective_prompt_mode == "full_dialogue":
+            self._mark_prompt_sent(session_id)
 
         if self.prompt_via_stdin and proc.stdin:
             try:
@@ -325,6 +425,13 @@ class LLMProvider(LLMProviderBase):
                     last_summary_time = now
                     yield wrap_status(summary)
                     continue
+
+                if name != "stderr":
+                    for debug_text in self._format_debug_event(event):
+                        if self.debug_event_target == "status":
+                            yield wrap_status(debug_text)
+                        else:
+                            logger.bind(tag=TAG).info(debug_text)
 
                 for chunk in self._extract_text_chunks(event):
                     if not chunk:
