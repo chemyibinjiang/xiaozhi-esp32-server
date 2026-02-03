@@ -1,5 +1,6 @@
 import re
 import os
+import sys
 import json
 import copy
 import wave
@@ -8,6 +9,21 @@ import asyncio
 import requests
 import subprocess
 import numpy as np
+# Ensure Opus DLL can be found on Windows (conda env Library\\bin).
+if sys.platform == "win32":
+    # Prefer the active interpreter prefix; CONDA_PREFIX can point to base.
+    prefix_candidates = [sys.prefix, os.environ.get("CONDA_PREFIX")]
+    for prefix in prefix_candidates:
+        if not prefix:
+            continue
+        conda_bin = os.path.join(prefix, "Library", "bin")
+        opus_candidates = [
+            os.path.join(conda_bin, "opus.dll"),
+            os.path.join(conda_bin, "libopus-0.dll"),
+        ]
+        if any(os.path.isfile(path) for path in opus_candidates):
+            os.environ["PATH"] = conda_bin + os.pathsep + os.environ.get("PATH", "")
+            break
 import opuslib_next
 from io import BytesIO
 from core.utils import p3

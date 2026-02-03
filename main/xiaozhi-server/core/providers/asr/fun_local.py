@@ -5,6 +5,7 @@ import time
 import shutil
 import psutil
 import asyncio
+import torch
 
 from funasr import AutoModel
 from config.logger import setup_logging
@@ -55,13 +56,14 @@ class ASRProvider(ASRProviderBase):
 
         # 确保输出目录存在
         os.makedirs(self.output_dir, exist_ok=True)
+        device = config.get("device") or ("cuda:0" if torch.cuda.is_available() else "cpu")
         with CaptureOutput():
             self.model = AutoModel(
                 model=self.model_dir,
                 vad_kwargs={"max_single_segment_time": 30000},
                 disable_update=True,
                 hub="hf",
-                device="cuda:0",  # 启用GPU加速
+                device=device,
             )
 
     async def speech_to_text(
