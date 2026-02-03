@@ -1,5 +1,8 @@
 import json
 import copy
+import os
+import time
+import uuid
 from aiohttp import web
 from config.logger import setup_logging
 from core.api.base_handler import BaseHandler
@@ -22,6 +25,39 @@ class VisionHandler(BaseHandler):
         super().__init__(config)
         # 初始化认证工具
         self.auth = AuthToken(config["server"]["auth_key"])
+
+    def _guess_image_ext(self, data: bytes) -> str:
+        if data.startswith(b"\xff\xd8\xff"):
+            return "jpg"
+        if data.startswith(b"\x89PNG\r\n\x1a\n"):
+            return "png"
+        if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
+            return "gif"
+        if data.startswith(b"BM"):
+            return "bmp"
+        if data.startswith(b"II*\x00") or data.startswith(b"MM\x00*"):
+            return "tiff"
+        if data.startswith(b"RIFF"):
+            return "webp"
+        return "jpg"
+
+    def _save_image(self, image_data: bytes, device_id: str) -> str:
+        log_config = self.config.get("log", {})
+        data_dir = log_config.get("data_dir", "data")
+        vision_dir = os.path.join(data_dir, "vision")
+        os.makedirs(vision_dir, exist_ok=True)
+
+        safe_device = (device_id or "unknown").replace(":", "-")
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        rand = uuid.uuid4().hex[:8]
+        ext = self._guess_image_ext(image_data)
+        filename = f"{safe_device}_{timestamp}_{rand}.{ext}"
+        file_path = os.path.join(vision_dir, filename)
+
+        with open(file_path, "wb") as f:
+            f.write(image_data)
+
+        return file_path
 
     def _create_error_response(self, message: str) -> dict:
         """创建统一的错误响应格式"""
@@ -88,6 +124,13 @@ class VisionHandler(BaseHandler):
                 raise ValueError(
                     "不支持的文件格式，请上传有效的图片文件（支持JPEG、PNG、GIF、BMP、TIFF、WEBP格式）"
                 )
+
+            # 落盘保存图片
+            try:
+                saved_path = self._save_image(image_data, device_id)
+                self.logger.bind(tag=TAG).info(f"Saved vision image: {saved_path}")
+            except Exception as e:
+                self.logger.bind(tag=TAG).error(f"Save vision image failed: {e}")
 
             # 将图片转换为base64编码
             image_base64 = base64.b64encode(image_data).decode("utf-8")
