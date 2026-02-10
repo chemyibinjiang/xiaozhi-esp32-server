@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from typing import Dict, Optional
 
 import websockets
 from config.logger import setup_logging
@@ -67,6 +68,76 @@ class WebSocketServer:
         secret_key = self.config["server"]["auth_key"]
         expire_seconds = auth_config.get("expire_seconds", None)
         self.auth = AuthManager(secret_key=secret_key, expire_seconds=expire_seconds)
+        self.connections_lock = asyncio.Lock()
+        self.connections_by_session: Dict[str, ConnectionHandler] = {}
+        self.connections_by_device: Dict[str, ConnectionHandler] = {}
+
+    async def register_connection(self, handler: ConnectionHandler):
+        session_id = getattr(handler, "session_id", "")
+        device_id = getattr(handler, "device_id", "")
+        async with self.connections_lock:
+            if session_id:
+                self.connections_by_session[session_id] = handler
+            if device_id:
+                self.connections_by_device[device_id] = handler
+
+    async def unregister_connection(self, handler: ConnectionHandler):
+        session_id = getattr(handler, "session_id", "")
+        device_id = getattr(handler, "device_id", "")
+        async with self.connections_lock:
+            if (
+                session_id
+                and session_id in self.connections_by_session
+                and self.connections_by_session[session_id] is handler
+            ):
+                self.connections_by_session.pop(session_id, None)
+            if (
+                device_id
+                and device_id in self.connections_by_device
+                and self.connections_by_device[device_id] is handler
+            ):
+                self.connections_by_device.pop(device_id, None)
+
+    async def get_connection(
+        self, session_id: Optional[str] = None, device_id: Optional[str] = None
+    ) -> Optional[ConnectionHandler]:
+        async with self.connections_lock:
+            if session_id:
+                return self.connections_by_session.get(session_id)
+            if device_id:
+                return self.connections_by_device.get(device_id)
+            return None
+
+    async def list_connections(self) -> list:
+        async with self.connections_lock:
+            items = []
+            for session_id, conn in self.connections_by_session.items():
+                websocket_alive = False
+                ws = getattr(conn, "websocket", None)
+                if ws is not None:
+                    if hasattr(ws, "state"):
+                        websocket_alive = ws.state.name != "CLOSED"
+                    elif hasattr(ws, "closed"):
+                        websocket_alive = not ws.closed
+
+                mcp_ready = False
+                mcp_tools = []
+                mcp_client = getattr(conn, "mcp_client", None)
+                if mcp_client is not None:
+                    mcp_ready = await mcp_client.is_ready()
+                    mcp_tools = sorted(list(getattr(mcp_client, "tools", {}).keys()))
+
+                items.append(
+                    {
+                        "session_id": session_id,
+                        "device_id": getattr(conn, "device_id", ""),
+                        "client_ip": getattr(conn, "client_ip", ""),
+                        "mcp_ready": mcp_ready,
+                        "mcp_tools": mcp_tools,
+                        "websocket_alive": websocket_alive,
+                    }
+                )
+            return items
 
     async def start(self):
         server_config = self.config["server"]

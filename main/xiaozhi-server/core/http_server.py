@@ -3,16 +3,19 @@ from aiohttp import web
 from config.logger import setup_logging
 from core.api.ota_handler import OTAHandler
 from core.api.vision_handler import VisionHandler
+from core.api.device_mcp_handler import DeviceMCPHandler
 
 TAG = __name__
 
 
 class SimpleHttpServer:
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, ws_server=None):
         self.config = config
+        self.ws_server = ws_server
         self.logger = setup_logging()
         self.ota_handler = OTAHandler(config)
         self.vision_handler = VisionHandler(config)
+        self.device_mcp_handler = DeviceMCPHandler(config, ws_server)
 
     def _get_websocket_url(self, local_ip: str, port: int) -> str:
         """获取websocket地址
@@ -71,6 +74,37 @@ class SimpleHttpServer:
                         ),
                         web.options(
                             "/mcp/vision/explain", self.vision_handler.handle_options
+                        ),
+                        web.get(
+                            "/mcp/device/sessions", self.device_mcp_handler.handle_get
+                        ),
+                        web.post(
+                            "/mcp/device/take_photo",
+                            self.device_mcp_handler.handle_post,
+                        ),
+                        web.post(
+                            "/mcp/device/preview_local_file",
+                            self.device_mcp_handler.handle_preview_local_file_post,
+                        ),
+                        web.get(
+                            "/mcp/device/local_files/{file_name}",
+                            self.device_mcp_handler.handle_local_file_get,
+                        ),
+                        web.options(
+                            "/mcp/device/sessions",
+                            self.device_mcp_handler.handle_options,
+                        ),
+                        web.options(
+                            "/mcp/device/take_photo",
+                            self.device_mcp_handler.handle_options,
+                        ),
+                        web.options(
+                            "/mcp/device/preview_local_file",
+                            self.device_mcp_handler.handle_options,
+                        ),
+                        web.options(
+                            "/mcp/device/local_files/{file_name}",
+                            self.device_mcp_handler.handle_options,
                         ),
                     ]
                 )
