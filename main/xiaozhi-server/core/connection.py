@@ -194,6 +194,13 @@ class ConnectionHandler:
 
             # 认证通过,继续处理
             self.websocket = ws
+            if self.server and hasattr(self.server, "register_connection"):
+                try:
+                    await self.server.register_connection(self)
+                except Exception as register_error:
+                    self.logger.bind(tag=TAG).error(
+                        f"register connection failed: {register_error}"
+                    )
 
             # 检查是否来自MQTT连接
             request_path = ws.request.path
@@ -238,6 +245,13 @@ class ConnectionHandler:
                 except Exception as close_error:
                     self.logger.bind(tag=TAG).error(
                         f"强制关闭连接时出错: {close_error}"
+                    )
+            if self.server and hasattr(self.server, "unregister_connection"):
+                try:
+                    await self.server.unregister_connection(self)
+                except Exception as unregister_error:
+                    self.logger.bind(tag=TAG).error(
+                        f"unregister connection failed: {unregister_error}"
                     )
 
     async def _save_and_close(self, ws):

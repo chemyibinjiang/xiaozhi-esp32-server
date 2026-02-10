@@ -288,7 +288,13 @@ async def send_mcp_tools_list_continue_request(conn, cursor: str):
 
 
 async def call_mcp_tool(
-    conn, mcp_client: MCPClient, tool_name: str, args: str = "{}", timeout: int = 30
+    conn,
+    mcp_client: MCPClient,
+    tool_name: str,
+    args: str = "{}",
+    timeout: int = 30,
+    allow_unlisted: bool = False,
+    raw_tool_name: str = "",
 ):
     """
     调用指定的工具，并等待响应
@@ -296,7 +302,8 @@ async def call_mcp_tool(
     if not await mcp_client.is_ready():
         raise RuntimeError("MCP客户端尚未准备就绪")
 
-    if not mcp_client.has_tool(tool_name):
+    has_tool = mcp_client.has_tool(tool_name)
+    if not has_tool and not allow_unlisted:
         raise ValueError(f"工具 {tool_name} 不存在")
 
     tool_call_id = await mcp_client.get_next_id()
@@ -354,6 +361,8 @@ async def call_mcp_tool(
         raise e
 
     actual_name = mcp_client.name_mapping.get(tool_name, tool_name)
+    if not has_tool and allow_unlisted and raw_tool_name:
+        actual_name = raw_tool_name
     payload = {
         "jsonrpc": "2.0",
         "id": tool_call_id,
