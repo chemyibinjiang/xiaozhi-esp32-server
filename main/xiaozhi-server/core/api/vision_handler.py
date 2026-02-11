@@ -3,6 +3,8 @@ import copy
 import os
 import time
 import uuid
+import subprocess
+import tempfile
 from aiohttp import web
 from config.logger import setup_logging
 from core.api.base_handler import BaseHandler
@@ -25,6 +27,7 @@ class VisionHandler(BaseHandler):
         super().__init__(config)
         # 初始化认证工具
         self.auth = AuthToken(config["server"]["auth_key"])
+        self._question_meta_prefix = "[XIAOZHI_META]"
 
     def _guess_image_ext(self, data: bytes) -> str:
         if data.startswith(b"\xff\xd8\xff"):
@@ -41,23 +44,129 @@ class VisionHandler(BaseHandler):
             return "webp"
         return "jpg"
 
-    def _save_image(self, image_data: bytes, device_id: str) -> str:
+    def _sanitize_filename_stem(self, stem: str) -> str:
+        # Keep user-provided names safe for filesystem paths.
+        val = str(stem or "").strip()
+        if not val:
+            return ""
+        val = os.path.splitext(val)[0]
+        for ch in ['\\', '/', ':', '*', '?', '"', '<', '>', '|']:
+            val = val.replace(ch, "_")
+        val = val.strip(" .")
+        if not val:
+            return ""
+        return val[:120]
+
+    def _extract_question_meta(self, question: str) -> Tuple[str, str]:
+        src = str(question or "")
+        idx = src.rfind(self._question_meta_prefix)
+        if idx < 0:
+            return src, ""
+
+        meta_raw = src[idx + len(self._question_meta_prefix) :].strip()
+        clean_question = src[:idx].rstrip()
+        if not meta_raw:
+            return clean_question, ""
+
+        try:
+            meta_obj = json.loads(meta_raw)
+        except Exception:
+            return src, ""
+
+        if not isinstance(meta_obj, dict):
+            return clean_question, ""
+
+        requested = self._sanitize_filename_stem(str(meta_obj.get("photo_name", "")))
+        return clean_question, requested
+
+    def _save_image(
+        self, image_data: bytes, device_id: str, requested_photo_name: str = ""
+    ) -> str:
         log_config = self.config.get("log", {})
         data_dir = log_config.get("data_dir", "data")
         vision_dir = os.path.join(data_dir, "vision")
         os.makedirs(vision_dir, exist_ok=True)
 
         safe_device = (device_id or "unknown").replace(":", "-")
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        rand = uuid.uuid4().hex[:8]
         ext = self._guess_image_ext(image_data)
-        filename = f"{safe_device}_{timestamp}_{rand}.{ext}"
+        save_data = image_data
+
+        if ext == "jpg":
+            try:
+                save_data = self._convert_image_data_to_png(image_data)
+                ext = "png"
+            except Exception as e:
+                self.logger.bind(tag=TAG).warning(
+                    f"Convert JPEG to PNG failed, fallback to jpg: {e}"
+                )
+                save_data = image_data
+                ext = "jpg"
+
+        filename = ""
+
+        requested_stem = self._sanitize_filename_stem(requested_photo_name)
+        if requested_stem:
+            filename = f"{safe_device}_{requested_stem}.{ext}"
+            check_path = os.path.join(vision_dir, filename)
+            if os.path.exists(check_path):
+                filename = (
+                    f"{safe_device}_{requested_stem}_{uuid.uuid4().hex[:8]}.{ext}"
+                )
+
+        if not filename:
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            rand = uuid.uuid4().hex[:8]
+            filename = f"{safe_device}_{timestamp}_{rand}.{ext}"
+
         file_path = os.path.join(vision_dir, filename)
 
         with open(file_path, "wb") as f:
-            f.write(image_data)
+            f.write(save_data)
 
         return file_path
+
+    def _convert_image_data_to_png(self, image_data: bytes) -> bytes:
+        in_fd, in_path = tempfile.mkstemp(prefix="xz_vision_in_", suffix=".jpg")
+        out_fd, out_path = tempfile.mkstemp(prefix="xz_vision_out_", suffix=".png")
+        os.close(in_fd)
+        os.close(out_fd)
+        try:
+            with open(in_path, "wb") as f:
+                f.write(image_data)
+
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    in_path,
+                    "-frames:v",
+                    "1",
+                    out_path,
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,
+            )
+
+            with open(out_path, "rb") as f:
+                png_data = f.read()
+            if not png_data.startswith(b"\x89PNG\r\n\x1a\n"):
+                raise ValueError("ffmpeg output is not PNG")
+            return png_data
+        except subprocess.CalledProcessError as e:
+            err = (e.stderr or e.stdout or "").strip()
+            raise ValueError(f"ffmpeg convert failed: {err}") from e
+        except FileNotFoundError as e:
+            raise ValueError("ffmpeg is not installed or not in PATH") from e
+        finally:
+            for p in (in_path, out_path):
+                try:
+                    if os.path.exists(p):
+                        os.remove(p)
+                except Exception:
+                    pass
 
     def _create_error_response(self, message: str) -> dict:
         """创建统一的错误响应格式"""
@@ -101,7 +210,12 @@ class VisionHandler(BaseHandler):
             if question_field is None:
                 raise ValueError("缺少问题字段")
             question = await question_field.text()
+            question, requested_photo_name = self._extract_question_meta(question)
             self.logger.bind(tag=TAG).debug(f"Question: {question}")
+            if requested_photo_name:
+                self.logger.bind(tag=TAG).debug(
+                    f"Requested photo name: {requested_photo_name}"
+                )
 
             # 读取图片文件
             image_field = await reader.next()
@@ -127,7 +241,9 @@ class VisionHandler(BaseHandler):
 
             # 落盘保存图片
             try:
-                saved_path = self._save_image(image_data, device_id)
+                saved_path = self._save_image(
+                    image_data, device_id, requested_photo_name
+                )
                 self.logger.bind(tag=TAG).info(f"Saved vision image: {saved_path}")
             except Exception as e:
                 self.logger.bind(tag=TAG).error(f"Save vision image failed: {e}")

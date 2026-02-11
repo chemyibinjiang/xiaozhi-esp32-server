@@ -1,6 +1,7 @@
 import json
 import mimetypes
 import os
+import subprocess
 import uuid
 from aiohttp import web
 
@@ -82,14 +83,48 @@ class DeviceMCPHandler(BaseHandler):
         if not is_valid_image_file(image_data):
             raise ValueError("file is not a supported image")
 
-        ext = os.path.splitext(source_file_path)[1].lower().strip()
-        if not ext:
-            ext = ".jpg"
-        file_name = f"{uuid.uuid4().hex}{ext}"
+        png_signature = b"\x89PNG\r\n\x1a\n"
+        file_name = f"{uuid.uuid4().hex}.png"
         save_path = os.path.join(self.preview_dir, file_name)
-        with open(save_path, "wb") as f:
-            f.write(image_data)
-        return file_name, save_path, len(image_data)
+
+        if image_data.startswith(png_signature):
+            with open(save_path, "wb") as f:
+                f.write(image_data)
+            return file_name, save_path, len(image_data)
+
+        # Firmware image decoder supports PNG in this project config.
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    source_file_path,
+                    "-frames:v",
+                    "1",
+                    save_path,
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            err = (e.stderr or e.stdout or "").strip()
+            raise ValueError(f"failed to convert image to png: {err}") from e
+        except FileNotFoundError as e:
+            raise ValueError(
+                "failed to convert image to png: ffmpeg is not installed or not in PATH"
+            ) from e
+
+        if not os.path.exists(save_path):
+            raise ValueError("failed to convert image to png: output not generated")
+        with open(save_path, "rb") as f:
+            png_data = f.read()
+        if not png_data.startswith(png_signature):
+            raise ValueError("failed to convert image to png: invalid output format")
+
+        return file_name, save_path, len(png_data)
 
     def _build_preview_url(self, file_name: str):
         port = int(self.config.get("server", {}).get("http_port", 8003))
@@ -116,6 +151,12 @@ class DeviceMCPHandler(BaseHandler):
         for fixed_name in [
             "self.screen.preview_image",
             "self_screen_preview_image",
+            "self.screen.preview_screen_shot",
+            "self_screen_preview_screen_shot",
+            "preview_screen_shot",
+            "self.screen.preview_screenshot",
+            "self_screen_preview_screenshot",
+            "preview_screenshot",
         ]:
             if fixed_name not in candidates:
                 candidates.append(fixed_name)
@@ -168,6 +209,7 @@ class DeviceMCPHandler(BaseHandler):
             self._read_json_body(body)
             session_id, device_id = self._resolve_target_params(body)
             question = str(body.get("question", "Please take a photo.")).strip()
+            photo_name = str(body.get("photo_name", "")).strip()
             tool_name_raw = str(
                 body.get("tool_name", "self.camera.take_photo")
             ).strip()
@@ -183,11 +225,15 @@ class DeviceMCPHandler(BaseHandler):
                 response = error_resp
                 return response
 
+            tool_args = {"question": question}
+            if photo_name:
+                tool_args["photo_name"] = photo_name
+
             result = await call_mcp_tool(
                 conn,
                 mcp_client,
                 tool_name,
-                {"question": question},
+                tool_args,
                 timeout=timeout,
             )
 
@@ -198,6 +244,7 @@ class DeviceMCPHandler(BaseHandler):
                     "tool_sanitized": tool_name,
                     "session_id": conn.session_id,
                     "device_id": conn.device_id,
+                    "requested_photo_name": photo_name,
                     "result": result,
                 }
             )
