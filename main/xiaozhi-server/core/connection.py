@@ -66,6 +66,10 @@ class ConnectionHandler:
         self.common_config = config
         self.config = copy.deepcopy(config)
         self.session_id = str(uuid.uuid4())
+        self.transport_session_id = self.session_id
+        self.chat_session_id = None
+        self.model_session_key = None
+        self.user_id = None
         self.logger = setup_logging()
         self.server = server  # 保存server实例的引用
 
@@ -237,6 +241,12 @@ class ConnectionHandler:
             for frame in last
         )
 
+    def _llm_session_key(self) -> str:
+        return self.model_session_key if self.model_session_key else self.session_id
+
+    def _memory_session_key(self) -> str:
+        return self.chat_session_id if self.chat_session_id else self.session_id
+
     async def handle_connection(self, ws):
         try:
             # 获取运行中的事件循环（必须在异步上下文中）
@@ -339,7 +349,7 @@ class ConnectionHandler:
                         asyncio.set_event_loop(loop)
                         loop.run_until_complete(
                             self.memory.save_memory(
-                                self.dialogue.dialogue, self.session_id
+                                self.dialogue.dialogue, self._memory_session_key()
                             )
                         )
                     except Exception as e:
@@ -999,7 +1009,7 @@ class ConnectionHandler:
             if self.intent_type == "function_call" and functions is not None:
                 # 使用支持functions的streaming接口
                 llm_responses = self.llm.response_with_functions(
-                    self.session_id,
+                    self._llm_session_key(),
                     self.dialogue.get_llm_dialogue_with_memory(
                         memory_str, self.config.get("voiceprint", {})
                     ),
@@ -1007,7 +1017,7 @@ class ConnectionHandler:
                 )
             else:
                 llm_responses = self.llm.response(
-                    self.session_id,
+                    self._llm_session_key(),
                     self.dialogue.get_llm_dialogue_with_memory(
                         memory_str, self.config.get("voiceprint", {})
                     ),

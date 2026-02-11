@@ -130,7 +130,11 @@ class WebSocketServer:
                 items.append(
                     {
                         "session_id": session_id,
+                        "transport_session_id": session_id,
                         "device_id": getattr(conn, "device_id", ""),
+                        "user_id": getattr(conn, "user_id", ""),
+                        "chat_session_id": getattr(conn, "chat_session_id", ""),
+                        "model_session_key": getattr(conn, "model_session_key", ""),
                         "client_ip": getattr(conn, "client_ip", ""),
                         "mcp_ready": mcp_ready,
                         "mcp_tools": mcp_tools,

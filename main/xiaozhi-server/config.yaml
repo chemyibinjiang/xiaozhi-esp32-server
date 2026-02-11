@@ -74,6 +74,19 @@ stop_tts_notify_voice: "config/assets/tts_notify.mp3"
 # 是否启用WebSocket心跳保活机制
 enable_websocket_ping: false
 
+# 会话映射配置（基于device_id + user_id）
+session_registry:
+  # 远程会话映射服务接口，示例: http://127.0.0.1:9001/session/resolve_or_create
+  endpoint: ""
+  # 远程请求超时(秒)
+  request_timeout: 3
+  # 当设备没有提供user_id时的默认值
+  default_user_id: "test"
+  # 远程服务不可用时，是否回退到本地存储
+  enable_local_fallback: true
+  # 本地回退存储路径（相对于项目根目录）
+  local_store: "data/session_registry.json"
+
 
 # TTS音频发送延迟配置
 # tts_audio_send_delay: 控制音频包发送间隔
