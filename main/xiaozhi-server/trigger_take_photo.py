@@ -8,11 +8,12 @@ Functions:
 
 CLI examples:
   python trigger_take_photo.py --server http://127.0.0.1:8003 --list-sessions
-  python trigger_take_photo.py --server http://127.0.0.1:8003 --device-id 94:a9:90:28:e8:ec --question "请拍照"
+  python trigger_take_photo.py --server http://127.0.0.1:8003 --device-id 94:a9:90:28:e8:ec --question "请拍照" --photo-name room_a --time-format "%Y-%m-%d_%H-%M-%S"
 """
 
 import argparse
 import json
+from datetime import datetime
 import urllib.error
 import urllib.request
 from typing import Any, Dict, Optional
@@ -50,12 +51,34 @@ def list_sessions(base_url: str, timeout: int = 10) -> Dict[str, Any]:
     return _request_json("GET", url, timeout=timeout)
 
 
+def build_photo_name(base_name: str, time_format: str = "%Y%m%d_%H%M%S") -> str:
+    name = str(base_name or "").strip()
+    if not name:
+        return ""
+    try:
+        timestamp = datetime.now().strftime(time_format)
+    except Exception as e:
+        raise ValueError(f"invalid --time-format: {time_format}, error: {e}")
+    return f"{name}_{timestamp}" if timestamp else name
+
+
+def build_question_with_photo_name(question: str, photo_name: str) -> str:
+    q = str(question or "").strip()
+    if not photo_name:
+        return q
+    meta = json.dumps({"photo_name": photo_name}, ensure_ascii=False, separators=(",", ":"))
+    if q:
+        return f"{q}\n[XIAOZHI_META]{meta}"
+    return f"[XIAOZHI_META]{meta}"
+
+
 def trigger_take_photo(
     base_url: str,
     *,
     session_id: str = "",
     device_id: str = "",
     question: str = "Please take a photo.",
+    photo_name: str = "",
     tool_name: str = "self.camera.take_photo",
     tool_timeout: int = 90,
     request_timeout: int = 120,
@@ -72,6 +95,8 @@ def trigger_take_photo(
         payload["session_id"] = session_id
     if device_id:
         payload["device_id"] = device_id
+    if photo_name:
+        payload["photo_name"] = photo_name
 
     url = f"{base_url.rstrip('/')}/mcp/device/take_photo"
     return _request_json("POST", url, payload=payload, timeout=request_timeout)
@@ -95,6 +120,16 @@ def parse_args() -> argparse.Namespace:
         "--question",
         default="Please take a photo.",
         help="Question passed to self.camera.take_photo",
+    )
+    parser.add_argument(
+        "--photo-name",
+        default="",
+        help="Base photo name. Current time will be auto-appended.",
+    )
+    parser.add_argument(
+        "--time-format",
+        default="%Y%m%d_%H%M%S",
+        help="strftime format for timestamp appended to --photo-name",
     )
     parser.add_argument(
         "--tool-name",
@@ -131,6 +166,7 @@ def main() -> int:
 
     session_id = args.session_id.strip()
     device_id = args.device_id.strip()
+    photo_name = args.photo_name.strip()
 
     if not session_id and not device_id and args.auto_pick_first:
         sessions = list_sessions(args.server, timeout=args.request_timeout)
@@ -151,12 +187,22 @@ def main() -> int:
         session_id = str(first.get("session_id", "")).strip()
         device_id = str(first.get("device_id", "")).strip()
 
+    if photo_name:
+        try:
+            photo_name = build_photo_name(photo_name, args.time_format)
+        except ValueError as e:
+            print(json.dumps({"success": False, "message": str(e)}, ensure_ascii=False))
+            return 1
+
+    question = build_question_with_photo_name(args.question, photo_name)
+
     try:
         result = trigger_take_photo(
             args.server,
             session_id=session_id,
             device_id=device_id,
-            question=args.question,
+            question=question,
+            photo_name=photo_name,
             tool_name=args.tool_name,
             tool_timeout=args.tool_timeout,
             request_timeout=args.request_timeout,
@@ -164,6 +210,9 @@ def main() -> int:
     except ValueError as e:
         print(json.dumps({"success": False, "message": str(e)}, ensure_ascii=False))
         return 1
+
+    if photo_name and isinstance(result, dict):
+        result["requested_photo_name"] = photo_name
 
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("success") else 1
