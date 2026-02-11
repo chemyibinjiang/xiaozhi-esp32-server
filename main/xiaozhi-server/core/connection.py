@@ -172,6 +172,71 @@ class ConnectionHandler:
         # 初始化提示词管理器
         self.prompt_manager = PromptManager(self.config, self.logger)
 
+    def _format_ws_state(self, ws):
+        if ws is None:
+            return "ws=None"
+        items = [f"type={type(ws).__name__}"]
+        try:
+            state = getattr(ws, "state", None)
+            if state is not None:
+                state_name = getattr(state, "name", str(state))
+                items.append(f"state={state_name}")
+            if hasattr(ws, "closed"):
+                items.append(f"closed={ws.closed}")
+            if hasattr(ws, "close_code"):
+                items.append(f"close_code={getattr(ws, 'close_code', None)}")
+            if hasattr(ws, "close_reason"):
+                items.append(
+                    f"close_reason={repr(getattr(ws, 'close_reason', None))}"
+                )
+        except Exception as e:
+            items.append(f"state_read_error={e}")
+        return ", ".join(items)
+
+    @staticmethod
+    def _format_close_frame(close_frame):
+        if close_frame is None:
+            return "None"
+        code = getattr(close_frame, "code", None)
+        reason = getattr(close_frame, "reason", None)
+        return f"code={code}, reason={repr(reason)}"
+
+    def _describe_connection_closed(self, exc):
+        rcvd = getattr(exc, "rcvd", None)
+        sent = getattr(exc, "sent", None)
+        rcvd_then_sent = getattr(exc, "rcvd_then_sent", None)
+
+        initiator = "unknown"
+        if rcvd is not None and sent is None:
+            initiator = "client"
+        elif sent is not None and rcvd is None:
+            initiator = "server"
+        elif rcvd is not None and sent is not None:
+            if rcvd_then_sent is True:
+                initiator = "client"
+            elif rcvd_then_sent is False:
+                initiator = "server"
+
+        code = getattr(exc, "code", None)
+        reason = getattr(exc, "reason", None)
+        return (
+            f"initiator_guess={initiator}, "
+            f"code={code}, reason={repr(reason)}, "
+            f"rcvd=({self._format_close_frame(rcvd)}), "
+            f"sent=({self._format_close_frame(sent)}), "
+            f"rcvd_then_sent={rcvd_then_sent}"
+        )
+
+    @staticmethod
+    def _close_call_trace():
+        stack = traceback.extract_stack(limit=8)
+        stack = stack[:-1]
+        last = stack[-4:]
+        return " <- ".join(
+            f"{os.path.basename(frame.filename)}:{frame.lineno}:{frame.name}"
+            for frame in last
+        )
+
     async def handle_connection(self, ws):
         try:
             # 获取运行中的事件循环（必须在异步上下文中）
@@ -224,8 +289,10 @@ class ConnectionHandler:
             try:
                 async for message in self.websocket:
                     await self._route_message(message)
-            except websockets.exceptions.ConnectionClosed:
-                self.logger.bind(tag=TAG).info("客户端断开连接")
+            except websockets.exceptions.ConnectionClosed as e:
+                self.logger.bind(tag=TAG).info(
+                    f"客户端断开连接: {self._describe_connection_closed(e)}"
+                )
 
         except AuthenticationError as e:
             self.logger.bind(tag=TAG).error(f"Authentication failed: {str(e)}")
@@ -257,6 +324,12 @@ class ConnectionHandler:
     async def _save_and_close(self, ws):
         """保存记忆并关闭连接"""
         try:
+            self.logger.bind(tag=TAG).info(
+                "[debug-close] _save_and_close begin: "
+                f"session_id={self.session_id}, device_id={self.device_id}, "
+                f"ws_state={self._format_ws_state(ws if ws else self.websocket)}, "
+                f"memory_enabled={self.memory is not None}"
+            )
             if self.memory:
                 # 使用线程池异步保存记忆
                 def save_memory_task():
@@ -1314,6 +1387,17 @@ class ConnectionHandler:
     async def close(self, ws=None):
         """资源清理方法"""
         try:
+            target_ws = ws if ws else self.websocket
+            self.logger.bind(tag=TAG).info(
+                "[debug-close] close() called: "
+                f"session_id={self.session_id}, device_id={self.device_id}, "
+                f"close_after_chat={self.close_after_chat}, "
+                f"stop_event={self.stop_event.is_set() if self.stop_event else None}, "
+                f"target_ws_state={self._format_ws_state(target_ws)}, "
+                f"self_ws_state={self._format_ws_state(self.websocket)}, "
+                f"call_trace={self._close_call_trace()}"
+            )
+
             # 清理音频缓冲区
             if hasattr(self, "audio_buffer"):
                 self.audio_buffer.clear()
@@ -1348,6 +1432,10 @@ class ConnectionHandler:
             # 关闭WebSocket连接
             try:
                 if ws:
+                    self.logger.bind(tag=TAG).info(
+                        "[debug-close] close() using param ws: "
+                        f"{self._format_ws_state(ws)}"
+                    )
                     # 安全地检查WebSocket状态并关闭
                     try:
                         if hasattr(ws, "closed") and not ws.closed:
@@ -1361,6 +1449,10 @@ class ConnectionHandler:
                         # 如果关闭失败，忽略错误
                         pass
                 elif self.websocket:
+                    self.logger.bind(tag=TAG).info(
+                        "[debug-close] close() using self.websocket: "
+                        f"{self._format_ws_state(self.websocket)}"
+                    )
                     try:
                         if (
                             hasattr(self.websocket, "closed")
@@ -1380,6 +1472,12 @@ class ConnectionHandler:
                         pass
             except Exception as ws_error:
                 self.logger.bind(tag=TAG).error(f"关闭WebSocket连接时出错: {ws_error}")
+            finally:
+                self.logger.bind(tag=TAG).info(
+                    "[debug-close] close() websocket close phase done: "
+                    f"param_ws_state={self._format_ws_state(ws)}, "
+                    f"self_ws_state={self._format_ws_state(self.websocket)}"
+                )
 
             if self.tts:
                 await self.tts.close()
@@ -1461,9 +1559,18 @@ class ConnectionHandler:
                 # 检查是否超时（只有在时间戳已初始化的情况下）
                 if last_activity_time > 0.0:
                     current_time = time.time() * 1000
-                    if current_time - last_activity_time > self.timeout_seconds * 1000:
+                    elapsed_ms = current_time - last_activity_time
+                    timeout_ms = self.timeout_seconds * 1000
+                    if elapsed_ms > timeout_ms:
                         if not self.stop_event.is_set():
-                            self.logger.bind(tag=TAG).info("连接超时，准备关闭")
+                            self.logger.bind(tag=TAG).info(
+                                "连接超时，准备关闭: "
+                                f"elapsed_ms={int(elapsed_ms)}, "
+                                f"timeout_ms={int(timeout_ms)}, "
+                                f"session_id={self.session_id}, "
+                                f"device_id={self.device_id}, "
+                                f"ws_state={self._format_ws_state(self.websocket)}"
+                            )
                             # 设置停止事件，防止重复处理
                             self.stop_event.set()
                             # 使用 try-except 包装关闭操作，确保不会因为异常而阻塞
@@ -1479,7 +1586,13 @@ class ConnectionHandler:
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"超时检查任务出错: {e}")
         finally:
-            self.logger.bind(tag=TAG).info("超时检查任务已退出")
+            self.logger.bind(tag=TAG).info(
+                "超时检查任务已退出: "
+                f"session_id={self.session_id}, "
+                f"device_id={self.device_id}, "
+                f"stop_event={self.stop_event.is_set() if self.stop_event else None}, "
+                f"ws_state={self._format_ws_state(self.websocket)}"
+            )
 
     def _merge_tool_calls(self, tool_calls_list, tools_call):
         """合并工具调用列表
