@@ -13,6 +13,7 @@ from core.providers.tools.device_mcp import (
     MCPClient,
     send_mcp_initialize_message
 )
+from core.session import resolve_or_create_session_binding
 
 TAG = __name__
 
@@ -40,6 +41,42 @@ _wakeup_response_lock = asyncio.Lock()
 
 async def handleHelloMessage(conn, msg_json):
     """处理hello消息"""
+    user_id = str(msg_json.get("user_id", "")).strip()
+    if not user_id:
+        user_id = str(
+            conn.config.get("session_registry", {}).get("default_user_id", "test")
+        ).strip()
+    if not user_id:
+        user_id = "test"
+    conn.user_id = user_id
+
+    if conn.device_id:
+        try:
+            binding = await resolve_or_create_session_binding(
+                conn.config, conn.device_id, conn.user_id
+            )
+            conn.chat_session_id = binding["chat_session_id"]
+            conn.model_session_key = binding["model_session_key"]
+            conn.logger.bind(tag=TAG).info(
+                "resolved chat/model session binding: "
+                f"device_id={conn.device_id}, user_id={conn.user_id}, "
+                f"chat_session_id={conn.chat_session_id}, "
+                f"model_session_key={conn.model_session_key}, "
+                f"source={binding.get('source')}, created={binding.get('created')}"
+            )
+        except Exception as e:
+            conn.logger.bind(tag=TAG).warning(
+                f"resolve chat/model session binding failed, fallback transport session: {e}"
+            )
+            conn.chat_session_id = conn.session_id
+            conn.model_session_key = conn.session_id
+    else:
+        conn.logger.bind(tag=TAG).warning(
+            "device_id is missing in hello flow, fallback transport session"
+        )
+        conn.chat_session_id = conn.session_id
+        conn.model_session_key = conn.session_id
+
     audio_params = msg_json.get("audio_params")
     if audio_params:
         format = audio_params.get("format")
