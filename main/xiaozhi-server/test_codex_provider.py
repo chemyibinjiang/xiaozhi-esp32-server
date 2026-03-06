@@ -31,7 +31,7 @@ def main():
         description="Minimal Codex LLMProvider streaming test."
     )
     parser.add_argument("--codex-bin", default="codex.cmd")
-    parser.add_argument("--model", default="gpt-5.2")
+    parser.add_argument("--model", default="gpt-5.3-codex")
     parser.add_argument("--workspace", default=str(Path.cwd()))
     parser.add_argument(
         "--system-prompt",
