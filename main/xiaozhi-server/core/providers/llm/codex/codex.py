@@ -6,7 +6,7 @@ import subprocess
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from config.logger import setup_logging
 from core.providers.llm.base import LLMProviderBase
@@ -187,6 +187,57 @@ def _safe_filename(s: str) -> str:
     s = str(s or "session")
     s = re.sub(r"[^a-zA-Z0-9._-]+", "_", s)
     return s[:120] if len(s) > 120 else s
+
+
+def _norm_str(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _routing_context_from_kwargs(kwargs: Dict[str, Any]) -> Dict[str, str]:
+    context: Dict[str, str] = {}
+    for key in (
+        "device_id",
+        "chat_session_id",
+        "model_session_key",
+        "connection_session_id",
+        "session_id",
+        "transport_session_id",
+        "user_id",
+    ):
+        value = _norm_str(kwargs.get(key, ""))
+        if value:
+            context[key] = value
+    return context
+
+
+def _routing_prompt_block(routing_context: Dict[str, str]) -> str:
+    if not routing_context:
+        return ""
+
+    ordered_keys = (
+        "device_id",
+        "chat_session_id",
+        "model_session_key",
+        "connection_session_id",
+        "session_id",
+        "transport_session_id",
+        "user_id",
+    )
+    lines: List[str] = []
+    for key in ordered_keys:
+        value = _norm_str(routing_context.get(key, ""))
+        if value:
+            lines.append(f"{key}: {value}")
+
+    if not lines:
+        return ""
+
+    return (
+        "Device routing context from server (trusted):\n"
+        + "\n".join(lines)
+        + "\nWhen calling xiaozhi device tools, reuse these exact values. "
+        + "Do not fabricate IDs. If a field is missing here, keep that tool argument null."
+    )
 
 
 class _CodexSession:
@@ -401,7 +452,9 @@ class _CodexSession:
         self.close()
         self.start()
 
-    def _compose_prompt(self, dialogue: List[Dict]) -> str:
+    def _compose_prompt(
+        self, dialogue: List[Dict], routing_context: Optional[Dict[str, str]] = None
+    ) -> str:
         history, last_user, tail = _split_dialogue(dialogue)
         tool_context = _build_tool_context(tail)
         if tool_context:
@@ -409,6 +462,14 @@ class _CodexSession:
                 last_user = f"{last_user}\n\nTool results:\n{tool_context}"
             else:
                 last_user = f"Tool results:\n{tool_context}"
+
+        routing_block = _routing_prompt_block(routing_context or {})
+        if routing_block:
+            if last_user:
+                last_user = f"{last_user}\n\n{routing_block}"
+            else:
+                last_user = routing_block
+
         if not last_user:
             return ""
 
@@ -665,7 +726,15 @@ class _CodexSession:
 
     def stream_response(self, dialogue: List[Dict], **kwargs):
         with self._lock:
-            prompt_text = self._compose_prompt(dialogue)
+            routing_context = _routing_context_from_kwargs(kwargs)
+            if routing_context:
+                logger.bind(tag=TAG).info(
+                    "codex_turn_routing_context "
+                    f"session={self.session_key} "
+                    f"context={json.dumps(routing_context, ensure_ascii=False)}"
+                )
+
+            prompt_text = self._compose_prompt(dialogue, routing_context=routing_context)
             if not prompt_text:
                 return
             emit_events = kwargs.pop("emit_events", self.emit_events)

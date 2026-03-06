@@ -1006,6 +1006,10 @@ class ConnectionHandler:
                 )
                 memory_str = future.result()
 
+            llm_route_kwargs = {
+                "device_id": self.device_id,
+            }
+
             if self.intent_type == "function_call" and functions is not None:
                 # 使用支持functions的streaming接口
                 llm_responses = self.llm.response_with_functions(
@@ -1014,6 +1018,7 @@ class ConnectionHandler:
                         memory_str, self.config.get("voiceprint", {})
                     ),
                     functions=functions,
+                    **llm_route_kwargs,
                 )
             else:
                 llm_responses = self.llm.response(
@@ -1021,6 +1026,7 @@ class ConnectionHandler:
                     self.dialogue.get_llm_dialogue_with_memory(
                         memory_str, self.config.get("voiceprint", {})
                     ),
+                    **llm_route_kwargs,
                 )
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"LLM 处理出错 {query}: {e}")
