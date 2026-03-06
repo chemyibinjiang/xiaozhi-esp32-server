@@ -50,22 +50,36 @@ async def startToChat(conn, text):
     speaker_name = None
     language_tag = None
     actual_text = text
+    parsed_data = None
 
     try:
         # 尝试解析JSON格式的输入
-        if text.strip().startswith("{") and text.strip().endswith("}"):
-            data = json.loads(text)
-            if "speaker" in data and "content" in data:
-                speaker_name = data["speaker"]
-                language_tag = data["language"]
-                actual_text = data["content"]
+        if isinstance(text, dict):
+            parsed_data = text
+        elif isinstance(text, str) and text.strip().startswith("{") and text.strip().endswith("}"):
+            parsed_data = json.loads(text)
+
+        if isinstance(parsed_data, dict):
+            content = parsed_data.get("content")
+            if content is not None:
+                content_text = content if isinstance(content, str) else str(content)
+                if content_text.strip():
+                    actual_text = content_text
+
+            speaker = parsed_data.get("speaker")
+            if isinstance(speaker, str) and speaker.strip():
+                speaker_name = speaker.strip()
                 conn.logger.bind(tag=TAG).info(f"解析到说话人信息: {speaker_name}")
 
-                # 直接使用JSON格式的文本，不解析
-                actual_text = text
-    except (json.JSONDecodeError, KeyError):
+            language = parsed_data.get("language")
+            if isinstance(language, str) and language.strip():
+                language_tag = language.strip()
+    except json.JSONDecodeError:
         # 如果解析失败，继续使用原始文本
         pass
+
+    if not isinstance(actual_text, str):
+        actual_text = str(actual_text)
 
     # 保存说话人信息到连接对象
     if speaker_name:
