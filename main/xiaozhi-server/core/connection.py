@@ -1006,26 +1006,33 @@ class ConnectionHandler:
                 )
                 memory_str = future.result()
 
-            llm_route_kwargs = {
-                "device_id": self.device_id,
-            }
+            # Only inject routing context for the outer user turn.
+            # Internal recursive turns (depth>0) are tool-follow-up rounds.
+            llm_route_kwargs = {}
+            if depth == 0 and self.device_id:
+                llm_route_kwargs["device_id"] = self.device_id
+
+            llm_dialogue = self.dialogue.get_llm_dialogue_with_memory(
+                memory_str, self.config.get("voiceprint", {})
+            )
+            if depth > 0:
+                # Internal recursive turn: avoid resending full system prompt.
+                llm_dialogue = [
+                    msg for msg in llm_dialogue if msg.get("role") != "system"
+                ]
 
             if self.intent_type == "function_call" and functions is not None:
                 # 使用支持functions的streaming接口
                 llm_responses = self.llm.response_with_functions(
                     self._llm_session_key(),
-                    self.dialogue.get_llm_dialogue_with_memory(
-                        memory_str, self.config.get("voiceprint", {})
-                    ),
+                    llm_dialogue,
                     functions=functions,
                     **llm_route_kwargs,
                 )
             else:
                 llm_responses = self.llm.response(
                     self._llm_session_key(),
-                    self.dialogue.get_llm_dialogue_with_memory(
-                        memory_str, self.config.get("voiceprint", {})
-                    ),
+                    llm_dialogue,
                     **llm_route_kwargs,
                 )
         except Exception as e:
