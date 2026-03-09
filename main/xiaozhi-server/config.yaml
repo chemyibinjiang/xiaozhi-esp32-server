@@ -214,6 +214,18 @@ prompt: |
   - 长篇大论，叽叽歪歪
   - 长时间严肃对话
 
+# prompt 和 prompt_template 都支持 Jinja 变量，例如：通过{{ yaml_path }}调用MCP工具
+# 对于 Codex LLM，会自动注入以下变量：
+#   - {{ workspace }} / {{ codex_workspace }}：当前 Codex 的 workspace
+#   - {{ yaml_path }} / {{ codex_yaml_path }}：当前 Codex 的 yaml_path
+# 其中 yaml_path 支持写相对路径；如果是相对路径，会基于 workspace 自动拼接成完整路径
+# 例如在 data/.config.yaml 里可这样写：
+#   LLM:
+#     你的Codex配置名:
+#       workspace: C:/Users/11979/Documents/GitHub/codex_edu/
+#       yaml_path: your-mcp.yaml
+# 然后在 prompt 或 prompt_template 中直接使用：通过{{ yaml_path }}调用MCP工具
+
 # 默认系统提示词模板文件
 prompt_template: agent-base-prompt.txt
 
