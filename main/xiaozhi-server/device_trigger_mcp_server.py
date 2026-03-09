@@ -37,6 +37,11 @@ from trigger_take_photo import (
 )
 
 LOGGER = logging.getLogger("device_trigger_mcp_server")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def _default_data_path(*parts: str) -> str:
+    return os.path.join(SCRIPT_DIR, *parts)
 
 
 def _norm(value: Any) -> str:
@@ -354,7 +359,8 @@ class RouteResolver:
             "candidates": candidates,
         }
         payload_text = json.dumps(_json_safe(payload), ensure_ascii=False)
-        print(payload_text, flush=True)
+        # In stdio transport, stdout must be reserved for MCP JSON-RPC frames only.
+        # Emitting arbitrary text here breaks the protocol stream.
         LOGGER.info("candidates_initialized %s", payload_text)
 
     @staticmethod
@@ -554,6 +560,53 @@ class PhotoPathTracker:
         best = max(candidates, key=lambda item: float(item.get("mtime", 0.0)))
         return self._format_photo_meta(target_device, best)
 
+    def list_recent(self, device_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+        target_device = _norm(device_id)
+        if not target_device:
+            return []
+        raw_items = self._collect_shared_candidates(target_device) + self._collect_mirrored_candidates(target_device)
+        if not raw_items:
+            return []
+
+        # De-duplicate by absolute path and keep latest metadata for that path.
+        by_path: Dict[str, Dict[str, Any]] = {}
+        for item in raw_items:
+            path = os.path.abspath(_norm(item.get("local_path", "")))
+            if not path:
+                continue
+            existing = by_path.get(path)
+            if existing is None or float(item.get("mtime", 0.0)) > float(existing.get("mtime", 0.0)):
+                by_path[path] = item
+
+        items = sorted(
+            by_path.values(),
+            key=lambda item: float(item.get("mtime", 0.0)),
+            reverse=True,
+        )
+        safe_limit = max(1, int(limit or 20))
+        return [self._format_photo_meta(target_device, item) for item in items[:safe_limit]]
+
+    def find_by_file_name(self, device_id: str, file_name: str) -> Optional[Dict[str, Any]]:
+        target_device = _norm(device_id)
+        target_name = _norm(file_name)
+        if not target_device or not target_name:
+            return None
+        candidates = self.list_recent(target_device, limit=200)
+        if not candidates:
+            return None
+
+        # 1) exact file_name match
+        for item in candidates:
+            if _norm(item.get("file_name", "")) == target_name:
+                return item
+
+        # 2) basename/path match
+        for item in candidates:
+            local_path = _norm(item.get("local_path", ""))
+            if os.path.basename(local_path) == target_name or local_path == target_name:
+                return item
+        return None
+
     def wait_for_new_photo(
         self,
         *,
@@ -673,14 +726,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--vision-dir",
-        default=os.getenv("XIAOZHI_VISION_DIR", os.path.join("data", "vision")),
+        default=os.getenv("XIAOZHI_VISION_DIR", _default_data_path("data", "vision")),
         help="vision image directory written by app.py",
     )
     parser.add_argument(
         "--vision-by-device-dir",
         default=os.getenv(
             "XIAOZHI_VISION_BY_DEVICE_DIR",
-            os.path.join("data", "vision_by_device"),
+            _default_data_path("data", "vision_by_device"),
         ),
         help="mirror directory grouped by device_id",
     )
@@ -854,6 +907,34 @@ def build_server(args: argparse.Namespace) -> FastMCP:
             return {"success": False, "message": str(exc)}
 
     @mcp.tool(
+        name="xiaozhi_list_recent_photos",
+        description=(
+            "List recent local photo metadata for target device (newest first). "
+            "Use this to preview older photos by index/file_name."
+        ),
+    )
+    def xiaozhi_list_recent_photos(
+        device_id: Optional[str] = None,
+        limit: int = 10,
+        ctx: Optional[Context] = None,
+    ) -> Dict[str, Any]:
+        try:
+            resolved = resolver.resolve_target(
+                device_id=device_id,
+                ctx=ctx,
+            )
+            route = resolved["connection"]
+            items = photo_tracker.list_recent(route["device_id"], limit=limit)
+            return {
+                "success": True,
+                "route": resolved,
+                "photos": items,
+                "count": len(items),
+            }
+        except Exception as exc:
+            return {"success": False, "message": str(exc)}
+
+    @mcp.tool(
         name="xiaozhi_preview_local_file",
         description=(
             "Preview a local image file on the resolved target device screen. "
@@ -863,6 +944,8 @@ def build_server(args: argparse.Namespace) -> FastMCP:
     )
     def xiaozhi_preview_local_file(
         file_path: str = "",
+        photo_index: Optional[int] = None,
+        file_name: str = "",
         device_id: Optional[str] = None,
         tool_name: str = "",
         timeout: int = 90,
@@ -878,13 +961,37 @@ def build_server(args: argparse.Namespace) -> FastMCP:
             route = resolved["connection"]
             resolved_file_path = _norm(file_path)
             latest_meta: Optional[Dict[str, Any]] = None
+            selected_meta: Optional[Dict[str, Any]] = None
             if not resolved_file_path:
-                latest_meta = photo_tracker.find_latest(route["device_id"])
-                if not latest_meta:
-                    raise RuntimeError(
-                        "file_path is empty and no latest photo found for resolved device"
+                normalized_file_name = _norm(file_name)
+                if normalized_file_name:
+                    selected_meta = photo_tracker.find_by_file_name(
+                        route["device_id"], normalized_file_name
                     )
-                resolved_file_path = _norm(latest_meta.get("local_path", ""))
+                    if not selected_meta:
+                        raise RuntimeError(
+                            f"file_name not found for resolved device: {normalized_file_name}"
+                        )
+                    resolved_file_path = _norm(selected_meta.get("local_path", ""))
+                elif photo_index is not None:
+                    recent = photo_tracker.list_recent(route["device_id"], limit=200)
+                    idx = int(photo_index)
+                    if idx < 0:
+                        raise RuntimeError("photo_index must be >= 0 (0 means latest)")
+                    if idx >= len(recent):
+                        raise RuntimeError(
+                            f"photo_index out of range: {idx}, available={len(recent)}"
+                        )
+                    selected_meta = recent[idx]
+                    resolved_file_path = _norm(selected_meta.get("local_path", ""))
+                else:
+                    latest_meta = photo_tracker.find_latest(route["device_id"])
+                    if not latest_meta:
+                        raise RuntimeError(
+                            "file_path is empty and no latest photo found for resolved device"
+                        )
+                    selected_meta = latest_meta
+                    resolved_file_path = _norm(latest_meta.get("local_path", ""))
 
             result = do_preview_local_file(
                 args.server,
@@ -900,6 +1007,54 @@ def build_server(args: argparse.Namespace) -> FastMCP:
                 "route": resolved,
                 "file_path": resolved_file_path,
                 "file_meta": latest_meta,
+                "selected_photo_meta": selected_meta,
+                "result": result,
+            }
+        except Exception as exc:
+            return {"success": False, "message": str(exc)}
+
+    @mcp.tool(
+        name="xiaozhi_preview_previous_photo",
+        description=(
+            "Preview the previous local photo for target device (one step older than latest). "
+            "Useful when user says '上一张/前一张/第一张(在两张场景)'."
+        ),
+    )
+    def xiaozhi_preview_previous_photo(
+        device_id: Optional[str] = None,
+        tool_name: str = "",
+        timeout: int = 90,
+        request_timeout: int = 120,
+        ctx: Optional[Context] = None,
+    ) -> Dict[str, Any]:
+        try:
+            resolved = resolver.resolve_target(
+                device_id=device_id,
+                ctx=ctx,
+            )
+            route = resolved["connection"]
+            recent = photo_tracker.list_recent(route["device_id"], limit=200)
+            if len(recent) < 2:
+                raise RuntimeError("no previous photo available for resolved device")
+            selected = recent[1]
+            resolved_file_path = _norm(selected.get("local_path", ""))
+            if not resolved_file_path:
+                raise RuntimeError("previous photo path is empty")
+
+            result = do_preview_local_file(
+                args.server,
+                file_path=resolved_file_path,
+                session_id=route["session_id"],
+                device_id=route["device_id"],
+                tool_name=_norm(tool_name) or args.default_preview_tool_name,
+                tool_timeout=int(timeout),
+                request_timeout=int(request_timeout),
+            )
+            return {
+                "success": bool(result.get("success", False)),
+                "route": resolved,
+                "file_path": resolved_file_path,
+                "selected_photo_meta": selected,
                 "result": result,
             }
         except Exception as exc:
