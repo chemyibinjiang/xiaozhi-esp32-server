@@ -1008,9 +1008,7 @@ class ConnectionHandler:
 
             # Only inject routing context for the outer user turn.
             # Internal recursive turns (depth>0) are tool-follow-up rounds.
-            llm_route_kwargs = {}
-            if depth == 0 and self.device_id:
-                llm_route_kwargs["device_id"] = self.device_id
+            llm_route_kwargs = {"device_id":self.device_id} if self.device_id else {}
 
             llm_dialogue = self.dialogue.get_llm_dialogue_with_memory(
                 memory_str, self.config.get("voiceprint", {})

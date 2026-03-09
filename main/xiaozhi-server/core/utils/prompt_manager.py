@@ -4,6 +4,7 @@
 """
 
 import os
+from pathlib import Path
 from typing import Dict, Any
 from config.logger import setup_logging
 from jinja2 import Template
@@ -97,6 +98,72 @@ class PromptManager:
                 self.logger.bind(tag=TAG).warning(f"未找到{template_path}文件")
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"加载提示词模板失败: {e}")
+
+    def _resolve_codex_prompt_config(self) -> tuple[str, Dict[str, Any]]:
+        """Resolve the codex LLM config used by the local codex app server."""
+        llm_map = self.config.get("LLM", {}) or {}
+        if not isinstance(llm_map, dict):
+            return "", {}
+
+        preferred = str(self.config.get("codex_app", {}).get("llm_name", "")).strip()
+        if preferred:
+            llm_cfg = llm_map.get(preferred)
+            if isinstance(llm_cfg, dict):
+                return preferred, llm_cfg
+
+        selected_name = str(self.config.get("selected_module", {}).get("LLM", "")).strip()
+        if selected_name:
+            llm_cfg = llm_map.get(selected_name)
+            if isinstance(llm_cfg, dict) and str(llm_cfg.get("type", "")).strip() == "codex":
+                return selected_name, llm_cfg
+
+        for name, llm_cfg in llm_map.items():
+            if isinstance(llm_cfg, dict) and str(llm_cfg.get("type", "")).strip() == "codex":
+                return str(name), llm_cfg
+
+        return "", {}
+
+    @staticmethod
+    def _resolve_prompt_path(path_value: Any, workspace: str = "") -> str:
+        raw_path = str(path_value or "").strip()
+        if not raw_path:
+            return ""
+
+        if os.path.isabs(raw_path):
+            return str(Path(raw_path))
+
+        if workspace:
+            return str(Path(workspace) / raw_path)
+
+        return str(Path(raw_path).resolve())
+
+    def _get_template_extra_vars(self) -> Dict[str, Any]:
+        extra_vars: Dict[str, Any] = {}
+
+        llm_name, llm_cfg = self._resolve_codex_prompt_config()
+        workspace = self._resolve_prompt_path(llm_cfg.get("workspace", ""))
+        yaml_path = self._resolve_prompt_path(
+            llm_cfg.get("yaml_path", ""),
+            workspace=workspace,
+        )
+
+        if llm_name:
+            extra_vars["codex_llm_name"] = llm_name
+        if workspace:
+            extra_vars["codex_workspace"] = workspace
+            extra_vars["workspace"] = workspace
+        if yaml_path:
+            extra_vars["codex_yaml_path"] = yaml_path
+            extra_vars["yaml_path"] = yaml_path
+
+        custom_vars = self.config.get("prompt_vars", {}) or {}
+        if isinstance(custom_vars, dict):
+            for key, value in custom_vars.items():
+                if value is None:
+                    continue
+                extra_vars[str(key)] = value
+
+        return extra_vars
 
     def get_quick_prompt(self, user_prompt: str, device_id: str = None) -> str:
         """快速获取系统提示词（使用用户配置）"""
@@ -246,20 +313,29 @@ class PromptManager:
 
             # 替换模板变量
             template = Template(self.base_prompt_template)
-            enhanced_prompt = template.render(
-                base_prompt=user_prompt,
-                current_time="{{current_time}}",
-                today_date=today_date,
-                today_weekday=today_weekday,
-                lunar_date=lunar_date,
-                local_address=local_address,
-                weather_info=weather_info,
-                emojiList=EMOJI_List,
-                device_id=device_id,
-                client_ip=client_ip,
-                dynamic_context=self.context_data,
+            template_vars = {
+                "current_time": "{{current_time}}",
+                "today_date": today_date,
+                "today_weekday": today_weekday,
+                "lunar_date": lunar_date,
+                "local_address": local_address,
+                "weather_info": weather_info,
+                "emojiList": EMOJI_List,
+                "device_id": device_id,
+                "client_ip": client_ip,
+                "dynamic_context": self.context_data,
+            }
+            template_vars.update(self._get_template_extra_vars())
+            template_vars.update(kwargs)
+            rendered_user_prompt = Template(user_prompt).render(
                 *args,
-                **kwargs,
+                **template_vars,
+            )
+            template_vars["base_prompt"] = rendered_user_prompt
+
+            enhanced_prompt = template.render(
+                *args,
+                **template_vars,
             )
             device_cache_key = f"device_prompt:{device_id}"
             self.cache_manager.set(
