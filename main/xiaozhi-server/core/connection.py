@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sys
 import copy
 import json
@@ -145,6 +145,7 @@ class ConnectionHandler:
         # llm相关变量
         self.llm_finish_task = True
         self.dialogue = Dialogue()
+        self._llm_turn_started = False
 
         # tts相关变量
         self.sentence_id = None
@@ -551,7 +552,14 @@ class ConnectionHandler:
             if self.config.get("prompt") is not None:
                 user_prompt = self.config["prompt"]
                 # 使用快速提示词进行初始化
-                prompt = self.prompt_manager.get_quick_prompt(user_prompt)
+                self.prompt_manager.update_context_info(self, self.client_ip)
+                prompt = self.prompt_manager.build_enhanced_prompt(
+                    user_prompt, self.device_id, self.client_ip
+                )
+                if not prompt:
+                    prompt = self.prompt_manager.get_quick_prompt(
+                        user_prompt, self.device_id
+                    )
                 self.change_system_prompt(prompt)
                 self.logger.bind(tag=TAG).info(
                     f"快速初始化组件: prompt成功 {prompt[:50]}..."
@@ -576,22 +584,11 @@ class ConnectionHandler:
             self._initialize_intent()
             """初始化上报线程"""
             self._init_report_threads()
-            """更新系统提示词"""
-            self._init_prompt_enhancement()
 
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"实例化组件失败: {e}")
 
-    def _init_prompt_enhancement(self):
-
-        # 更新上下文信息
-        self.prompt_manager.update_context_info(self, self.client_ip)
-        enhanced_prompt = self.prompt_manager.build_enhanced_prompt(
-            self.config["prompt"], self.device_id, self.client_ip
-        )
-        if enhanced_prompt:
-            self.change_system_prompt(enhanced_prompt)
-            self.logger.bind(tag=TAG).debug("系统提示词已增强更新")
+    
 
     def _init_report_threads(self):
         """初始化ASR和TTS上报线程"""
@@ -886,9 +883,12 @@ class ConnectionHandler:
             asyncio.run_coroutine_threadsafe(self.func_handler._initialize(), self.loop)
 
     def change_system_prompt(self, prompt):
+        if prompt == self.prompt:
+            return False
         self.prompt = prompt
         # 更新系统prompt至上下文
         self.dialogue.update_system_message(self.prompt)
+        return True
 
     def _send_llm_event_message(self, text, event=None, phase=None):
         if not self.websocket or not self.loop:
@@ -958,6 +958,7 @@ class ConnectionHandler:
 
         # 为最顶层时新建会话ID和发送FIRST请求
         if depth == 0:
+            self._llm_turn_started = True
             self.llm_finish_task = False
             self.sentence_id = str(uuid.uuid4().hex)
             self.dialogue.put(Message(role="user", content=query))
