@@ -113,7 +113,7 @@ def _split_dialogue(dialogue: List[Dict]) -> Tuple[List[Dict], str, List[Dict]]:
             last_user_index = idx
             break
     if last_user_index is None:
-        return dialogue, "", []
+        return [dialogue], "", []
     history = dialogue[:last_user_index]
     last_user = dialogue[last_user_index].get("content") or ""
     tail = dialogue[last_user_index + 1 :]
@@ -125,6 +125,38 @@ def _extract_system_prompt(dialogue: List[Dict]) -> str:
         if msg.get("role") == "system":
             return msg.get("content") or ""
     return ""
+
+
+def _normalize_whitespace(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text or "")).strip()
+
+
+def _user_already_contains_system_prompt(system_prompt: str, user_text: str) -> bool:
+    system_text = str(system_prompt or "").strip()
+    user = str(user_text or "").strip()
+    if not system_text or not user:
+        return False
+
+    # Guard against short accidental matches.
+    if len(system_text) < 120:
+        return False
+
+    if system_text in user:
+        return True
+
+    system_norm = _normalize_whitespace(system_text)
+    user_norm = _normalize_whitespace(user)
+    if system_norm in user_norm:
+        return True
+
+    # Also treat long shared chunks as duplicated prompt payload.
+    chunk = 320
+    if len(system_norm) >= chunk and system_norm[:chunk] in user_norm:
+        return True
+    if len(system_norm) >= chunk and system_norm[-chunk:] in user_norm:
+        return True
+
+    return False
 
 
 def _build_transcript(history: List[Dict]) -> str:
@@ -187,6 +219,12 @@ def _safe_filename(s: str) -> str:
     s = str(s or "session")
     s = re.sub(r"[^a-zA-Z0-9._-]+", "_", s)
     return s[:120] if len(s) > 120 else s
+
+
+class _PathFormatDict(dict):
+    def __missing__(self, key: str) -> str:
+        # Keep unknown placeholders unchanged.
+        return "{" + key + "}"
 
 
 def _norm_str(value: Any) -> str:
@@ -279,12 +317,18 @@ class _CodexSession:
         default_stream_log_path = str(
             Path(self.workspace) / f"/log/codex_stream_{_safe_filename(session_key)}.log"
         )
-        self.stream_log_path = config.get("stream_log_path", default_stream_log_path)
+        self.stream_log_path_template = str(
+            config.get("stream_log_path", default_stream_log_path)
+        )
+        self.stream_log_path = self.stream_log_path_template
         self._stream_flush_bytes = int(config.get("stream_flush_bytes", 4096))
         default_raw_log_path = str(
             Path(self.workspace) / f"/log/codex_stream_raw_{_safe_filename(session_key)}.log"
         )
-        self.raw_stream_log_path = config.get("raw_stream_log_path", default_raw_log_path)
+        self.raw_stream_log_path_template = str(
+            config.get("raw_stream_log_path", default_raw_log_path)
+        )
+        self.raw_stream_log_path = self.raw_stream_log_path_template
         self._raw_stream_flush_bytes = int(config.get("raw_stream_flush_bytes", 8192))
 
         self.proc: Optional[subprocess.Popen] = None
@@ -301,6 +345,25 @@ class _CodexSession:
         rid = self._req_id
         self._req_id += 1
         return rid
+
+    def _resolve_log_path(self, template: str, context: Dict[str, Any]) -> str:
+        text = str(template or "")
+        if not text or "{" not in text:
+            return text
+
+        safe_context = _PathFormatDict()
+        safe_context["session_key"] = _safe_filename(self.session_key)
+        for key, value in (context or {}).items():
+            normalized = _norm_str(value)
+            if normalized:
+                safe_context[key] = _safe_filename(normalized)
+        if "device_id" not in safe_context:
+            safe_context["device_id"] = "unknown_device"
+
+        try:
+            return text.format_map(safe_context)
+        except Exception:
+            return text
 
     def _append_stream_log(self, text: str) -> None:
         """Append to per-session stream log file (best-effort)."""
@@ -477,12 +540,14 @@ class _CodexSession:
         if self._last_system_prompt is not None and system_prompt != self._last_system_prompt:
             self._restart()
         self._last_system_prompt = system_prompt
-
+        print(f"System prompt sent: {self._system_prompt_sent}")
         include_system = (
             system_prompt
             and self.system_prompt_mode in ("always", "first_turn")
             and (self.system_prompt_mode == "always" or not self._system_prompt_sent)
         )
+        if include_system and _user_already_contains_system_prompt(system_prompt, last_user):
+            include_system = False
 
         if self._bootstrap_history and self.bootstrap_mode != "none":
             transcript = _build_transcript(history)
@@ -500,11 +565,18 @@ class _CodexSession:
 
         if include_system:
             self._system_prompt_sent = True
+
             return f"{system_prompt}\n\n{last_user}"
 
         return last_user
 
-    def _stream_turn(self, prompt_text: str, emit_events: bool, **kwargs):
+    def _stream_turn(
+        self,
+        prompt_text: str,
+        emit_events: bool,
+        user_text: Optional[str] = None,
+        **kwargs,
+    ):
         self.start()
 
         turn_params = {
@@ -605,6 +677,8 @@ class _CodexSession:
         # Log turn start
         if self.log_stream:
             file_append(f"[{_ts()}] [TURN_START] session={self.session_key} thread={self.thread_id} turn={turn_id}\n")
+            if user_text:
+                file_append(f"[{_ts()}] [USER] {user_text}\n")
 
         saw_tokens = False
         final_text = None
@@ -727,6 +801,12 @@ class _CodexSession:
     def stream_response(self, dialogue: List[Dict], **kwargs):
         with self._lock:
             routing_context = _routing_context_from_kwargs(kwargs)
+            self.stream_log_path = self._resolve_log_path(
+                self.stream_log_path_template, routing_context
+            )
+            self.raw_stream_log_path = self._resolve_log_path(
+                self.raw_stream_log_path_template, routing_context
+            )
             if routing_context:
                 logger.bind(tag=TAG).info(
                     "codex_turn_routing_context "
@@ -734,11 +814,22 @@ class _CodexSession:
                     f"context={json.dumps(routing_context, ensure_ascii=False)}"
                 )
 
+            # Starting the app-server/thread resets first-turn flags.
+            # Do it before composing the prompt so the first real turn can
+            # correctly mark system-prompt/bootstrap state.
+            self.start()
             prompt_text = self._compose_prompt(dialogue, routing_context=routing_context)
+            print(f"Prompt text: {prompt_text}")
             if not prompt_text:
                 return
+            _, last_user, _ = _split_dialogue(dialogue)
             emit_events = kwargs.pop("emit_events", self.emit_events)
-            for token in self._stream_turn(prompt_text, emit_events=emit_events, **kwargs):
+            for token in self._stream_turn(
+                prompt_text,
+                emit_events=emit_events,
+                user_text=last_user,
+                **kwargs,
+            ):
                 if isinstance(token, dict) and not emit_events:
                     continue
                 yield token

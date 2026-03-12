@@ -62,6 +62,34 @@ class MarkdownCleaner:
             return m.group(0)
 
     @staticmethod
+    def _replace_block_dollar(m: re.Match) -> str:
+        """
+        处理块级公式 "$$...$$"：
+          - 如果内部包含典型公式字符，则保留正文（去掉$$）
+          - 否则移除
+        """
+        content = m.group(1).strip()
+        if not content:
+            return ""
+        if MarkdownCleaner.NORMAL_FORMULA_CHARS.search(content):
+            return content
+        return ""
+
+    @staticmethod
+    def _replace_code_block(m: re.Match) -> str:
+        """
+        处理代码块 ```...```：
+          - 去掉围栏，尽量保留正文，避免公式被整段吞掉
+        """
+        content = m.group("code")
+        if content is None:
+            return ""
+        content = content.strip()
+        if not content:
+            return ""
+        return re.sub(r"\n{2,}", "\n", content)
+
+    @staticmethod
     def _replace_table_block(match: re.Match) -> str:
         """
         当匹配到一个整段表格块时，回调该函数。
@@ -105,10 +133,14 @@ class MarkdownCleaner:
     # 预编译所有正则表达式（按执行频率排序）
     # 这里要把 replace_xxx 的静态方法放在最前定义，以便在列表里能正确引用它们。
     REGEXES = [
-        (re.compile(r'```.*?```', re.DOTALL), ''),  # 代码块
+        (
+            re.compile(r'```(?:[^\n`]*)\n?(?P<code>.*?)```', re.DOTALL),
+            _replace_code_block,
+        ),  # 代码块：保留正文
         (re.compile(r'^#+\s*', re.MULTILINE), ''),  # 标题
         (re.compile(r'(\*\*|__)(.*?)\1'), r'\2'),  # 粗体
         (re.compile(r'(\*|_)(?=\S)(.*?)(?<=\S)\1'), r'\2'),  # 斜体
+        (re.compile(r'`([^`\n]+)`'), r'\1'),  # 行内代码：去掉反引号，保留正文
         (re.compile(r'!\[.*?\]\(.*?\)'), ''),  # 图片
         (re.compile(r'\[(.*?)\]\(.*?\)'), r'\1'),  # 链接
         (re.compile(r'^\s*>+\s*', re.MULTILINE), ''),  # 引用
@@ -117,7 +149,7 @@ class MarkdownCleaner:
             _replace_table_block
         ),
         (re.compile(r'^\s*[*+-]\s*', re.MULTILINE), '- '),  # 列表
-        (re.compile(r'\$\$.*?\$\$', re.DOTALL), ''),  # 块级公式
+        (re.compile(r'\$\$(.*?)\$\$', re.DOTALL), _replace_block_dollar),  # 块级公式
         (
             re.compile(r'(?<![A-Za-z0-9])\$([^\n$]+)\$(?![A-Za-z0-9])'),
             _replace_inline_dollar

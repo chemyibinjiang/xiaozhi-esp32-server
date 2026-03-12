@@ -78,28 +78,6 @@ class Dialogue:
                 "{{current_time}}", datetime.now().strftime("%H:%M")
             )
 
-            # 添加说话人个性化描述
-            try:
-                speakers = voiceprint_config.get("speakers", [])
-                if speakers:
-                    enhanced_system_prompt += "\n\n<speakers_info>"
-                    for speaker_str in speakers:
-                        try:
-                            parts = speaker_str.split(",", 2)
-                            if len(parts) >= 2:
-                                name = parts[1].strip()
-                                # 如果描述为空，则为""
-                                description = (
-                                    parts[2].strip() if len(parts) >= 3 else ""
-                                )
-                                enhanced_system_prompt += f"\n- {name}：{description}"
-                        except:
-                            pass
-                    enhanced_system_prompt += "\n\n</speakers_info>"
-            except:
-                # 配置读取失败时忽略错误，不影响其他功能
-                pass
-
             # 使用正则表达式匹配 <memory> 标签，不管中间有什么内容
             if memory_str is not None:
                 enhanced_system_prompt = re.sub(
