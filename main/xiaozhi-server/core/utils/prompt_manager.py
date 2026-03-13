@@ -146,6 +146,10 @@ class PromptManager:
             llm_cfg.get("yaml_path", ""),
             workspace=workspace,
         )
+        markdown_path = self._resolve_prompt_path(
+            llm_cfg.get("markdown_path", ""),
+            workspace=workspace,
+        )
 
         if llm_name:
             extra_vars["codex_llm_name"] = llm_name
@@ -155,6 +159,9 @@ class PromptManager:
         if yaml_path:
             extra_vars["codex_yaml_path"] = yaml_path
             extra_vars["yaml_path"] = yaml_path
+        if markdown_path:
+            extra_vars["codex_markdown_path"] = markdown_path
+            extra_vars["markdown_path"] = markdown_path
 
         custom_vars = self.config.get("prompt_vars", {}) or {}
         if isinstance(custom_vars, dict):
