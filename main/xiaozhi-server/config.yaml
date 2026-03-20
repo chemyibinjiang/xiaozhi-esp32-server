@@ -187,14 +187,9 @@ plugins:
 voiceprint:
   # 声纹接口地址
   url: 
-  # 说话人配置：speaker_id,名称,描述
-  speakers:
-    - "test1,张三,张三是一个程序员"
-    - "test2,李四,李四是一个产品经理"
-    - "test3,王五,王五是一个设计师"
-  # 声纹识别相似度阈值，范围0.0-1.0，默认0.4
-  # 数值越高越严格，减少误识别但可能增加拒识率
-  similarity_threshold: 0.4
+  dynamic_mode: true     
+  dynamic_registration_required_samples: 3
+  similarity_threshold: 0.55
 
 # #####################################################################################
 # ################################以下是角色模型配置######################################
@@ -424,7 +419,7 @@ ASR:
     # 服务器地域选择，可选择距离更近的服务器以减少延迟，如nls-gateway-cn-hangzhou.aliyuncs.com(杭州)等
     host: nls-gateway-cn-shanghai.aliyuncs.com
     # 断句检测时间(毫秒)，控制静音多长时间后进行断句，默认800毫秒
-    max_sentence_silence: 800
+    max_sentence_silence: 1200
     output_dir: tmp/
   BaiduASR:
     # 获取AppID、API Key、Secret Key：https://console.bce.baidu.com/ai-engine/old/#/ai/speech/app/list

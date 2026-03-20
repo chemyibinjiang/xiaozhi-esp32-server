@@ -16,6 +16,7 @@ from core.handle.receiveAudioHandle import startToChat
 from core.handle.reportHandle import enqueue_asr_report
 from core.utils.util import remove_punctuation_and_length
 from core.handle.receiveAudioHandle import handleAudioMessage
+from core.providers.tts.dto.dto import TTSMessageDTO, SentenceType, ContentType
 
 TAG = __name__
 logger = setup_logging()
@@ -32,7 +33,7 @@ class ASRProviderBase(ABC):
         )
         conn.asr_priority_thread.start()
 
-    # 有序处理ASR音频
+    # 有序处理 ASR 音频
     def asr_text_priority_thread(self, conn):
         while not conn.stop_event.is_set():
             try:
@@ -46,17 +47,17 @@ class ASRProviderBase(ABC):
                 continue
             except Exception as e:
                 logger.bind(tag=TAG).error(
-                    f"处理ASR文本失败: {str(e)}, 类型: {type(e).__name__}, 堆栈: {traceback.format_exc()}"
+                    f"处理 ASR 文本失败: {str(e)}, 类型: {type(e).__name__}, 堆栈: {traceback.format_exc()}"
                 )
                 continue
 
     # 接收音频
     async def receive_audio(self, conn, audio, audio_have_voice):
         if conn.client_listen_mode == "manual":
-            # 手动模式：缓存音频用于ASR识别
+            # 手动模式：缓存音频用于 ASR 识别
             conn.asr_audio.append(audio)
         else:
-            # 自动/实时模式：使用VAD检测
+            # 自动/实时模式：使用 VAD 检测
             have_voice = audio_have_voice
 
             conn.asr_audio.append(audio)
@@ -64,7 +65,7 @@ class ASRProviderBase(ABC):
                 conn.asr_audio = conn.asr_audio[-10:]
                 return
 
-            # 自动模式下通过VAD检测到语音停止时触发识别
+            # 自动模式下通过 VAD 检测到语音停止时触发识别
             if conn.client_voice_stop:
                 asr_audio_task = conn.asr_audio.copy()
                 conn.asr_audio.clear()
@@ -75,7 +76,7 @@ class ASRProviderBase(ABC):
 
     # 处理语音停止
     async def handle_voice_stop(self, conn, asr_audio_task: List[bytes]):
-        """并行处理ASR和声纹识别"""
+        """并行处理 ASR 与声纹，并在进入 startToChat 前做鉴权闸门。"""
         try:
             total_start_time = time.monotonic()
 
@@ -87,16 +88,26 @@ class ASRProviderBase(ABC):
 
             combined_pcm_data = b"".join(pcm_data)
 
-            # 预先准备WAV数据
+            # 预先准备 WAV 数据
             wav_data = None
             if conn.voiceprint_provider and combined_pcm_data:
                 wav_data = self._pcm_to_wav(combined_pcm_data)
 
-            # 定义ASR任务
-            asr_task = self.speech_to_text(asr_audio_task, conn.session_id, conn.audio_format)
+            # 定义 ASR 任务
+            asr_task = self.speech_to_text(
+                asr_audio_task, conn.session_id, conn.audio_format
+            )
 
             if conn.voiceprint_provider and wav_data:
-                voiceprint_task = conn.voiceprint_provider.identify_speaker(wav_data, conn.session_id)
+                if hasattr(conn.voiceprint_provider, "evaluate_voiceprint"):
+                    voiceprint_task = conn.voiceprint_provider.evaluate_voiceprint(
+                        wav_data, conn.session_id
+                    )
+                else:
+                    voiceprint_task = conn.voiceprint_provider.identify_speaker(
+                        wav_data, conn.session_id
+                    )
+
                 # 并发等待两个结果
                 asr_result, voiceprint_result = await asyncio.gather(
                     asr_task, voiceprint_task, return_exceptions=True
@@ -105,16 +116,40 @@ class ASRProviderBase(ABC):
                 asr_result = await asr_task
                 voiceprint_result = None
 
-            # 记录识别结果 - 检查是否为异常
+            # 记录 ASR 结果
             if isinstance(asr_result, Exception):
-                logger.bind(tag=TAG).error(f"ASR识别失败: {asr_result}")
+                logger.bind(tag=TAG).error(f"ASR 识别失败: {asr_result}")
                 raw_text = ""
             else:
                 raw_text, _ = asr_result
 
+            # 处理声纹结果（兼容旧字符串返回 + 新决策字典返回）
+            voiceprint_blocked = False
+            voiceprint_prompt_text = ""
+
             if isinstance(voiceprint_result, Exception):
                 logger.bind(tag=TAG).error(f"声纹识别失败: {voiceprint_result}")
                 speaker_name = ""
+            elif isinstance(voiceprint_result, dict):
+                speaker_name = (voiceprint_result.get("speaker_name") or "").strip()
+                allow_chat = bool(voiceprint_result.get("allow_chat", True))
+                status = voiceprint_result.get("status", "")
+                reason = voiceprint_result.get("reason", "")
+                score = voiceprint_result.get("score")
+                logger.bind(tag=TAG).info(
+                    f"声纹决策: status={status}, allow_chat={allow_chat}, "
+                    f"speaker={speaker_name}, score={score}, reason={reason}"
+                )
+                if not allow_chat:
+                    voiceprint_blocked = True
+                    if voiceprint_result.get("need_register_prompt", False):
+                        voiceprint_prompt_text = (
+                            voiceprint_result.get("register_prompt_text") or ""
+                        )
+                    else:
+                        voiceprint_prompt_text = (
+                            voiceprint_result.get("reject_prompt_text") or ""
+                        )
             else:
                 speaker_name = voiceprint_result
 
@@ -144,7 +179,7 @@ class ASRProviderBase(ABC):
                 if speaker_name:
                     logger.bind(tag=TAG).info(f"识别说话人: {speaker_name}")
 
-                # 构建包含说话人信息的JSON字符串
+                # 构建包含说话人信息的 JSON 字符串
                 enhanced_text = self._build_enhanced_text(raw_text, speaker_name)
                 content_for_length_check = raw_text
 
@@ -156,58 +191,90 @@ class ASRProviderBase(ABC):
             text_len, _ = remove_punctuation_and_length(content_for_length_check)
             self.stop_ws_connection()
 
+            # 声纹未通过：直接拦截，不进入 LLM
+            if voiceprint_blocked:
+                if voiceprint_prompt_text.strip():
+                    self._enqueue_system_tts(conn, voiceprint_prompt_text.strip())
+                return
+
             if text_len > 0:
-                # 使用自定义模块进行上报
                 await startToChat(conn, enhanced_text)
                 enqueue_asr_report(conn, enhanced_text, asr_audio_task)
-                
+
         except Exception as e:
             logger.bind(tag=TAG).error(f"处理语音停止失败: {e}")
-            import traceback
             logger.bind(tag=TAG).debug(f"异常详情: {traceback.format_exc()}")
 
     def _build_enhanced_text(self, text: str, speaker_name: Optional[str]) -> str:
-        """构建包含说话人信息的文本（仅用于纯文本ASR）"""
+        """构建包含说话人信息的文本（仅用于纯文本 ASR）。"""
         if speaker_name and speaker_name.strip():
-            return json.dumps({
-                "speaker": speaker_name,
-                "content": text
-            }, ensure_ascii=False)
-        else:
-            return text
+            return json.dumps(
+                {
+                    "speaker": speaker_name,
+                    "content": text,
+                },
+                ensure_ascii=False,
+            )
+        return text
+
+    def _enqueue_system_tts(self, conn, text: str):
+        """直接下发系统 TTS，不走 LLM 流程。"""
+        if not text:
+            return
+        if not getattr(conn, "tts", None):
+            logger.bind(tag=TAG).warning("TTS 未初始化，无法播放系统提示")
+            return
+
+        try:
+            conn.sentence_id = str(uuid.uuid4().hex)
+            conn.tts_MessageText = text
+            conn.tts.tts_text_queue.put(
+                TTSMessageDTO(
+                    sentence_id=conn.sentence_id,
+                    sentence_type=SentenceType.FIRST,
+                    content_type=ContentType.ACTION,
+                )
+            )
+            conn.tts.tts_one_sentence(conn, ContentType.TEXT, content_detail=text)
+            conn.tts.tts_text_queue.put(
+                TTSMessageDTO(
+                    sentence_id=conn.sentence_id,
+                    sentence_type=SentenceType.LAST,
+                    content_type=ContentType.ACTION,
+                )
+            )
+        except Exception as e:
+            logger.bind(tag=TAG).error(f"系统 TTS 下发失败: {e}")
 
     def _pcm_to_wav(self, pcm_data: bytes) -> bytes:
-        """将PCM数据转换为WAV格式"""
+        """将 PCM 数据转换为 WAV 格式。"""
         if len(pcm_data) == 0:
-            logger.bind(tag=TAG).warning("PCM数据为空，无法转换WAV")
+            logger.bind(tag=TAG).warning("PCM 数据为空，无法转换 WAV")
             return b""
-        
+
         # 确保数据长度是偶数（16位音频）
         if len(pcm_data) % 2 != 0:
             pcm_data = pcm_data[:-1]
-        
-        # 创建WAV文件头
+
         wav_buffer = io.BytesIO()
         try:
-            with wave.open(wav_buffer, 'wb') as wav_file:
-                wav_file.setnchannels(1)      # 单声道
-                wav_file.setsampwidth(2)      # 16位
-                wav_file.setframerate(16000)  # 16kHz采样率
+            with wave.open(wav_buffer, "wb") as wav_file:
+                wav_file.setnchannels(1)  # 单声道
+                wav_file.setsampwidth(2)  # 16位
+                wav_file.setframerate(16000)  # 16kHz
                 wav_file.writeframes(pcm_data)
-            
+
             wav_buffer.seek(0)
-            wav_data = wav_buffer.read()
-            
-            return wav_data
+            return wav_buffer.read()
         except Exception as e:
-            logger.bind(tag=TAG).error(f"WAV转换失败: {e}")
+            logger.bind(tag=TAG).error(f"WAV 转换失败: {e}")
             return b""
 
     def stop_ws_connection(self):
         pass
 
     def save_audio_to_file(self, pcm_data: List[bytes], session_id: str) -> str:
-        """PCM数据保存为WAV文件"""
+        """PCM 数据保存为 WAV 文件。"""
         module_name = __name__.split(".")[-1]
         file_name = f"asr_{module_name}_{session_id}_{uuid.uuid4()}.wav"
         file_path = os.path.join(self.output_dir, file_name)
@@ -224,34 +291,36 @@ class ASRProviderBase(ABC):
     async def speech_to_text(
         self, opus_data: List[bytes], session_id: str, audio_format="opus"
     ) -> Tuple[Optional[str], Optional[str]]:
-        """将语音数据转换为文本"""
+        """将语音数据转换为文本。"""
         pass
 
     @staticmethod
     def decode_opus(opus_data: List[bytes]) -> List[bytes]:
-        """将Opus音频数据解码为PCM数据"""
+        """将 Opus 音频数据解码为 PCM 数据。"""
         decoder = None
         try:
             decoder = opuslib_next.Decoder(16000, 1)
             pcm_data = []
-            buffer_size = 960  # 每次处理960个采样点 (60ms at 16kHz)
-            
+            buffer_size = 960  # 60ms @16kHz
+
             for i, opus_packet in enumerate(opus_data):
                 try:
                     if not opus_packet or len(opus_packet) == 0:
                         continue
-                    
+
                     pcm_frame = decoder.decode(opus_packet, buffer_size)
                     if pcm_frame and len(pcm_frame) > 0:
                         pcm_data.append(pcm_frame)
-                        
+
                 except opuslib_next.OpusError as e:
-                    logger.bind(tag=TAG).warning(f"Opus解码错误，跳过数据包 {i}: {e}")
+                    logger.bind(tag=TAG).warning(
+                        f"Opus 解码错误，跳过数据包 {i}: {e}"
+                    )
                 except Exception as e:
                     logger.bind(tag=TAG).error(f"音频处理错误，数据包 {i}: {e}")
-            
+
             return pcm_data
-            
+
         except Exception as e:
             logger.bind(tag=TAG).error(f"音频解码过程发生错误: {e}")
             return []
@@ -260,4 +329,4 @@ class ASRProviderBase(ABC):
                 try:
                     del decoder
                 except Exception as e:
-                    logger.bind(tag=TAG).debug(f"释放decoder资源时出错: {e}")
+                    logger.bind(tag=TAG).debug(f"释放 decoder 资源时出错: {e}")
