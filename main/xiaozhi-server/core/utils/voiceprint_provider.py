@@ -1,6 +1,6 @@
 import asyncio
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
 import aiohttp
@@ -124,6 +124,51 @@ class VoiceprintProvider:
         if isinstance(value, str):
             return value.strip().lower() in {"1", "true", "yes", "on"}
         return bool(value)
+
+    @staticmethod
+    def _safe_float(value: Any) -> Optional[float]:
+        if value is None or isinstance(value, bool):
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _collect_score_candidates(self, body: Any) -> List[float]:
+        """Extract score candidates only from whitelisted fields."""
+        if not isinstance(body, dict):
+            return []
+
+        scores: List[float] = []
+
+        def append_if_number(value: Any):
+            num = self._safe_float(value)
+            if num is not None:
+                scores.append(num)
+
+        def append_from_list(values: Any):
+            if not isinstance(values, (list, tuple)):
+                return
+            for item in values:
+                if isinstance(item, dict):
+                    append_if_number(item.get("score"))
+                    append_if_number(item.get("similarity"))
+                else:
+                    append_if_number(item)
+
+        append_if_number(body.get("score"))
+        append_if_number(body.get("similarity"))
+
+        append_from_list(body.get("scores"))
+        append_from_list(body.get("score_list"))
+        append_from_list(body.get("similarities"))
+
+        append_from_list(body.get("details"))
+        append_from_list(body.get("score_details"))
+        append_from_list(body.get("matches"))
+        append_from_list(body.get("results"))
+
+        return scores
 
     def _build_headers(self) -> Dict[str, str]:
         return {
@@ -394,7 +439,21 @@ class VoiceprintProvider:
                         body = await response.json()
                         result["ok"] = True
                         result["speaker_id"] = body.get("speaker_id")
-                        result["score"] = float(body.get("score", 0.0) or 0.0)
+                        raw_score = self._safe_float(body.get("score"))
+                        score_candidates = self._collect_score_candidates(body)
+                        if score_candidates:
+                            result["score"] = max(score_candidates)
+                            if (
+                                raw_score is not None
+                                and abs(result["score"] - raw_score) > 1e-9
+                            ):
+                                logger.bind(tag=TAG).debug(
+                                    "identify score aggregated by max: "
+                                    f"raw={raw_score:.3f}, selected={result['score']:.3f}, "
+                                    f"candidates={len(score_candidates)}"
+                                )
+                        else:
+                            result["score"] = 0.0
                         elapsed = time.monotonic() - begin
                         logger.bind(tag=TAG).info(f"声纹识别耗时: {elapsed:.3f}s")
                         return result
@@ -417,4 +476,3 @@ class VoiceprintProvider:
         """兼容旧接口：仅返回 speaker_name，不返回鉴权决策。"""
         decision = await self.evaluate_voiceprint(audio_data, session_id)
         return decision.get("speaker_name")
-
