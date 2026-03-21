@@ -188,8 +188,8 @@ voiceprint:
   # 声纹接口地址
   url: 
   dynamic_mode: true     
-  dynamic_registration_required_samples: 3
-  similarity_threshold: 0.55
+  dynamic_registration_required_samples: 5
+  similarity_threshold: 0.48
 
 # #####################################################################################
 # ################################以下是角色模型配置######################################

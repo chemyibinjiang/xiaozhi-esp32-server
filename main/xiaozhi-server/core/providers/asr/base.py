@@ -20,6 +20,9 @@ from core.providers.tts.dto.dto import TTSMessageDTO, SentenceType, ContentType
 
 TAG = __name__
 logger = setup_logging()
+UNKNOWN_SPEAKER_NAME = "未知说话人"
+UNKNOWN_SPEAKER_RETRY_PROMPT = "未知说话人，请重新说"
+UNKNOWN_SPEAKER_STATUSES = {"unknown", "rejected"}
 
 
 class ASRProviderBase(ABC):
@@ -133,14 +136,21 @@ class ASRProviderBase(ABC):
             elif isinstance(voiceprint_result, dict):
                 speaker_name = (voiceprint_result.get("speaker_name") or "").strip()
                 allow_chat = bool(voiceprint_result.get("allow_chat", True))
-                status = voiceprint_result.get("status", "")
+                status = (voiceprint_result.get("status") or "").strip().lower()
                 reason = voiceprint_result.get("reason", "")
                 score = voiceprint_result.get("score")
                 logger.bind(tag=TAG).info(
                     f"声纹决策: status={status}, allow_chat={allow_chat}, "
                     f"speaker={speaker_name}, score={score}, reason={reason}"
                 )
-                if not allow_chat:
+                is_unknown_speaker = (
+                    status in UNKNOWN_SPEAKER_STATUSES
+                    or speaker_name == UNKNOWN_SPEAKER_NAME
+                )
+                if is_unknown_speaker:
+                    voiceprint_blocked = True
+                    voiceprint_prompt_text = UNKNOWN_SPEAKER_RETRY_PROMPT
+                elif not allow_chat:
                     voiceprint_blocked = True
                     if voiceprint_result.get("need_register_prompt", False):
                         voiceprint_prompt_text = (
@@ -152,6 +162,12 @@ class ASRProviderBase(ABC):
                         )
             else:
                 speaker_name = voiceprint_result
+                if (
+                    isinstance(speaker_name, str)
+                    and speaker_name.strip() == UNKNOWN_SPEAKER_NAME
+                ):
+                    voiceprint_blocked = True
+                    voiceprint_prompt_text = UNKNOWN_SPEAKER_RETRY_PROMPT
 
             # 判断 ASR 结果类型
             if isinstance(raw_text, dict):
