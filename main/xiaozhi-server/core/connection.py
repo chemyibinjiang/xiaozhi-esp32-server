@@ -41,6 +41,7 @@ from config.logger import setup_logging, build_module_string, create_connection_
 from config.manage_api_client import DeviceNotFoundException, DeviceBindException
 from core.utils.prompt_manager import PromptManager
 from core.utils.voiceprint_provider import VoiceprintProvider
+from core.utils.audio_frontend import AudioFrontend
 from core.utils import textUtils
 
 TAG = __name__
@@ -124,6 +125,8 @@ class ConnectionHandler:
 
         # 为每个连接单独管理声纹识别
         self.voiceprint_provider = None
+        # Unified audio frontend (AEC/NS/etc). Per-connection instance.
+        self.audio_frontend = None
 
         # vad相关变量
         self.client_audio_buffer = bytearray()
@@ -138,6 +141,8 @@ class ConnectionHandler:
         # 因为实际部署时可能会用到公共的本地ASR，不能把变量暴露给公共ASR
         # 所以涉及到ASR的变量，需要在这里定义，属于connection的私有变量
         self.asr_audio = []
+        # PCM audio buffer after frontend processing (shared by VAD/ASR/voiceprint)
+        self.asr_pcm_audio = []
         self.asr_audio_queue = queue.Queue()
         self.current_speaker = None  # 存储当前说话人
         self.current_language_tag = None  # 存储当前ASR识别的语言标签
@@ -247,6 +252,19 @@ class ConnectionHandler:
 
     def _memory_session_key(self) -> str:
         return self.chat_session_id if self.chat_session_id else self.session_id
+
+    def _initialize_audio_frontend(self):
+        """为当前连接初始化音频前处理（AEC/NS等）。"""
+        try:
+            self.audio_frontend = AudioFrontend(self.config.get("audio_frontend", {}))
+            if getattr(getattr(self.audio_frontend, "config", None), "enabled", False):
+                self.logger.bind(tag=TAG).info("音频前处理已启用")
+            else:
+                self.logger.bind(tag=TAG).info("音频前处理未启用")
+        except Exception as e:
+            # Fail safe: keep disabled on errors.
+            self.audio_frontend = AudioFrontend({"enabled": False})
+            self.logger.bind(tag=TAG).warning(f"音频前处理初始化失败，已降级为关闭: {e}")
 
     async def handle_connection(self, ws):
         try:
@@ -570,6 +588,9 @@ class ConnectionHandler:
                 self.vad = self._vad
             if self.asr is None:
                 self.asr = self._initialize_asr()
+
+            # 初始化音频前处理（AEC/NS等）
+            self._initialize_audio_frontend()
 
             # 初始化声纹识别
             self._initialize_voiceprint()
@@ -1423,6 +1444,30 @@ class ConnectionHandler:
             # 清理音频缓冲区
             if hasattr(self, "audio_buffer"):
                 self.audio_buffer.clear()
+
+            # Clear frontend-related per-connection state (avoid leaking state on long-lived server).
+            try:
+                if getattr(self, "audio_frontend", None):
+                    self.audio_frontend.reset()
+            except Exception:
+                pass
+            self.audio_frontend = None
+
+            if hasattr(self, "_frontend_opus_decoder"):
+                try:
+                    self._frontend_opus_decoder = None
+                    delattr(self, "_frontend_opus_decoder")
+                except Exception:
+                    self._frontend_opus_decoder = None
+
+            if hasattr(self, "_pcm_packet_for_asr"):
+                self._pcm_packet_for_asr = None
+
+            if hasattr(self, "asr_pcm_audio"):
+                try:
+                    self.asr_pcm_audio.clear()
+                except Exception:
+                    self.asr_pcm_audio = []
 
             # 取消超时任务
             if self.timeout_task and not self.timeout_task.done():

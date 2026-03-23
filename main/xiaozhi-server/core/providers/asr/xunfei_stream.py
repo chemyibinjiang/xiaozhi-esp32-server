@@ -9,7 +9,7 @@ import gc
 from time import mktime
 from datetime import datetime
 from urllib.parse import urlencode
-from typing import List
+from typing import List, Optional
 from config.logger import setup_logging
 from wsgiref.handlers import format_date_time
 from core.providers.asr.base import ASRProviderBase
@@ -270,7 +270,12 @@ class ASRProvider(ASRProviderBase):
                 if hasattr(conn, "asr_audio"):
                     conn.asr_audio = []
 
-    async def handle_voice_stop(self, conn, asr_audio_task: List[bytes]):
+    async def handle_voice_stop(
+        self,
+        conn,
+        asr_audio_task: List[bytes],
+        pcm_audio_task: Optional[List[bytes]] = None,
+    ):
         """处理语音停止，发送最后一帧并处理识别结果"""
         try:
             # 先发送最后一帧表示音频结束
@@ -283,7 +288,7 @@ class ASRProvider(ASRProviderBase):
                 except Exception as e:
                     logger.bind(tag=TAG).error(f"发送停止请求失败: {e}")
 
-            await super().handle_voice_stop(conn, asr_audio_task)
+            await super().handle_voice_stop(conn, asr_audio_task, pcm_audio_task)
         except Exception as e:
             logger.bind(tag=TAG).error(f"处理语音停止失败: {e}")
             import traceback

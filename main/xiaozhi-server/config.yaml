@@ -183,13 +183,49 @@ plugins:
     api_key: "ragflow-xxx"
     # ragflow知识库id
     dataset_ids: ["123456789"]
+# 音频前处理配置
+audio_frontend:
+  # 是否启用服务端音频前处理；默认关闭，避免在功能未接入前改变现有链路
+  enabled: false
+  # 是否假设采集端已经做过AEC；为true时，服务端只做轻量补充处理
+  expect_client_aec: true
+  # 是否启用轻量背景降噪；用于压低底噪，不用于区分主说话人
+  noise_suppression_enabled: false
+  # 降噪强度级别；建议范围0-3，数值越大抑制越强，但越容易伤人声细节
+  noise_suppression_level: 1
+  # 前处理使用的采样率；应与当前语音链路保持一致
+  sample_rate: 16000
+  # 前处理按多少毫秒一帧工作；用于实时处理时的帧长度配置
+  frame_ms: 32
 # 声纹识别配置
 voiceprint:
   # 声纹接口地址
   url: 
-  dynamic_mode: true     
+  dynamic_mode: true
   dynamic_registration_required_samples: 5
-  similarity_threshold: 0.48
+  dynamic_registration_reply: "你好，已记录你的声音，之后我只听你的。"
+  dynamic_reject_reply: ""
+  dynamic_fail_open: false
+  similarity_threshold: 0.4
+  speaker_filter:
+    # 是否启用主说话人过滤
+    enabled: true
+    # 短窗分析窗口长度(ms)；用于判断一句话里哪一段更像主说话人
+    window_ms: 600
+    # 相邻分析窗口的滑动步长(ms)；越小越细，但计算量更高
+    hop_ms: 200
+    # 边界裁剪时额外保留的上下文(ms)；避免切掉字头字尾
+    edge_padding_ms: 200
+    # 整句中主说话人匹配窗口的最低占比；低于该值则倾向于拒绝
+    min_match_ratio: 0.35
+    # 主说话人最长连续匹配时长下限(ms)；避免只有零散命中也被误判为有效
+    min_longest_match_ms: 800
+    # 句子中间允许的最大干扰占比；超过后直接提示重说，不做中间拼接
+    max_middle_interference_ratio: 0.2
+    # 主说话人过滤失败时播报的提示语
+    reject_prompt: "请主说话人单独再说一遍。"
+    # 是否输出主说话人过滤调试日志；排查过滤命中和裁剪结果时开启
+    debug_log: true
 
 # #####################################################################################
 # ################################以下是角色模型配置######################################
@@ -235,8 +271,8 @@ end_prompt:
 selected_module:
   # 语音活动检测模块，默认使用SileroVAD模型
   VAD: SileroVAD
-  # 语音识别模块，默认使用FunASR本地模型
-  ASR: FunASR
+  # 语音识别模块，默认使用Qwen3-ASR-0.6B本地模型
+  ASR: Qwen3ASRLocal
   # 将根据配置名称对应的type调用实际的LLM适配器
   LLM: ChatGLMLLM
   # 视觉语言大模型
@@ -487,6 +523,25 @@ ASR:
     enable_itn: true  # 逆文本归一化
     #language: "zh"  # 语种，支持zh、en、ja、ko等
     context: ""  # 上下文信息，用于提高识别准确率，不超过10000 Token
+  Qwen3ASRLocal:
+    # Qwen3-ASR-0.6B local model (requires qwen-asr in runtime env)
+    type: qwen3_asr_local
+    # HuggingFace/ModelScope id or a local model directory
+    model_name: Qwen/Qwen3-ASR-0.6B
+    # auto/cpu/cuda:0
+    device: auto
+    # auto/float16/bfloat16/float32
+    dtype: auto
+    # auto means automatic language detection
+    language: auto
+    # Optional prompt context to bias recognition
+    context: ""
+    # Smaller value reduces OOM risk
+    max_inference_batch_size: 8
+    # Increase for long utterances if needed
+    max_new_tokens: 512
+    output_dir: tmp/
+    trust_remote_code: true
   XunfeiStreamASR:
     # 讯飞流式语音识别服务
     # 需要先在讯飞开放平台创建应用，获取以下认证信息
