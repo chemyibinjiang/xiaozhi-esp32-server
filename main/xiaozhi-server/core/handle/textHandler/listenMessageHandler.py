@@ -38,14 +38,23 @@ class ListenTextMessageHandler(TextMessageHandler):
                 # 非流式模式：直接触发ASR识别
                 if len(conn.asr_audio) > 0:
                     asr_audio_task = conn.asr_audio.copy()
+                    pcm_audio_task = (
+                        conn.asr_pcm_audio.copy()
+                        if hasattr(conn, "asr_pcm_audio")
+                        else None
+                    )
                     conn.asr_audio.clear()
+                    if hasattr(conn, "asr_pcm_audio"):
+                        conn.asr_pcm_audio.clear()
                     conn.reset_vad_states()
 
                     if len(asr_audio_task) > 0:
-                        await conn.asr.handle_voice_stop(conn, asr_audio_task)
+                        await conn.asr.handle_voice_stop(conn, asr_audio_task, pcm_audio_task)
         elif msg_json["state"] == "detect":
             conn.client_have_voice = False
             conn.asr_audio.clear()
+            if hasattr(conn, "asr_pcm_audio"):
+                conn.asr_pcm_audio.clear()
             if "text" in msg_json:
                 conn.last_activity_time = time.time() * 1000
                 original_text = msg_json["text"]  # 保留原始文本

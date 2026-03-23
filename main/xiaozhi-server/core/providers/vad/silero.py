@@ -50,6 +50,22 @@ class VADProvider(VADProviderBase):
             
         try:
             pcm_frame = self.decoder.decode(opus_packet, 960)
+            return self.is_vad_pcm(conn, pcm_frame)
+        except opuslib_next.OpusError as e:
+            logger.bind(tag=TAG).info(f"解码错误: {e}")
+        except Exception as e:
+            logger.bind(tag=TAG).error(f"Error processing audio packet: {e}")
+        return False
+
+    def is_vad_pcm(self, conn, pcm_frame: bytes) -> bool:
+        """VAD on PCM frame (16-bit mono @16kHz)."""
+        # 手动模式：直接返回True，不进行实时VAD检测
+        if conn.client_listen_mode == "manual":
+            return True
+        if not pcm_frame:
+            return False
+
+        try:
             conn.client_audio_buffer.extend(pcm_frame)  # 将新数据加入缓冲区
 
             # 处理缓冲区中的完整帧（每次处理512采样点）
@@ -95,7 +111,6 @@ class VADProvider(VADProviderBase):
                     conn.last_activity_time = time.time() * 1000
 
             return client_have_voice
-        except opuslib_next.OpusError as e:
-            logger.bind(tag=TAG).info(f"解码错误: {e}")
         except Exception as e:
-            logger.bind(tag=TAG).error(f"Error processing audio packet: {e}")
+            logger.bind(tag=TAG).error(f"Error processing PCM frame: {e}")
+            return False
