@@ -56,40 +56,89 @@ class ASRProviderBase(ABC):
 
     # 接收音频
     async def receive_audio(self, conn, audio, audio_have_voice):
+        # Processed PCM (decoded + frontend). Provided by receiveAudioHandle for each packet.
+        pcm_packet = getattr(conn, "_pcm_packet_for_asr", None)
+        conn._pcm_packet_for_asr = None
+
         if conn.client_listen_mode == "manual":
             # 手动模式：缓存音频用于 ASR 识别
             conn.asr_audio.append(audio)
+            if pcm_packet is not None and hasattr(conn, "asr_pcm_audio"):
+                conn.asr_pcm_audio.append(pcm_packet)
         else:
             # 自动/实时模式：使用 VAD 检测
             have_voice = audio_have_voice
 
             conn.asr_audio.append(audio)
+            if pcm_packet is not None and hasattr(conn, "asr_pcm_audio"):
+                conn.asr_pcm_audio.append(pcm_packet)
             if not have_voice and not conn.client_have_voice:
                 conn.asr_audio = conn.asr_audio[-10:]
+                if hasattr(conn, "asr_pcm_audio"):
+                    conn.asr_pcm_audio = conn.asr_pcm_audio[-10:]
                 return
 
             # 自动模式下通过 VAD 检测到语音停止时触发识别
             if conn.client_voice_stop:
                 asr_audio_task = conn.asr_audio.copy()
+                pcm_audio_task = (
+                    conn.asr_pcm_audio.copy() if hasattr(conn, "asr_pcm_audio") else None
+                )
                 conn.asr_audio.clear()
+                if hasattr(conn, "asr_pcm_audio"):
+                    conn.asr_pcm_audio.clear()
                 conn.reset_vad_states()
 
                 if len(asr_audio_task) > 15:
-                    await self.handle_voice_stop(conn, asr_audio_task)
+                    await self.handle_voice_stop(conn, asr_audio_task, pcm_audio_task)
 
     # 处理语音停止
-    async def handle_voice_stop(self, conn, asr_audio_task: List[bytes]):
+    async def handle_voice_stop(
+        self,
+        conn,
+        asr_audio_task: List[bytes],
+        pcm_audio_task: Optional[List[bytes]] = None,
+    ):
         """并行处理 ASR 与声纹，并在进入 startToChat 前做鉴权闸门。"""
         try:
             total_start_time = time.monotonic()
 
             # 准备音频数据
-            if conn.audio_format == "pcm":
-                pcm_data = asr_audio_task
+            use_pcm_task = bool(pcm_audio_task) and len(pcm_audio_task) == len(asr_audio_task)
+            if use_pcm_task:
+                pcm_data = pcm_audio_task
+                asr_input = pcm_audio_task
+                asr_audio_format = "pcm"
             else:
-                pcm_data = self.decode_opus(asr_audio_task)
+                if conn.audio_format == "pcm":
+                    pcm_data = asr_audio_task
+                else:
+                    pcm_data = self.decode_opus(asr_audio_task)
+                asr_input = asr_audio_task
+                asr_audio_format = conn.audio_format
 
             combined_pcm_data = b"".join(pcm_data)
+
+            # Sentence-level frontend hook.
+            # Only run it when we DON'T already have per-frame frontend-processed PCM from the realtime pipeline
+            # (decode once -> process_frame -> cached as conn.asr_pcm_audio).
+            if (
+                not use_pcm_task
+                and getattr(conn, "audio_frontend", None)
+                and combined_pcm_data
+            ):
+                try:
+                    combined_pcm_data = conn.audio_frontend.process_sentence(
+                        combined_pcm_data
+                    )
+                except Exception as e:
+                    logger.bind(tag=TAG).warning(
+                        f"audio frontend sentence processing failed, bypass: {e}"
+                    )
+
+                # If we are sending PCM into ASR, pass the sentence-processed PCM to keep ASR/voiceprint consistent.
+                if asr_audio_format == "pcm" and combined_pcm_data:
+                    asr_input = [combined_pcm_data]
 
             # 预先准备 WAV 数据
             wav_data = None
@@ -98,7 +147,7 @@ class ASRProviderBase(ABC):
 
             # 定义 ASR 任务
             asr_task = self.speech_to_text(
-                asr_audio_task, conn.session_id, conn.audio_format
+                asr_input, conn.session_id, asr_audio_format
             )
 
             if conn.voiceprint_provider and wav_data:

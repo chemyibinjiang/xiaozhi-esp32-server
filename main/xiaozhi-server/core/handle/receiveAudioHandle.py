@@ -1,6 +1,7 @@
 import time
 import json
 import asyncio
+import opuslib_next
 from core.utils.util import audio_to_data
 from core.handle.abortHandle import handleAbortMessage
 from core.handle.intentHandler import handle_user_intent
@@ -12,12 +13,44 @@ TAG = __name__
 
 async def handleAudioMessage(conn, audio):
     # 当前片段是否有人说话
-    have_voice = conn.vad.is_vad(conn, audio)
+    # Decode once -> frontend -> share the same PCM for VAD/ASR/voiceprint.
+    pcm_packet = None
+    try:
+        if conn.audio_format == "pcm":
+            pcm_packet = audio
+        elif audio:
+            decoder = getattr(conn, "_frontend_opus_decoder", None)
+            if decoder is None:
+                decoder = opuslib_next.Decoder(16000, 1)
+                conn._frontend_opus_decoder = decoder
+            pcm_packet = decoder.decode(audio, 960)
+    except Exception as e:
+        # Fail safe: keep pipeline alive, fallback to legacy behaviour.
+        conn.logger.bind(tag=TAG).warning(f"audio opus decode failed, fallback: {e}")
+        pcm_packet = None
+
+    if pcm_packet and getattr(conn, "audio_frontend", None):
+        try:
+            pcm_packet = conn.audio_frontend.process_frame(pcm_packet)
+        except Exception as e:
+            conn.logger.bind(tag=TAG).warning(f"audio frontend failed, bypass: {e}")
+
+    # 当前片段是否有人说话（优先走PCM路径，保证与ASR/声纹一致）
+    if pcm_packet is not None and hasattr(conn.vad, "is_vad_pcm"):
+        have_voice = conn.vad.is_vad_pcm(conn, pcm_packet)
+    else:
+        have_voice = conn.vad.is_vad(conn, audio)
+
+    # Provide processed PCM to ASR base class (picked up in receive_audio()).
+    conn._pcm_packet_for_asr = pcm_packet
     # 如果设备刚刚被唤醒，短暂忽略VAD检测
     if hasattr(conn, "just_woken_up") and conn.just_woken_up:
         have_voice = False
         # 设置一个短暂延迟后恢复VAD检测
         conn.asr_audio.clear()
+        if hasattr(conn, "asr_pcm_audio"):
+            conn.asr_pcm_audio.clear()
+        conn._pcm_packet_for_asr = None
         if not hasattr(conn, "vad_resume_task") or conn.vad_resume_task.done():
             conn.vad_resume_task = asyncio.create_task(resume_vad_detection(conn))
         return
@@ -27,6 +60,9 @@ async def handleAudioMessage(conn, audio):
             await no_voice_close_connect(conn, have_voice)
             if have_voice and hasattr(conn, "asr_audio"):
                 conn.asr_audio.clear()
+                if hasattr(conn, "asr_pcm_audio"):
+                    conn.asr_pcm_audio.clear()
+                conn._pcm_packet_for_asr = None
             return
 
     # manual 模式下不打断正在播放的内容
