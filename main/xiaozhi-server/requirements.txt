@@ -40,3 +40,5 @@ psutil==7.1.3
 portalocker==3.2.0
 Jinja2==3.1.6
 vosk==0.3.45
+dashscope==1.25.2
+uvicorn>=0.34.0,<1.0
