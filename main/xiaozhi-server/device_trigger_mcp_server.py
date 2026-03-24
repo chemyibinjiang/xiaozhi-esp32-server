@@ -6,6 +6,7 @@ Exposed tools:
   - xiaozhi_list_sessions
   - xiaozhi_debug_route_context
   - xiaozhi_take_photo
+  - xiaozhi_save_latest_photo_as
   - xiaozhi_preview_local_file
 
 Design goal:
@@ -24,6 +25,7 @@ from datetime import datetime
 from threading import Lock
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
+import yaml
 from mcp.server.fastmcp import Context, FastMCP
 
 from trigger_preview_local_file import (
@@ -133,11 +135,86 @@ def _sanitize_device_for_path(device_id: str) -> str:
             chars.append(ch)
             continue
         if ch == ":":
-            chars.append("-")
+            chars.append("_")
             continue
         chars.append("_")
     safe = "".join(chars).strip("._-")
     return safe or "unknown"
+
+
+def _derive_experiment_photo_root() -> str:
+    """
+    Try resolving experiment data root from xiaozhi runtime config:
+      data/.config.yaml -> selected_module.LLM -> LLM.<provider>.{workspace,yaml_path}
+
+    Returns:
+      Absolute path like:
+      <workspace>/lab_runs/<exp_name>/data
+      or empty string when unavailable.
+    """
+    cfg_path = os.path.join(SCRIPT_DIR, "data", ".config.yaml")
+    if not os.path.isfile(cfg_path):
+        return ""
+
+    try:
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+    except Exception:
+        return ""
+
+    llm_map = cfg.get("LLM") or {}
+    selected = _norm((cfg.get("selected_module") or {}).get("LLM", ""))
+    candidates: List[Tuple[str, str]] = []
+
+    if isinstance(llm_map, dict):
+        # 1) Selected LLM has highest priority.
+        if selected:
+            selected_cfg = llm_map.get(selected) or {}
+            if isinstance(selected_cfg, dict):
+                candidates.append(
+                    (
+                        _norm(selected_cfg.get("workspace", "")),
+                        _norm(selected_cfg.get("yaml_path", "")),
+                    )
+                )
+        # 2) Fallback to any LLM entry that contains yaml_path.
+        for llm_cfg in llm_map.values():
+            if not isinstance(llm_cfg, dict):
+                continue
+            candidates.append(
+                (
+                    _norm(llm_cfg.get("workspace", "")),
+                    _norm(llm_cfg.get("yaml_path", "")),
+                )
+            )
+
+    # 3) Fallback to prompt_template: .../<exp>/configs/local_prompt.txt
+    prompt_template = _norm(cfg.get("prompt_template", ""))
+    if prompt_template:
+        candidates.append(("", prompt_template))
+
+    def _resolve_experiment_root(workspace: str, path_text: str) -> str:
+        path_text = _norm(path_text)
+        if not path_text:
+            return ""
+        if os.path.isabs(path_text):
+            abs_path = os.path.abspath(path_text)
+        else:
+            base = workspace if workspace else SCRIPT_DIR
+            abs_path = os.path.abspath(os.path.join(base, path_text))
+
+        cfg_dir = os.path.dirname(abs_path)
+        if os.path.basename(cfg_dir).lower() == "configs":
+            return os.path.dirname(cfg_dir)
+        return cfg_dir
+
+    for workspace, path_text in candidates:
+        exp_root = _resolve_experiment_root(workspace, path_text)
+        if not exp_root:
+            continue
+        return os.path.abspath(os.path.join(exp_root, "data"))
+
+    return ""
 
 
 def _to_mapping(obj: Any) -> Dict[str, Any]:
@@ -554,7 +631,7 @@ class PhotoPathTracker:
         target_device = _norm(device_id)
         if not target_device:
             return None
-        candidates = self._collect_shared_candidates(target_device) + self._collect_mirrored_candidates(target_device)
+        candidates = self._collect_mirrored_candidates(target_device)
         if not candidates:
             return None
         best = max(candidates, key=lambda item: float(item.get("mtime", 0.0)))
@@ -564,7 +641,7 @@ class PhotoPathTracker:
         target_device = _norm(device_id)
         if not target_device:
             return []
-        raw_items = self._collect_shared_candidates(target_device) + self._collect_mirrored_candidates(target_device)
+        raw_items = self._collect_mirrored_candidates(target_device)
         if not raw_items:
             return []
 
@@ -638,7 +715,12 @@ class PhotoPathTracker:
             return latest, "timeout_latest_snapshot"
         return None, "not_found_after_timeout"
 
-    def mirror_to_device_dir(self, device_id: str, local_path: str) -> Tuple[str, str]:
+    def mirror_to_device_dir(
+        self,
+        device_id: str,
+        local_path: str,
+        requested_photo_name: str = "",
+    ) -> Tuple[str, str]:
         if not self.enable_mirror:
             return "", "mirror_disabled"
         src = os.path.abspath(_norm(local_path))
@@ -648,7 +730,21 @@ class PhotoPathTracker:
         safe_device = _sanitize_device_for_path(device_id)
         dst_dir = os.path.join(self.by_device_dir, safe_device)
         os.makedirs(dst_dir, exist_ok=True)
-        dst = os.path.abspath(os.path.join(dst_dir, os.path.basename(src)))
+        src_name = os.path.basename(src)
+        requested_stem = _norm(requested_photo_name)
+        src_ext = os.path.splitext(src_name)[1] or ".png"
+        dst_name = src_name
+
+        if requested_stem:
+            dst_name = f"{requested_stem}{src_ext}"
+        else:
+            for prefix in self._candidate_prefixes(device_id):
+                marker = f"{prefix}_"
+                if dst_name.startswith(marker):
+                    dst_name = dst_name[len(marker) :]
+                    break
+
+        dst = os.path.abspath(os.path.join(dst_dir, dst_name))
 
         if src == dst:
             return dst, "already_in_device_dir"
@@ -656,6 +752,9 @@ class PhotoPathTracker:
         with self._lock:
             src_mtime = os.path.getmtime(src)
             if os.path.exists(dst):
+                if requested_stem:
+                    shutil.copy2(src, dst)
+                    return dst, "overwritten_by_requested_name"
                 dst_mtime = os.path.getmtime(dst)
                 if dst_mtime >= src_mtime:
                     return dst, "already_exists_newer_or_same"
@@ -686,6 +785,7 @@ class PhotoPathTracker:
         mirrored_path, mirror_state = self.mirror_to_device_dir(
             _norm(device_id),
             _norm(latest.get("local_path", "")),
+            _norm(requested_photo_name),
         )
         latest["found"] = True
         latest["requested_photo_name"] = _norm(requested_photo_name)
@@ -729,11 +829,12 @@ def parse_args() -> argparse.Namespace:
         default=os.getenv("XIAOZHI_VISION_DIR", _default_data_path("data", "vision")),
         help="vision image directory written by app.py",
     )
+    derived_photo_root = _derive_experiment_photo_root()
     parser.add_argument(
         "--vision-by-device-dir",
         default=os.getenv(
             "XIAOZHI_VISION_BY_DEVICE_DIR",
-            _default_data_path("data", "vision_by_device"),
+            derived_photo_root or _default_data_path("data", "vision_by_device"),
         ),
         help="mirror directory grouped by device_id",
     )
@@ -902,6 +1003,84 @@ def build_server(args: argparse.Namespace) -> FastMCP:
                 "success": True,
                 "route": resolved,
                 "photo_meta": latest,
+            }
+        except Exception as exc:
+            return {"success": False, "message": str(exc)}
+
+    @mcp.tool(
+        name="xiaozhi_save_latest_photo_as",
+        description=(
+            "Save latest local photo for target device with a user-defined name "
+            "into the device folder under experiment data root."
+        ),
+    )
+    def xiaozhi_save_latest_photo_as(
+        photo_name: str,
+        device_id: Optional[str] = None,
+        ctx: Optional[Context] = None,
+    ) -> Dict[str, Any]:
+        try:
+            resolved = resolver.resolve_target(
+                device_id=device_id,
+                ctx=ctx,
+            )
+            route = resolved["connection"]
+            requested_name = _norm(photo_name)
+            if not requested_name:
+                raise RuntimeError("photo_name is required")
+
+            latest = photo_tracker.find_latest(route["device_id"])
+            if not latest:
+                raise RuntimeError("no local photo found for resolved device")
+            source_path = _norm(latest.get("local_path", ""))
+            if not source_path:
+                raise RuntimeError("latest photo path is empty")
+
+            safe_device = _sanitize_device_for_path(route["device_id"])
+            device_dir = os.path.abspath(os.path.join(photo_tracker.by_device_dir, safe_device))
+            os.makedirs(device_dir, exist_ok=True)
+            src_abs = os.path.abspath(source_path)
+            src_ext = os.path.splitext(src_abs)[1] or ".png"
+            dst_abs = os.path.abspath(os.path.join(device_dir, f"{requested_name}{src_ext}"))
+
+            if src_abs == dst_abs:
+                saved_path = dst_abs
+                save_state = "already_named"
+            elif os.path.commonpath([src_abs, device_dir]) == device_dir:
+                # Source already in target device directory: rename in place to avoid duplicates.
+                os.replace(src_abs, dst_abs)
+                saved_path = dst_abs
+                save_state = "renamed_in_device_dir"
+            else:
+                saved_path, save_state = photo_tracker.mirror_to_device_dir(
+                    route["device_id"],
+                    source_path,
+                    requested_name,
+                )
+                if not saved_path:
+                    raise RuntimeError(f"save latest photo failed: {save_state}")
+
+            saved_abs_path = os.path.abspath(saved_path)
+            saved_file_name = os.path.basename(saved_abs_path)
+            stat = os.stat(saved_abs_path)
+            saved_meta = {
+                "device_id": _norm(route["device_id"]),
+                "local_path": saved_abs_path,
+                "file_name": saved_file_name,
+                "source": "by_device_dir",
+                "size": int(stat.st_size),
+                "mtime": float(stat.st_mtime),
+                "mtime_iso": datetime.fromtimestamp(float(stat.st_mtime)).isoformat(
+                    timespec="seconds"
+                ),
+            }
+            return {
+                "success": True,
+                "route": resolved,
+                "requested_photo_name": requested_name,
+                "source_photo_meta": latest,
+                "saved_photo_meta": saved_meta,
+                "save_state": save_state,
             }
         except Exception as exc:
             return {"success": False, "message": str(exc)}
