@@ -2,10 +2,8 @@ import os
 import time
 import asyncio
 from typing import Optional, Tuple, List
-
 import numpy as np
 import torch
-
 from config.logger import setup_logging
 from core.providers.asr.base import ASRProviderBase
 from core.providers.asr.dto.dto import InterfaceType
