@@ -57,6 +57,73 @@ class VisionHandler(BaseHandler):
             return ""
         return val[:120]
 
+    def _sanitize_device_for_path(self, device_id: str) -> str:
+        value = str(device_id or "").strip()
+        if not value:
+            return "unknown"
+        chars = []
+        for ch in value:
+            if ch.isalnum() or ch in ("-", "_", "."):
+                chars.append(ch)
+                continue
+            if ch == ":":
+                chars.append("_")
+                continue
+            chars.append("_")
+        safe = "".join(chars).strip("._-")
+        return safe or "unknown"
+
+    def _derive_experiment_data_root(self) -> str:
+        cfg = self.config or {}
+        llm_map = cfg.get("LLM") or {}
+        selected = str((cfg.get("selected_module") or {}).get("LLM", "")).strip()
+        candidates = []
+
+        if isinstance(llm_map, dict):
+            if selected:
+                selected_cfg = llm_map.get(selected) or {}
+                if isinstance(selected_cfg, dict):
+                    candidates.append(
+                        (
+                            str(selected_cfg.get("workspace", "")).strip(),
+                            str(selected_cfg.get("yaml_path", "")).strip(),
+                        )
+                    )
+            for llm_cfg in llm_map.values():
+                if not isinstance(llm_cfg, dict):
+                    continue
+                candidates.append(
+                    (
+                        str(llm_cfg.get("workspace", "")).strip(),
+                        str(llm_cfg.get("yaml_path", "")).strip(),
+                    )
+                )
+
+        prompt_template = str(cfg.get("prompt_template", "")).strip()
+        if prompt_template:
+            candidates.append(("", prompt_template))
+
+        server_root = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "..")
+        )
+
+        for workspace, path_text in candidates:
+            if not path_text:
+                continue
+            if os.path.isabs(path_text):
+                abs_path = os.path.abspath(path_text)
+            else:
+                base = workspace if workspace else server_root
+                abs_path = os.path.abspath(os.path.join(base, path_text))
+            cfg_dir = os.path.dirname(abs_path)
+            if os.path.basename(cfg_dir).lower() == "configs":
+                exp_root = os.path.dirname(cfg_dir)
+            else:
+                exp_root = cfg_dir
+            if exp_root:
+                return os.path.abspath(os.path.join(exp_root, "data"))
+        return ""
+
     def _extract_question_meta(self, question: str) -> Tuple[str, str]:
         src = str(question or "")
         idx = src.rfind(self._question_meta_prefix)
@@ -82,12 +149,13 @@ class VisionHandler(BaseHandler):
     def _save_image(
         self, image_data: bytes, device_id: str, requested_photo_name: str = ""
     ) -> str:
-        log_config = self.config.get("log", {})
-        data_dir = log_config.get("data_dir", "data")
-        vision_dir = os.path.join(data_dir, "vision")
-        os.makedirs(vision_dir, exist_ok=True)
+        data_root = self._derive_experiment_data_root()
+        if not data_root:
+            raise ValueError("无法从当前配置解析实验数据目录（data 根目录）")
 
-        safe_device = (device_id or "unknown").replace(":", "-")
+        safe_device = self._sanitize_device_for_path(device_id)
+        device_dir = os.path.join(data_root, safe_device)
+        os.makedirs(device_dir, exist_ok=True)
         ext = self._guess_image_ext(image_data)
         save_data = image_data
 
@@ -106,19 +174,15 @@ class VisionHandler(BaseHandler):
 
         requested_stem = self._sanitize_filename_stem(requested_photo_name)
         if requested_stem:
-            filename = f"{safe_device}_{requested_stem}.{ext}"
-            check_path = os.path.join(vision_dir, filename)
-            if os.path.exists(check_path):
-                filename = (
-                    f"{safe_device}_{requested_stem}_{uuid.uuid4().hex[:8]}.{ext}"
-                )
+            # 用户指定命名时，直接使用该名称（覆盖同名旧文件）
+            filename = f"{requested_stem}.{ext}"
 
         if not filename:
             timestamp = time.strftime("%Y%m%d_%H%M%S")
             rand = uuid.uuid4().hex[:8]
-            filename = f"{safe_device}_{timestamp}_{rand}.{ext}"
+            filename = f"{timestamp}_{rand}.{ext}"
 
-        file_path = os.path.join(vision_dir, filename)
+        file_path = os.path.join(device_dir, filename)
 
         with open(file_path, "wb") as f:
             f.write(save_data)
