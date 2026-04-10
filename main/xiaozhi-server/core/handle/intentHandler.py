@@ -6,8 +6,9 @@ from core.providers.tts.dto.dto import ContentType
 from core.handle.helloHandle import checkWakeupWords
 from plugins_func.register import Action, ActionResponse
 from core.handle.sendAudioHandle import send_stt_message
-from core.utils.util import remove_punctuation_and_length
+from core.utils.util import remove_punctuation_and_length, sanitize_tool_name
 from core.providers.tts.dto.dto import TTSMessageDTO, SentenceType
+from core.providers.tools.device_mcp import call_mcp_tool
 
 TAG = __name__
 
@@ -30,6 +31,14 @@ async def handle_user_intent(conn, text):
 
     # 检查是否是唤醒词
     if await checkWakeupWords(conn, filtered_text):
+        return True
+
+    # Fast path: photo-navigation commands go directly to MCP (no Codex).
+    if await handle_direct_photo_navigation_intent(conn, text, filtered_text):
+        return True
+
+    # Fast path: take-photo commands go directly to MCP (no Codex).
+    if await handle_direct_photo_intent(conn, text, filtered_text):
         return True
 
     if conn.intent_type == "function_call":
@@ -73,6 +82,366 @@ async def analyze_intent_with_llm(conn, text):
         conn.logger.bind(tag=TAG).error(f"意图识别失败: {str(e)}")
 
     return None
+
+
+def _normalize_text_for_match(text: str) -> str:
+    return (text or "").strip().lower().replace(" ", "")
+
+
+def _contains_any(text: str, words) -> bool:
+    return any(w in text for w in words)
+
+
+def _is_direct_photo_command(filtered_text: str) -> bool:
+    norm = _normalize_text_for_match(filtered_text)
+    if not norm:
+        return False
+
+    block_keywords = [
+        "\u4e3a\u4ec0\u4e48",
+        "\u539f\u7406",
+        "\u6b65\u9aa4",
+        "\u6ce8\u610f\u4e8b\u9879",
+        "\u600e\u4e48\u505a",
+        "\u5982\u4f55\u505a",
+        "\u4ec0\u4e48\u610f\u601d",
+    ]
+    if _contains_any(norm, block_keywords):
+        return False
+
+    trigger_keywords = [
+        "\u62cd\u7167",
+        "\u62cd\u4e00\u5f20",
+        "\u62cd\u4e2a\u7167",
+        "\u62cd\u5f20\u7167",
+        "\u62cd\u5f20\u7167\u7247",
+        "\u62cd\u4e00\u5f20\u7167\u7247",
+        "\u7167\u4e00\u4e0b",
+        "\u770b\u4e00\u4e0b\u524d\u9762",
+        "\u770b\u770b\u524d\u9762",
+        "\u770b\u770b\u5f53\u524d\u753b\u9762",
+        "\u770b\u4e00\u4e0b\u5f53\u524d\u753b\u9762",
+        "\u5e2e\u6211\u770b\u4e00\u4e0b",
+        "\u5e2e\u6211\u770b\u4e00\u773c",
+        "\u770b\u4e00\u773c\u524d\u9762",
+    ]
+    return _contains_any(norm, trigger_keywords)
+
+
+def _classify_photo_nav_command(filtered_text: str) -> str:
+    norm = _normalize_text_for_match(filtered_text)
+    if not norm:
+        return ""
+
+    block_keywords = [
+        "\u4e3a\u4ec0\u4e48",
+        "\u539f\u7406",
+        "\u6b65\u9aa4",
+        "\u6ce8\u610f\u4e8b\u9879",
+        "\u600e\u4e48\u505a",
+        "\u5982\u4f55\u505a",
+        "\u4ec0\u4e48\u610f\u601d",
+    ]
+    if _contains_any(norm, block_keywords):
+        return ""
+
+    previous_keywords = [
+        "\u4e0a\u4e00\u5f20",
+        "\u524d\u4e00\u5f20",
+        "\u4e0a\u4e00\u5f20\u7167\u7247",
+        "\u524d\u4e00\u5f20\u7167\u7247",
+        "\u4e0a\u5f20",
+        "\u524d\u5f20",
+    ]
+    if _contains_any(norm, previous_keywords):
+        return "previous"
+
+    latest_keywords = [
+        "\u67e5\u770b\u6700\u8fd1\u7167\u7247",
+        "\u770b\u6700\u8fd1\u7167\u7247",
+        "\u770b\u770b\u6700\u8fd1\u7167\u7247",
+        "\u6700\u8fd1\u7167\u7247",
+        "\u6700\u65b0\u7167\u7247",
+        "\u6700\u8fd1\u4e00\u5f20",
+        "\u6700\u65b0\u4e00\u5f20",
+    ]
+    if _contains_any(norm, latest_keywords):
+        return "latest"
+
+    return ""
+
+
+def _build_direct_photo_question(original_text: str, default_question: str) -> str:
+    text = (original_text or "").strip()
+    if not text:
+        return default_question
+    if _contains_any(
+        text,
+        [
+            "\u5206\u6790",
+            "\u8bc6\u522b",
+            "\u63cf\u8ff0",
+            "\u770b\u770b",
+            "\u770b\u4e00\u4e0b",
+            "\u5e2e\u6211\u770b",
+        ],
+    ):
+        return text
+    return default_question
+
+
+def _to_plain_data(payload):
+    if payload is None:
+        return None
+    if isinstance(payload, (dict, list, str, int, float, bool)):
+        return payload
+    if hasattr(payload, "model_dump"):
+        try:
+            return payload.model_dump()
+        except Exception:
+            pass
+    if hasattr(payload, "__dict__"):
+        try:
+            return dict(payload.__dict__)
+        except Exception:
+            pass
+    return str(payload)
+
+
+def _try_parse_json_text(text: str):
+    if not isinstance(text, str):
+        return None
+    raw = text.strip()
+    if not raw:
+        return None
+    if not (raw.startswith("{") or raw.startswith("[")):
+        return None
+    try:
+        return json.loads(raw)
+    except Exception:
+        return None
+
+
+def _extract_server_mcp_payload(raw_result):
+    data = _to_plain_data(raw_result)
+    if isinstance(data, str):
+        parsed = _try_parse_json_text(data)
+        return parsed if parsed is not None else data
+
+    if isinstance(data, dict):
+        content = data.get("content")
+        if isinstance(content, list):
+            for item in content:
+                item_data = _to_plain_data(item)
+                if isinstance(item_data, dict):
+                    text = item_data.get("text")
+                    if isinstance(text, str):
+                        parsed_text = _try_parse_json_text(text)
+                        if parsed_text is not None:
+                            return parsed_text
+                        if text.strip():
+                            return text.strip()
+        return data
+
+    if isinstance(data, list):
+        for item in data:
+            extracted = _extract_server_mcp_payload(item)
+            if extracted is not None:
+                return extracted
+    return data
+
+
+def _extract_text_from_result_payload(payload):
+    data = _to_plain_data(payload)
+
+    if isinstance(data, str):
+        text = data.strip()
+        if text and not text.startswith("{") and not text.startswith("["):
+            return text
+        parsed = _try_parse_json_text(text)
+        if parsed is not None:
+            return _extract_text_from_result_payload(parsed)
+        return ""
+
+    if isinstance(data, dict):
+        for key in ["response", "message", "text", "description"]:
+            val = data.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+
+        nested = data.get("result")
+        if nested is not None:
+            nested_text = _extract_text_from_result_payload(nested)
+            if nested_text:
+                return nested_text
+
+        photo_meta = data.get("photo_meta")
+        if isinstance(photo_meta, dict):
+            file_name = str(photo_meta.get("file_name", "")).strip()
+            if file_name:
+                return f"\u62cd\u597d\u4e86\uff0c\u5df2\u4fdd\u5b58\u4e3a {file_name}"
+        return ""
+
+    if isinstance(data, list):
+        for item in data:
+            text = _extract_text_from_result_payload(item)
+            if text:
+                return text
+    return ""
+
+
+def _extract_direct_photo_reply(raw_result) -> str:
+    payload = _extract_server_mcp_payload(raw_result)
+    text = _extract_text_from_result_payload(payload)
+    if text:
+        return text
+    return ""
+
+
+def _get_server_mcp_manager(conn):
+    func_handler = getattr(conn, "func_handler", None)
+    if not func_handler:
+        return None
+    server_executor = getattr(func_handler, "server_mcp_executor", None)
+    if not server_executor:
+        return None
+    return getattr(server_executor, "mcp_manager", None)
+
+
+async def _execute_server_mcp_tool_direct(conn, tool_name: str, arguments: dict):
+    manager = _get_server_mcp_manager(conn)
+    if not manager:
+        raise RuntimeError("server mcp manager is not ready")
+    return await manager.execute_tool(tool_name, arguments or {})
+
+
+async def handle_direct_photo_navigation_intent(
+    conn, original_text: str, filtered_text: str
+) -> bool:
+    nav_type = _classify_photo_nav_command(filtered_text)
+    if not nav_type:
+        return False
+
+    shortcut_cfg = conn.config.get("device_mcp_shortcuts", {}) or {}
+    if shortcut_cfg.get("enable_photo_navigation_direct", True) is False:
+        return False
+
+    await send_stt_message(conn, original_text)
+    conn.client_abort = False
+    conn.sentence_id = str(uuid.uuid4().hex)
+    conn.dialogue.put(Message(role="user", content=original_text))
+
+    safe_device_id = str(getattr(conn, "device_id", "") or "").strip()
+    if not safe_device_id:
+        speak_txt(conn, "\u8bbe\u5907\u8fde\u63a5\u4fe1\u606f\u7f3a\u5931\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5\u3002")
+        return True
+
+    if _get_server_mcp_manager(conn) is None:
+        speak_txt(conn, "\u56fe\u7247\u9884\u89c8\u529f\u80fd\u8fd8\u6ca1\u51c6\u5907\u597d\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5\u3002")
+        return True
+
+    try:
+        if nav_type == "previous":
+            tool_name = str(
+                shortcut_cfg.get(
+                    "preview_previous_tool_name",
+                    "xiaozhi_preview_previous_photo",
+                )
+            ).strip() or "xiaozhi_preview_previous_photo"
+            result = await _execute_server_mcp_tool_direct(
+                conn,
+                tool_name,
+                {"device_id": safe_device_id},
+            )
+            default_reply = "\u5df2\u7ecf\u5207\u5230\u4e0a\u4e00\u5f20\u4e86\u3002"
+        else:
+            tool_name = str(
+                shortcut_cfg.get(
+                    "preview_latest_tool_name",
+                    "xiaozhi_preview_local_file",
+                )
+            ).strip() or "xiaozhi_preview_local_file"
+            result = await _execute_server_mcp_tool_direct(
+                conn,
+                tool_name,
+                {"device_id": safe_device_id, "photo_index": 0},
+            )
+            default_reply = "\u5df2\u7ecf\u6253\u5f00\u6700\u8fd1\u4e00\u5f20\u7167\u7247\u4e86\u3002"
+    except Exception as e:
+        conn.logger.bind(tag=TAG).warning(f"direct photo navigation failed: {e}")
+        speak_txt(conn, f"\u6253\u5f00\u7167\u7247\u5931\u8d25\uff1a{e}")
+        return True
+
+    payload = _extract_server_mcp_payload(result)
+    if isinstance(payload, dict) and payload.get("success") is False:
+        msg = str(payload.get("message", "")).strip() or "\u6253\u5f00\u7167\u7247\u5931\u8d25\u3002"
+        speak_txt(conn, msg)
+        return True
+
+    reply = _extract_text_from_result_payload(payload) or default_reply
+    speak_txt(conn, reply)
+    return True
+
+
+async def handle_direct_photo_intent(conn, original_text: str, filtered_text: str) -> bool:
+    if not _is_direct_photo_command(filtered_text):
+        return False
+
+    shortcut_cfg = conn.config.get("device_mcp_shortcuts", {}) or {}
+    if shortcut_cfg.get("enable_photo_direct", True) is False:
+        return False
+
+    await send_stt_message(conn, original_text)
+    conn.client_abort = False
+    conn.sentence_id = str(uuid.uuid4().hex)
+    conn.dialogue.put(Message(role="user", content=original_text))
+
+    mcp_client = getattr(conn, "mcp_client", None)
+    if not mcp_client:
+        speak_txt(conn, "\u8bbe\u5907\u8fd8\u6ca1\u51c6\u5907\u597d\u62cd\u7167\u3002")
+        return True
+
+    if not await mcp_client.is_ready():
+        speak_txt(conn, "\u8bbe\u5907\u62cd\u7167\u529f\u80fd\u8fd8\u6ca1\u51c6\u5907\u597d\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5\u3002")
+        return True
+
+    raw_tool_name = str(
+        shortcut_cfg.get("take_photo_tool_name", "self.camera.take_photo")
+    ).strip() or "self.camera.take_photo"
+    tool_name = sanitize_tool_name(raw_tool_name)
+    timeout = int(shortcut_cfg.get("photo_timeout", 45))
+    if timeout <= 0:
+        timeout = 45
+
+    default_question = str(
+        shortcut_cfg.get(
+            "default_photo_question",
+            "\u63cf\u8ff0\u4e00\u4e0b\u770b\u5230\u7684\u7269\u54c1",
+        )
+    ).strip() or "\u63cf\u8ff0\u4e00\u4e0b\u770b\u5230\u7684\u7269\u54c1"
+    question = _build_direct_photo_question(original_text, default_question)
+
+    try:
+        result = await call_mcp_tool(
+            conn,
+            mcp_client,
+            tool_name,
+            {"question": question},
+            timeout=timeout,
+            allow_unlisted=True,
+            raw_tool_name=raw_tool_name,
+        )
+    except TimeoutError:
+        speak_txt(conn, "\u62cd\u7167\u8d85\u65f6\u4e86\uff0c\u8bf7\u518d\u8bd5\u4e00\u6b21\u3002")
+        return True
+    except Exception as e:
+        conn.logger.bind(tag=TAG).warning(f"direct photo mcp failed: {e}")
+        speak_txt(conn, f"\u62cd\u7167\u5931\u8d25\uff1a{e}")
+        return True
+
+    reply = _extract_direct_photo_reply(result) or "\u62cd\u597d\u4e86\u3002"
+    speak_txt(conn, reply)
+    return True
 
 
 async def process_intent_result(conn, intent_result, original_text):
