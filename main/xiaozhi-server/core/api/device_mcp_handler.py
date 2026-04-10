@@ -3,10 +3,11 @@ import mimetypes
 import os
 import subprocess
 import uuid
+import asyncio
 from aiohttp import web
 
 from core.api.base_handler import BaseHandler
-from core.providers.tools.device_mcp import call_mcp_tool
+from core.providers.tools.device_mcp import call_mcp_tool, send_mcp_initialize_message
 from core.utils.util import sanitize_tool_name, get_local_ip, is_valid_image_file
 
 TAG = __name__
@@ -19,6 +20,7 @@ class DeviceMCPHandler(BaseHandler):
         data_dir = self.config.get("log", {}).get("data_dir", "data")
         self.preview_dir = os.path.join(data_dir, "preview_files")
         os.makedirs(self.preview_dir, exist_ok=True)
+        self._mcp_refresh_lock = asyncio.Lock()
 
     def _json_response(self, body: dict, status: int = 200):
         return web.Response(
@@ -163,6 +165,32 @@ class DeviceMCPHandler(BaseHandler):
 
         return candidates
 
+    @staticmethod
+    def _is_photo_upload_failed_error(exc: Exception) -> bool:
+        msg = str(exc or "")
+        return "Failed to upload photo" in msg or "上传照片失败" in msg
+
+    async def _refresh_device_mcp(self, conn, mcp_client, timeout_sec: float = 8.0) -> bool:
+        async with self._mcp_refresh_lock:
+            previous_ready = await mcp_client.is_ready()
+            try:
+                await mcp_client.set_ready(False)
+                await send_mcp_initialize_message(conn)
+
+                loop = asyncio.get_running_loop()
+                deadline = loop.time() + max(float(timeout_sec), 1.0)
+                while loop.time() < deadline:
+                    if await mcp_client.is_ready():
+                        return True
+                    await asyncio.sleep(0.2)
+            except Exception as e:
+                self.logger.bind(tag=TAG).warning(f"refresh mcp session failed: {e}")
+            finally:
+                # 避免刷新失败后将连接永久卡在 not ready
+                if previous_ready and not await mcp_client.is_ready():
+                    await mcp_client.set_ready(True)
+        return False
+
     async def handle_get(self, request):
         response = None
         try:
@@ -229,13 +257,32 @@ class DeviceMCPHandler(BaseHandler):
             if photo_name:
                 tool_args["photo_name"] = photo_name
 
-            result = await call_mcp_tool(
-                conn,
-                mcp_client,
-                tool_name,
-                tool_args,
-                timeout=timeout,
-            )
+            try:
+                result = await call_mcp_tool(
+                    conn,
+                    mcp_client,
+                    tool_name,
+                    tool_args,
+                    timeout=timeout,
+                )
+            except Exception as first_err:
+                if self._is_photo_upload_failed_error(first_err):
+                    self.logger.bind(tag=TAG).warning(
+                        "take_photo upload failed, try refresh MCP session once"
+                    )
+                    refreshed = await self._refresh_device_mcp(conn, mcp_client)
+                    if refreshed:
+                        result = await call_mcp_tool(
+                            conn,
+                            mcp_client,
+                            tool_name,
+                            tool_args,
+                            timeout=timeout,
+                        )
+                    else:
+                        raise first_err
+                else:
+                    raise
 
             response = self._json_response(
                 {
