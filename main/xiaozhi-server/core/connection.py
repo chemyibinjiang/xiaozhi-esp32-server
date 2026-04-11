@@ -168,9 +168,14 @@ class ConnectionHandler:
         self.load_function_plugin = False
         self.intent_type = "nointent"
 
+        close_connection_no_voice_time = int(
+            self.config.get("close_connection_no_voice_time", 120)
+        )
         self.timeout_seconds = (
-            int(self.config.get("close_connection_no_voice_time", 120)) + 60
-        )  # 在原来第一道关闭的基础上加60秒，进行二道关闭
+            close_connection_no_voice_time + 60
+            if close_connection_no_voice_time > 0
+            else 0
+        )  # <= 0 表示禁用无语音自动断开；否则在第一道关闭基础上加 60 秒做二道关闭
         self.timeout_task = None
 
         # {"mcp":true} 表示启用MCP功能
@@ -306,8 +311,9 @@ class ConnectionHandler:
             self.first_activity_time = time.time() * 1000
             self.last_activity_time = time.time() * 1000
 
-            # 启动超时检查任务
-            self.timeout_task = asyncio.create_task(self._check_timeout())
+            # 启动超时检查任务；当 close_connection_no_voice_time <= 0 时禁用自动断开
+            if self.timeout_seconds > 0:
+                self.timeout_task = asyncio.create_task(self._check_timeout())
 
             self.welcome_msg = self.config["xiaozhi"]
             self.welcome_msg["session_id"] = self.session_id
