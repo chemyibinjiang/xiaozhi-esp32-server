@@ -4,7 +4,7 @@ import sys
 import importlib
 
 from config.logger import setup_logging
-from core.utils.textUtils import check_emoji
+from core.utils.textUtils import check_emoji, normalize_spoken_text
 
 logger = setup_logging()
 
@@ -171,6 +171,7 @@ class MarkdownCleaner:
             text = regex.sub(replacement, text)
 
         # 去除emoji表情
+        text = normalize_spoken_text(text)
         text = check_emoji(text)
 
         return text.strip()
