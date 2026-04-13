@@ -14,6 +14,10 @@ from config.logger import setup_logging
 from typing import Optional, Tuple, List
 from core.handle.receiveAudioHandle import startToChat
 from core.handle.reportHandle import enqueue_asr_report
+from core.utils.experiment_resume import (
+    build_resume_context,
+    should_load_device_log_context,
+)
 from core.utils.util import remove_punctuation_and_length
 from core.handle.receiveAudioHandle import handleAudioMessage
 from core.providers.tts.dto.dto import TTSMessageDTO, SentenceType, ContentType
@@ -175,9 +179,22 @@ class ASRProviderBase(ABC):
             else:
                 raw_text, _ = asr_result
 
+            log_context_query = self._extract_query_text(raw_text)
+            should_try_log_resume = should_load_device_log_context(log_context_query)
+            resume_context = None
+            if should_try_log_resume and getattr(conn, "device_id", None):
+                resume_context = build_resume_context(conn.config, conn.device_id)
+                if resume_context:
+                    logger.bind(tag=TAG).info(
+                        "device log context loaded for recovery: "
+                        f"device_id={conn.device_id}, log_path={resume_context.get('log_path')}"
+                    )
+
             # 处理声纹结果（兼容旧字符串返回 + 新决策字典返回）
             voiceprint_blocked = False
             voiceprint_prompt_text = ""
+            voiceprint_status = ""
+            can_restore_dynamic_registration = False
 
             if isinstance(voiceprint_result, Exception):
                 logger.bind(tag=TAG).error(f"声纹识别失败: {voiceprint_result}")
@@ -186,6 +203,7 @@ class ASRProviderBase(ABC):
                 speaker_name = (voiceprint_result.get("speaker_name") or "").strip()
                 allow_chat = bool(voiceprint_result.get("allow_chat", True))
                 status = (voiceprint_result.get("status") or "").strip().lower()
+                voiceprint_status = status
                 reason = voiceprint_result.get("reason", "")
                 score = voiceprint_result.get("score")
                 logger.bind(tag=TAG).info(
@@ -201,6 +219,10 @@ class ASRProviderBase(ABC):
                     voiceprint_prompt_text = UNKNOWN_SPEAKER_RETRY_PROMPT
                 elif not allow_chat:
                     voiceprint_blocked = True
+                    can_restore_dynamic_registration = status in {
+                        "registering",
+                        "registered",
+                    }
                     if voiceprint_result.get("need_register_prompt", False):
                         voiceprint_prompt_text = (
                             voiceprint_result.get("register_prompt_text") or ""
@@ -217,6 +239,29 @@ class ASRProviderBase(ABC):
                 ):
                     voiceprint_blocked = True
                     voiceprint_prompt_text = UNKNOWN_SPEAKER_RETRY_PROMPT
+
+            if (
+                voiceprint_blocked
+                and resume_context
+                and can_restore_dynamic_registration
+                and getattr(conn, "voiceprint_provider", None)
+                and getattr(conn.voiceprint_provider, "dynamic_mode", False)
+            ):
+                restored = conn.voiceprint_provider.restore_dynamic_registration(
+                    reason="device log recovery"
+                )
+                if restored:
+                    voiceprint_blocked = False
+                    voiceprint_prompt_text = ""
+                    if not speaker_name:
+                        speaker_name = (
+                            getattr(conn.voiceprint_provider, "dynamic_master_name", "")
+                            or ""
+                        )
+                    logger.bind(tag=TAG).info(
+                        "voiceprint registration bypassed via device log recovery: "
+                        f"device_id={getattr(conn, 'device_id', '')}, status={voiceprint_status}"
+                    )
 
             # 判断 ASR 结果类型
             if isinstance(raw_text, dict):
@@ -281,6 +326,19 @@ class ASRProviderBase(ABC):
                 ensure_ascii=False,
             )
         return text
+
+    @staticmethod
+    def _extract_query_text(raw_text) -> str:
+        if isinstance(raw_text, dict):
+            content = raw_text.get("content")
+            if isinstance(content, str):
+                return content.strip()
+            if content is not None:
+                return str(content).strip()
+            return ""
+        if isinstance(raw_text, str):
+            return raw_text.strip()
+        return str(raw_text or "").strip()
 
     def _enqueue_system_tts(self, conn, text: str):
         """直接下发系统 TTS，不走 LLM 流程。"""
