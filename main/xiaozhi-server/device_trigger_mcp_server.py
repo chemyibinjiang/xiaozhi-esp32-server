@@ -448,6 +448,24 @@ class RouteResolver:
             return None, f"multiple matches for {reason}"
         return None, None
 
+    @staticmethod
+    def _prefer_live_connections(connections: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        ready_and_live = [
+            item
+            for item in connections
+            if bool(item.get("websocket_alive", False)) and bool(item.get("mcp_ready", False))
+        ]
+        if ready_and_live:
+            return ready_and_live
+
+        live_only = [
+            item for item in connections if bool(item.get("websocket_alive", False))
+        ]
+        if live_only:
+            return live_only
+
+        return []
+
     def resolve_target(
         self,
         *,
@@ -463,6 +481,19 @@ class RouteResolver:
             connections = []
         if not connections:
             raise RuntimeError("no online sessions")
+
+        active_connections = self._prefer_live_connections(connections)
+        if active_connections:
+            connections = active_connections
+        else:
+            target_device = _norm(device_id)
+            if target_device:
+                inactive_matches = _find_by_field(connections, "device_id", target_device)
+                if inactive_matches:
+                    raise RuntimeError(
+                        f"device is offline and waiting for reconnect: {target_device}"
+                    )
+            raise RuntimeError("no active online sessions")
 
         explicit = {
             "device_id": _norm(device_id),
@@ -480,7 +511,24 @@ class RouteResolver:
                 raise RuntimeError(error)
             raise RuntimeError(f"device_id not online: {explicit['device_id']}")
 
-        # 2) automatic context-driven resolution
+        # 2) single-device mode only: auto-select the lone active connection.
+        if len(connections) == 1:
+            return self._build_resolution(
+                connections[0],
+                "single_active_connection",
+                explicit,
+                candidates,
+                context_snapshot,
+                len(connections),
+            )
+
+        # 3) multi-device mode: require an explicit device_id to avoid cross-device routing.
+        if len(connections) > 1:
+            raise RuntimeError(
+                "multiple active online sessions; provide explicit device_id"
+            )
+
+        # 4) automatic context-driven resolution
         ordered_lookups: List[Tuple[str, str, Iterable[str]]] = [
             ("device_id", "device_id", candidates["device_ids"]),
         ]
@@ -916,8 +964,8 @@ def build_server(args: argparse.Namespace) -> FastMCP:
         name="xiaozhi_take_photo",
         description=(
             "Take a photo on the resolved target device. "
-            "device_id is optional and defaults to null; "
-            "the server auto-resolves from MCP context and only needs explicit device_id when routing is ambiguous."
+            "device_id is optional only when exactly one device is online; "
+            "when multiple devices are online, explicit device_id is required."
         ),
     )
     def xiaozhi_take_photo(
@@ -978,8 +1026,8 @@ def build_server(args: argparse.Namespace) -> FastMCP:
         name="xiaozhi_get_latest_photo",
         description=(
             "Get latest local photo metadata for target device. "
-            "device_id is optional and defaults to null; "
-            "auto-resolution uses MCP context."
+            "device_id is optional only when exactly one device is online; "
+            "when multiple devices are online, explicit device_id is required."
         ),
     )
     def xiaozhi_get_latest_photo(
@@ -1117,8 +1165,8 @@ def build_server(args: argparse.Namespace) -> FastMCP:
         name="xiaozhi_preview_local_file",
         description=(
             "Preview a local image file on the resolved target device screen. "
-            "device_id is optional and defaults to null; "
-            "the server auto-resolves from MCP context and only needs explicit device_id when routing is ambiguous."
+            "device_id is optional only when exactly one device is online; "
+            "when multiple devices are online, explicit device_id is required."
         ),
     )
     def xiaozhi_preview_local_file(
