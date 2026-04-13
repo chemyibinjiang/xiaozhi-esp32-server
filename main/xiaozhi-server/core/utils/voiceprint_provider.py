@@ -152,6 +152,22 @@ class VoiceprintProvider:
                 f"声纹识别服务不可用，声纹识别已禁用: {self.api_url}"
             )
 
+    def restore_dynamic_registration(self, reason: str = "") -> bool:
+        """Reuse a previously enrolled master speaker after app restart."""
+        if not self.enabled or not self.dynamic_mode:
+            return False
+
+        self._dynamic_registered = True
+        self._dynamic_registered_samples = max(
+            self._dynamic_registered_samples,
+            self.dynamic_registration_required_samples,
+        )
+        logger.bind(tag=TAG).info(
+            "dynamic voiceprint registration restored"
+            + (f", reason={reason}" if reason else "")
+        )
+        return True
+
     @staticmethod
     def _as_bool(value: Any) -> bool:
         if isinstance(value, bool):
