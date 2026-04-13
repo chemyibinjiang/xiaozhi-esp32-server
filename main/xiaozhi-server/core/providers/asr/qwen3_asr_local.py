@@ -44,6 +44,16 @@ def _resolve_dtype(dtype_value: str):
     raise ValueError(f"unsupported dtype: {dtype_value}")
 
 
+def _parse_positive_int(value, default: Optional[int]) -> Optional[int]:
+    if value is None or value == "":
+        return default
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
 class ASRProvider(ASRProviderBase):
     def __init__(self, config: dict, delete_audio_file: bool):
         super().__init__()
@@ -58,6 +68,15 @@ class ASRProvider(ASRProviderBase):
         self.max_inference_batch_size = int(config.get("max_inference_batch_size", 8))
         self.max_new_tokens = int(config.get("max_new_tokens", 512))
         self.trust_remote_code = bool(config.get("trust_remote_code", True))
+        self.hf_endpoint = str(config.get("hf_endpoint", "")).strip()
+        self.http_proxy = str(config.get("http_proxy", "")).strip()
+        self.https_proxy = str(config.get("https_proxy", "")).strip()
+        self.hf_hub_etag_timeout = _parse_positive_int(
+            config.get("hf_hub_etag_timeout"), None
+        )
+        self.hf_hub_download_timeout = _parse_positive_int(
+            config.get("hf_hub_download_timeout"), None
+        )
 
         configured_device = str(config.get("device", "auto")).strip().lower()
         if configured_device == "auto":
@@ -94,6 +113,20 @@ class ASRProvider(ASRProviderBase):
         }
         if self.dtype is not None:
             init_kwargs["dtype"] = self.dtype
+
+        # Optional network settings for Hugging Face access (mirror/proxy/timeout).
+        if self.hf_endpoint:
+            os.environ["HF_ENDPOINT"] = self.hf_endpoint
+        if self.http_proxy:
+            os.environ["HTTP_PROXY"] = self.http_proxy
+            os.environ["http_proxy"] = self.http_proxy
+        if self.https_proxy:
+            os.environ["HTTPS_PROXY"] = self.https_proxy
+            os.environ["https_proxy"] = self.https_proxy
+        if self.hf_hub_etag_timeout is not None:
+            os.environ["HF_HUB_ETAG_TIMEOUT"] = str(self.hf_hub_etag_timeout)
+        if self.hf_hub_download_timeout is not None:
+            os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = str(self.hf_hub_download_timeout)
 
         start_time = time.time()
         self.model = Qwen3ASRModel.from_pretrained(self.model_name, **init_kwargs)
