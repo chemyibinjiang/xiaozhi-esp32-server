@@ -68,6 +68,9 @@ class TTSProviderBase(ABC):
         self.tts_stop_request = False
         self.processed_chars = 0
         self.is_first_sentence = True
+        self.disable_pre_speak_split = str(
+            config.get("disable_pre_speak_split", False)
+        ).lower() in ("1", "true", "yes", "on")
 
     def generate_filename(self, extension=".wav"):
         return os.path.join(
@@ -84,6 +87,7 @@ class TTSProviderBase(ABC):
 
     def to_tts_stream(self, text, opus_handler: Callable[[bytes], None] = None) -> None:
         text = MarkdownCleaner.clean_markdown(text)
+        text = textUtils.filter_spoken_backstage_text(text)
         if not text:
             return None
         max_repeat_time = 5
@@ -148,6 +152,7 @@ class TTSProviderBase(ABC):
     
     def to_tts(self, text):
         text = MarkdownCleaner.clean_markdown(text)
+        text = textUtils.filter_spoken_backstage_text(text)
         if not text:
             return None
         max_repeat_time = 5
@@ -241,6 +246,17 @@ class TTSProviderBase(ABC):
             else:
                 sentence_id = str(uuid.uuid4().hex)
                 conn.sentence_id = sentence_id
+        if self.disable_pre_speak_split:
+            self.tts_text_queue.put(
+                TTSMessageDTO(
+                    sentence_id=sentence_id,
+                    sentence_type=SentenceType.MIDDLE,
+                    content_type=content_type,
+                    content_detail=content_detail,
+                    content_file=content_file,
+                )
+            )
+            return
         # 对于单句的文本，进行分段处理
         segments = re.split(r"([。！？!?；;\n])", content_detail)
         for seg in segments:
@@ -375,6 +391,29 @@ class TTSProviderBase(ABC):
         full_text = "".join(self.tts_text_buff)
         current_text = full_text[self.processed_chars :]  # 从未处理的位置开始
         last_punct_pos = -1
+
+        if self.disable_pre_speak_split:
+            # Do not pre-split on commas, but allow TTS to start once a full
+            # sentence has completed instead of waiting for the whole turn.
+            strong_sentence_endings = ("。", "！", "？", "!", "?", "；", ";", "\n")
+            for punct in strong_sentence_endings:
+                pos = current_text.rfind(punct)
+                if pos > last_punct_pos:
+                    last_punct_pos = pos
+
+            if last_punct_pos != -1:
+                segment_text_raw = current_text[: last_punct_pos + 1]
+                segment_text = textUtils.get_string_no_punctuation_or_emoji(
+                    segment_text_raw
+                )
+                self.processed_chars += len(segment_text_raw)
+                self.is_first_sentence = False
+                return segment_text
+
+            if self.tts_stop_request and current_text:
+                self.is_first_sentence = True
+                return current_text
+            return None
 
         # 根据是否是第一句话选择不同的标点符号集合
         punctuations_to_use = (

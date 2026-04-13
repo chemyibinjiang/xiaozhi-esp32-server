@@ -98,6 +98,28 @@ def _contains_any(text: str, words) -> bool:
     return any(w in text for w in words)
 
 
+def _starts_with_any(text: str, words) -> bool:
+    return any(text.startswith(w) for w in words)
+
+
+def _looks_like_question_reply(text: str) -> bool:
+    if not text:
+        return False
+    if text.endswith(("吗", "么", "嘛", "呢")):
+        return True
+    question_tokens = (
+        "可不可以",
+        "能不能",
+        "行不行",
+        "要不要",
+        "是不是",
+        "为什么",
+        "怎么",
+        "如何",
+    )
+    return _contains_any(text, question_tokens)
+
+
 def _is_direct_photo_command(filtered_text: str) -> bool:
     norm = _normalize_text_for_match(filtered_text)
     if not norm:
@@ -323,28 +345,99 @@ async def _execute_server_mcp_tool_direct(conn, tool_name: str, arguments: dict)
 
 def _is_affirmative_short_reply(filtered_text: str) -> bool:
     norm = _normalize_text_for_match(filtered_text)
-    return norm in {
+    if not norm:
+        return False
+
+    negative_tokens = (
+        "不可以",
+        "不要",
+        "别拍",
+        "不拍",
+        "先别",
+        "不能拍",
+        "不让拍",
+        "别现在拍",
+    )
+    if _contains_any(norm, negative_tokens):
+        return False
+
+    if norm in {
         "好",
         "好的",
+        "好啊",
+        "好呀",
         "可以",
+        "可以的",
         "可以拍",
         "拍吧",
         "拍",
         "开始拍",
         "行",
         "行的",
+        "行啊",
         "嗯",
         "嗯嗯",
         "是",
         "对",
+        "没问题",
+        "同意",
+        "允许",
         "准备好了",
         "我准备好了",
-    }
+    }:
+        return True
+
+    if _looks_like_question_reply(norm):
+        return False
+
+    affirmative_tokens = (
+        "可以拍照",
+        "现在可以拍照",
+        "可以拍",
+        "可以拍了",
+        "现在可以拍",
+        "现在可以了",
+        "可以了",
+        "拍照吧",
+        "拍一张吧",
+        "拍一下吧",
+        "直接拍吧",
+        "没问题拍",
+        "同意拍",
+    )
+    if _contains_any(norm, affirmative_tokens):
+        return True
+
+    affirmative_prefixes = (
+        "好",
+        "好的",
+        "好啊",
+        "好呀",
+        "可以",
+        "可以的",
+        "可以啊",
+        "可以呀",
+        "行",
+        "行的",
+        "行啊",
+        "行呀",
+        "嗯",
+        "嗯嗯",
+        "对",
+        "是",
+        "没问题",
+        "当然可以",
+        "同意",
+        "允许",
+        "准备好了",
+        "我准备好了",
+    )
+    return _starts_with_any(norm, affirmative_prefixes)
 
 
 def _is_negative_short_reply(filtered_text: str) -> bool:
     norm = _normalize_text_for_match(filtered_text)
-    return norm in {
+    if norm in {
         "不要",
         "先别",
         "别拍",
@@ -356,7 +449,20 @@ def _is_negative_short_reply(filtered_text: str) -> bool:
         "暂时不要",
         "不可以",
         "取消",
-    }
+    }:
+        return True
+
+    if not norm or len(norm) > 12:
+        return False
+
+    negative_tokens = (
+        "不可以拍照",
+        "现在不可以拍照",
+        "还不可以拍照",
+        "还不能拍照",
+        "先别拍照",
+    )
+    return _contains_any(norm, negative_tokens)
 
 
 def _get_last_assistant_text(conn) -> str:
@@ -370,8 +476,58 @@ def _get_last_assistant_text(conn) -> str:
     return ""
 
 
+def _assistant_is_waiting_for_photo_permission(conn) -> bool:
+    last_text = _normalize_text_for_match(_get_last_assistant_text(conn))
+    if not last_text:
+        return False
+    photo_tokens = (
+        "拍照",
+        "拍一张",
+        "拍一下",
+        "照一下",
+        "照片",
+    )
+    if not _contains_any(last_text, photo_tokens):
+        return False
+
+    explicit_wait_tokens = (
+        "得到肯定答复后再拍",
+        "确认后再拍",
+        "同意后再拍",
+        "回复可以再拍",
+    )
+    if _contains_any(last_text, explicit_wait_tokens):
+        return True
+
+    prompt_tokens = (
+        "可以",
+        "能",
+        "要不要",
+        "要不",
+        "要我",
+        "帮你",
+        "给你",
+        "让我",
+        "是否",
+        "确认",
+        "同意",
+    )
+    question_tokens = (
+        "吗",
+        "么",
+        "嘛",
+        "是否",
+        "可不可以",
+        "能不能",
+        "要不要",
+    )
+    return _contains_any(last_text, prompt_tokens) and _contains_any(
+        last_text, question_tokens
+    )
+
+
 def _update_server_photo_confirmation_state(conn, filtered_text: str) -> None:
-    if _get_last_assistant_text(conn) != "\u53ef\u4ee5\u62cd\u7167\u5417\uff1f":
+    if not _assistant_is_waiting_for_photo_permission(conn):
         return
     if _is_affirmative_short_reply(filtered_text):
         conn._server_photo_capture_granted = True
@@ -526,6 +682,12 @@ async def handle_direct_photo_navigation_intent(
 
 async def handle_direct_photo_intent(conn, original_text: str, filtered_text: str) -> bool:
     if not _is_direct_photo_command(filtered_text):
+        return False
+
+    if _assistant_is_waiting_for_photo_permission(conn) and (
+        _is_affirmative_short_reply(filtered_text)
+        or _is_negative_short_reply(filtered_text)
+    ):
         return False
 
     shortcut_cfg = conn.config.get("device_mcp_shortcuts", {}) or {}
