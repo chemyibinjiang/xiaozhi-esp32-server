@@ -93,6 +93,10 @@ class TTSProvider(TTSProviderBase):
         try:
             max_repeat_time = 5
             text = MarkdownCleaner.clean_markdown(text)
+            if not text:
+                if is_last:
+                    self._process_before_stop_play_files()
+                return None
             try:
                 asyncio.run(self.text_to_speak(text, is_last))
             except Exception as e:
@@ -189,6 +193,8 @@ class TTSProvider(TTSProviderBase):
         """
         start_time = time.time()
         text = MarkdownCleaner.clean_markdown(text)
+        if not text:
+            return []
 
         payload = {"text": text, "character": self.voice}
 
