@@ -13,6 +13,20 @@ AUDIO_FRAME_DURATION = 60
 PRE_BUFFER_COUNT = 5
 
 
+def _get_open_websocket(conn):
+    ws = getattr(conn, "websocket", None)
+    if ws is None:
+        return None
+    try:
+        if hasattr(ws, "closed") and ws.closed:
+            return None
+        if hasattr(ws, "state") and ws.state.name == "CLOSED":
+            return None
+    except Exception:
+        return None
+    return ws
+
+
 async def sendAudioMessage(conn, sentenceType, audios, text):
     if conn.tts.tts_audio_first_sentence:
         conn.logger.bind(tag=TAG).info(f"发送第一段语音: {text}")
@@ -89,7 +103,11 @@ async def _send_to_mqtt_gateway(conn, opus_packet, timestamp, sequence):
 
     # 发送包含头部的完整数据包
     complete_packet = bytes(header) + opus_packet
-    await conn.websocket.send(complete_packet)
+    ws = _get_open_websocket(conn)
+    if ws is None:
+        conn.logger.bind(tag=TAG).warning("WebSocket unavailable, skip mqtt audio send")
+        return
+    await ws.send(complete_packet)
 
 
 async def sendAudio(conn, audios, frame_duration=AUDIO_FRAME_DURATION):
@@ -237,6 +255,11 @@ async def _do_send_audio(conn, opus_packet, flow_control):
     """
     执行实际的音频发送
     """
+    ws = _get_open_websocket(conn)
+    if ws is None:
+        conn.logger.bind(tag=TAG).warning("WebSocket unavailable, skip audio packet")
+        return
+
     packet_index = flow_control.get("packet_count", 0)
     sequence = flow_control.get("sequence", 0)
 
@@ -247,7 +270,7 @@ async def _do_send_audio(conn, opus_packet, flow_control):
         await _send_to_mqtt_gateway(conn, opus_packet, timestamp, sequence)
     else:
         # 直接发送opus数据包
-        await conn.websocket.send(opus_packet)
+        await ws.send(opus_packet)
 
     # 更新流控状态
     flow_control["packet_count"] = packet_index + 1
@@ -258,6 +281,7 @@ async def send_tts_message(conn, state, text=None):
     """发送 TTS 状态消息"""
     if text is None and state == "sentence_start":
         return
+    ws = _get_open_websocket(conn)
     message = {"type": "tts", "state": state, "session_id": conn.session_id}
     if text is not None:
         message["text"] = textUtils.check_emoji(text)
@@ -276,9 +300,17 @@ async def send_tts_message(conn, state, text=None):
         await _wait_for_audio_completion(conn)
         # 清除服务端讲话状态
         conn.clearSpeakStatus()
+        if conn.has_external_busy():
+            conn._send_llm_event_message("[Thinking]", event="thinking", phase="start")
+            conn._start_thinking_pulse()
 
     # 发送消息到客户端
-    await conn.websocket.send(json.dumps(message))
+    if ws is None:
+        conn.logger.bind(tag=TAG).warning(
+            f"WebSocket unavailable, skip tts state message: {state}"
+        )
+        return
+    await ws.send(json.dumps(message))
 
 
 async def send_stt_message(conn, text):
@@ -286,6 +318,11 @@ async def send_stt_message(conn, text):
     end_prompt_str = conn.config.get("end_prompt", {}).get("prompt")
     if end_prompt_str and end_prompt_str == text:
         await send_tts_message(conn, "start")
+        return
+
+    ws = _get_open_websocket(conn)
+    if ws is None:
+        conn.logger.bind(tag=TAG).warning("WebSocket unavailable, skip stt message")
         return
 
     # 解析JSON格式，提取实际的用户说话内容
@@ -304,7 +341,7 @@ async def send_stt_message(conn, text):
         # 如果不是JSON格式，直接使用原始文本
         display_text = text
     stt_text = textUtils.get_string_no_punctuation_or_emoji(display_text)
-    await conn.websocket.send(
+    await ws.send(
         json.dumps({"type": "stt", "text": stt_text, "session_id": conn.session_id})
     )
     await send_tts_message(conn, "start")

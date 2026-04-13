@@ -6,6 +6,7 @@ from core.providers.tts.dto.dto import ContentType
 from core.handle.helloHandle import checkWakeupWords
 from plugins_func.register import Action, ActionResponse
 from core.handle.sendAudioHandle import send_stt_message
+from core.utils import textUtils
 from core.utils.util import remove_punctuation_and_length, sanitize_tool_name
 from core.providers.tts.dto.dto import TTSMessageDTO, SentenceType
 from core.providers.tools.device_mcp import call_mcp_tool
@@ -32,6 +33,11 @@ async def handle_user_intent(conn, text):
     # 检查是否是唤醒词
     if await checkWakeupWords(conn, filtered_text):
         return True
+
+    if await handle_pending_direct_photo_confirmation(conn, text, filtered_text):
+        return True
+
+    _update_server_photo_confirmation_state(conn, filtered_text)
 
     # Fast path: photo-navigation commands go directly to MCP (no Codex).
     if await handle_direct_photo_navigation_intent(conn, text, filtered_text):
@@ -315,6 +321,141 @@ async def _execute_server_mcp_tool_direct(conn, tool_name: str, arguments: dict)
     return await manager.execute_tool(tool_name, arguments or {})
 
 
+def _is_affirmative_short_reply(filtered_text: str) -> bool:
+    norm = _normalize_text_for_match(filtered_text)
+    return norm in {
+        "好",
+        "好的",
+        "可以",
+        "可以拍",
+        "拍吧",
+        "拍",
+        "开始拍",
+        "行",
+        "行的",
+        "嗯",
+        "嗯嗯",
+        "是",
+        "对",
+        "准备好了",
+        "我准备好了",
+    }
+
+
+def _is_negative_short_reply(filtered_text: str) -> bool:
+    norm = _normalize_text_for_match(filtered_text)
+    return norm in {
+        "不要",
+        "先别",
+        "别拍",
+        "不拍",
+        "还没准备好",
+        "没准备好",
+        "等等",
+        "等一下",
+        "暂时不要",
+        "不可以",
+        "取消",
+    }
+
+
+def _get_last_assistant_text(conn) -> str:
+    dialogue_items = getattr(getattr(conn, "dialogue", None), "dialogue", [])
+    for item in reversed(dialogue_items):
+        if getattr(item, "role", "") != "assistant":
+            continue
+        content = getattr(item, "content", "")
+        if isinstance(content, str) and content.strip():
+            return textUtils.normalize_spoken_text(content)
+    return ""
+
+
+def _update_server_photo_confirmation_state(conn, filtered_text: str) -> None:
+    if _get_last_assistant_text(conn) != "\u53ef\u4ee5\u62cd\u7167\u5417\uff1f":
+        return
+    if _is_affirmative_short_reply(filtered_text):
+        conn._server_photo_capture_granted = True
+    elif _is_negative_short_reply(filtered_text):
+        conn._server_photo_capture_granted = False
+
+
+async def _execute_direct_photo_intent(
+    conn,
+    question: str,
+    raw_tool_name: str,
+    timeout: int,
+) -> bool:
+    mcp_client = getattr(conn, "mcp_client", None)
+    if not mcp_client:
+        speak_txt(conn, "\u8bbe\u5907\u8fd8\u6ca1\u51c6\u5907\u597d\u62cd\u7167\u3002")
+        return True
+
+    if not await mcp_client.is_ready():
+        speak_txt(
+            conn,
+            "\u8bbe\u5907\u62cd\u7167\u529f\u80fd\u8fd8\u6ca1\u51c6\u5907\u597d\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5\u3002",
+        )
+        return True
+
+    tool_name = sanitize_tool_name(raw_tool_name)
+    if timeout <= 0:
+        timeout = 45
+
+    try:
+        result = await call_mcp_tool(
+            conn,
+            mcp_client,
+            tool_name,
+            {"question": question},
+            timeout=timeout,
+            allow_unlisted=True,
+            raw_tool_name=raw_tool_name,
+        )
+    except TimeoutError:
+        speak_txt(conn, "\u62cd\u7167\u8d85\u65f6\u4e86\uff0c\u8bf7\u518d\u8bd5\u4e00\u6b21\u3002")
+        return True
+    except Exception as e:
+        conn.logger.bind(tag=TAG).warning(f"direct photo mcp failed: {e}")
+        speak_txt(conn, f"\u62cd\u7167\u5931\u8d25\uff1a{e}")
+        return True
+
+    reply = _extract_direct_photo_reply(result) or "\u62cd\u597d\u4e86\u3002"
+    speak_txt(conn, reply)
+    return True
+
+
+async def handle_pending_direct_photo_confirmation(
+    conn, original_text: str, filtered_text: str
+) -> bool:
+    pending = getattr(conn, "_pending_direct_photo", None)
+    if not isinstance(pending, dict):
+        return False
+
+    if _is_negative_short_reply(filtered_text):
+        await send_stt_message(conn, original_text)
+        conn.client_abort = False
+        conn.sentence_id = str(uuid.uuid4().hex)
+        conn.dialogue.put(Message(role="user", content=original_text))
+        conn._pending_direct_photo = None
+        speak_txt(conn, "\u597d\uff0c\u90a3\u6211\u5148\u4e0d\u62cd\u3002")
+        return True
+
+    if not _is_affirmative_short_reply(filtered_text):
+        return False
+
+    await send_stt_message(conn, original_text)
+    conn.client_abort = False
+    conn.sentence_id = str(uuid.uuid4().hex)
+    conn.dialogue.put(Message(role="user", content=original_text))
+    conn._pending_direct_photo = None
+    return await _execute_direct_photo_intent(
+        conn,
+        pending.get("question", "\u63cf\u8ff0\u4e00\u4e0b\u770b\u5230\u7684\u7269\u54c1"),
+        pending.get("raw_tool_name", "self.camera.take_photo"),
+        int(pending.get("timeout", 45)),
+    )
+
+
 async def handle_direct_photo_navigation_intent(
     conn, original_text: str, filtered_text: str
 ) -> bool:
@@ -396,22 +537,10 @@ async def handle_direct_photo_intent(conn, original_text: str, filtered_text: st
     conn.sentence_id = str(uuid.uuid4().hex)
     conn.dialogue.put(Message(role="user", content=original_text))
 
-    mcp_client = getattr(conn, "mcp_client", None)
-    if not mcp_client:
-        speak_txt(conn, "\u8bbe\u5907\u8fd8\u6ca1\u51c6\u5907\u597d\u62cd\u7167\u3002")
-        return True
-
-    if not await mcp_client.is_ready():
-        speak_txt(conn, "\u8bbe\u5907\u62cd\u7167\u529f\u80fd\u8fd8\u6ca1\u51c6\u5907\u597d\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5\u3002")
-        return True
-
     raw_tool_name = str(
         shortcut_cfg.get("take_photo_tool_name", "self.camera.take_photo")
     ).strip() or "self.camera.take_photo"
-    tool_name = sanitize_tool_name(raw_tool_name)
     timeout = int(shortcut_cfg.get("photo_timeout", 45))
-    if timeout <= 0:
-        timeout = 45
 
     default_question = str(
         shortcut_cfg.get(
@@ -420,27 +549,12 @@ async def handle_direct_photo_intent(conn, original_text: str, filtered_text: st
         )
     ).strip() or "\u63cf\u8ff0\u4e00\u4e0b\u770b\u5230\u7684\u7269\u54c1"
     question = _build_direct_photo_question(original_text, default_question)
-
-    try:
-        result = await call_mcp_tool(
-            conn,
-            mcp_client,
-            tool_name,
-            {"question": question},
-            timeout=timeout,
-            allow_unlisted=True,
-            raw_tool_name=raw_tool_name,
-        )
-    except TimeoutError:
-        speak_txt(conn, "\u62cd\u7167\u8d85\u65f6\u4e86\uff0c\u8bf7\u518d\u8bd5\u4e00\u6b21\u3002")
-        return True
-    except Exception as e:
-        conn.logger.bind(tag=TAG).warning(f"direct photo mcp failed: {e}")
-        speak_txt(conn, f"\u62cd\u7167\u5931\u8d25\uff1a{e}")
-        return True
-
-    reply = _extract_direct_photo_reply(result) or "\u62cd\u597d\u4e86\u3002"
-    speak_txt(conn, reply)
+    conn._pending_direct_photo = {
+        "question": question,
+        "raw_tool_name": raw_tool_name,
+        "timeout": timeout,
+    }
+    speak_txt(conn, "\u53ef\u4ee5\u62cd\u7167\u5417\uff1f")
     return True
 
 
@@ -558,6 +672,10 @@ async def process_intent_result(conn, intent_result, original_text):
 
 
 def speak_txt(conn, text):
+    text = textUtils.normalize_spoken_text(text)
+    if not text:
+        return
+
     # 记录文本
     conn.tts_MessageText = text
 
