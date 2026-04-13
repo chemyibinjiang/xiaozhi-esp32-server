@@ -38,6 +38,7 @@ class ServerMCPClient:
         self._worker_task: Optional[asyncio.Task] = None
         self._ready_evt = asyncio.Event()
         self._shutdown_evt = asyncio.Event()
+        self._call_lock: Optional[asyncio.Lock] = None
 
         self.session: Optional[ClientSession] = None
         self.tools: List = []  # 原始工具对象
@@ -133,13 +134,42 @@ class ServerMCPClient:
 
         real_name = self.name_mapping.get(name, name)
         loop = self._worker_task.get_loop()
-        coro = self.session.call_tool(real_name, arguments=arguments, read_timeout_seconds=read_timeout_seconds, progress_callback=progress_callback, meta=meta)
+        coro = self._call_tool_serialized(
+            real_name,
+            arguments=arguments,
+            read_timeout_seconds=read_timeout_seconds,
+            progress_callback=progress_callback,
+            meta=meta,
+        )
 
         if loop is asyncio.get_running_loop():
             return await coro
 
         fut: concurrent.futures.Future = asyncio.run_coroutine_threadsafe(coro, loop)
         return await asyncio.wrap_future(fut)
+
+    async def _call_tool_serialized(
+        self,
+        real_name: str,
+        *,
+        arguments: dict,
+        read_timeout_seconds: timedelta | None,
+        progress_callback: ProgressFnT | None,
+        meta: dict[str, Any] | None,
+    ) -> Any:
+        if not self.session:
+            raise RuntimeError("MCP session is not initialized")
+        if self._call_lock is None:
+            self._call_lock = asyncio.Lock()
+
+        async with self._call_lock:
+            return await self.session.call_tool(
+                real_name,
+                arguments=arguments,
+                read_timeout_seconds=read_timeout_seconds,
+                progress_callback=progress_callback,
+                meta=meta,
+            )
 
     def is_connected(self) -> bool:
         """检查MCP客户端是否连接正常
