@@ -43,6 +43,7 @@ from core.utils.prompt_manager import PromptManager
 from core.utils.voiceprint_provider import VoiceprintProvider
 from core.utils.audio_frontend import AudioFrontend
 from core.utils import textUtils
+from core.utils.experiment_resume import build_resume_tool_message
 
 TAG = __name__
 
@@ -1090,6 +1091,26 @@ class ConnectionHandler:
         if hasattr(self, "loop") and self.loop:
             asyncio.run_coroutine_threadsafe(self.func_handler._initialize(), self.loop)
 
+    def _append_resume_tool_context(self, llm_dialogue, query, depth):
+        if depth != 0:
+            return llm_dialogue
+
+        resume_tool_message = build_resume_tool_message(
+            self.config,
+            self.device_id,
+            query,
+        )
+        if not resume_tool_message:
+            return llm_dialogue
+
+        enriched_dialogue = list(llm_dialogue)
+        enriched_dialogue.append(resume_tool_message)
+        self.logger.bind(tag=TAG).info(
+            "appended device log recovery context to llm dialogue: "
+            f"device_id={self.device_id}, log_turns={resume_tool_message['content'].count('学生：')}"
+        )
+        return enriched_dialogue
+
     def change_system_prompt(self, prompt):
         if prompt == self.prompt:
             return False
@@ -1255,6 +1276,7 @@ class ConnectionHandler:
             llm_dialogue = self.dialogue.get_llm_dialogue_with_memory(
                 memory_str, self.config.get("voiceprint", {})
             )
+            llm_dialogue = self._append_resume_tool_context(llm_dialogue, query, depth)
             if depth > 0:
                 # Internal recursive turn: avoid resending full system prompt.
                 llm_dialogue = [
