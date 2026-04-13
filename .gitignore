@@ -166,6 +166,8 @@ my_wakeup_words.mp3
 !main/xiaozhi-server/config/assets/bind_not_found.wav
 !main/xiaozhi-server/config/assets/bind_code/*.wav
 !main/xiaozhi-server/config/assets/max_output_size.wav
+main/xiaozhi-server/config/assets/wakeup_words/ed76d459636c2481aec828516c1b4f54.wav
+main/xiaozhi-server/data/.wakeup_words.yaml
 main/manager-api/.vscode
 # Ignore webpack cache directory
 main/manager-web/.webpack_cache/
