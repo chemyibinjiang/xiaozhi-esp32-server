@@ -1308,6 +1308,7 @@ class ConnectionHandler:
         content_arguments = ""
         self.client_abort = False
         emotion_flag = True
+        stream_tts_from_llm = bool(self.config.get("stream_tts_from_llm", True))
 
         thinking_event_sent = False
         thinking_event_done = False
@@ -1469,14 +1470,15 @@ class ConnectionHandler:
                     finish_thinking_once()
 
                 response_message.append(content)
-                self.tts.tts_text_queue.put(
-                    TTSMessageDTO(
-                        sentence_id=self.sentence_id,
-                        sentence_type=SentenceType.MIDDLE,
-                        content_type=ContentType.TEXT,
-                        content_detail=content,
+                if stream_tts_from_llm:
+                    self.tts.tts_text_queue.put(
+                        TTSMessageDTO(
+                            sentence_id=self.sentence_id,
+                            sentence_type=SentenceType.MIDDLE,
+                            content_type=ContentType.TEXT,
+                            content_detail=content,
+                        )
                     )
-                )
 
         finally:
             watchdog_stop.set()
@@ -1565,6 +1567,10 @@ class ConnectionHandler:
             self.tts_MessageText = text_buff
             if text_buff:
                 self.dialogue.put(Message(role="assistant", content=text_buff))
+                if not stream_tts_from_llm:
+                    self.tts.tts_one_sentence(
+                        self, ContentType.TEXT, content_detail=text_buff
+                    )
         if depth == 0:
             self.tts.tts_text_queue.put(
                 TTSMessageDTO(
