@@ -151,6 +151,8 @@ class ConnectionHandler:
         self.llm_finish_task = True
         self.dialogue = Dialogue()
         self._llm_turn_started = False
+        self._external_busy_tokens = set()
+        self._external_busy_lock = threading.RLock()
 
         # tts相关变量
         self.sentence_id = None
@@ -186,6 +188,17 @@ class ConnectionHandler:
 
         # 初始化提示词管理器
         self.prompt_manager = PromptManager(self.config, self.logger)
+
+        # 连接生命周期状态
+        self.keep_resources_on_transport_disconnect = bool(
+            self.config.get("keep_resources_on_transport_disconnect", True)
+        )
+        self._connection_started = False
+        self._allow_transport_reconnect = False
+        self._final_close_requested = False
+        self._closed = False
+        self._transport_detached_event = asyncio.Event()
+        self._transport_detached_event.set()
 
     def _format_ws_state(self, ws):
         if ws is None:
@@ -258,6 +271,143 @@ class ConnectionHandler:
     def _memory_session_key(self) -> str:
         return self.chat_session_id if self.chat_session_id else self.session_id
 
+    @staticmethod
+    def _ws_is_open(ws) -> bool:
+        if ws is None:
+            return False
+        try:
+            if hasattr(ws, "closed"):
+                return not ws.closed
+            state = getattr(ws, "state", None)
+            if state is not None:
+                return getattr(state, "name", str(state)) != "CLOSED"
+        except Exception:
+            return False
+        return True
+
+    def can_accept_reconnect(self) -> bool:
+        return bool(
+            self.device_id
+            and self._connection_started
+            and not self._closed
+            and not self._final_close_requested
+            and self._allow_transport_reconnect
+            and not self._ws_is_open(self.websocket)
+        )
+
+    async def wait_until_transport_detached(self, timeout: float = 2.0) -> bool:
+        if self.can_accept_reconnect():
+            return True
+        if timeout is not None and timeout > 0:
+            try:
+                await asyncio.wait_for(
+                    self._transport_detached_event.wait(), timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                return self.can_accept_reconnect()
+        return self.can_accept_reconnect()
+
+    def request_final_close(self, reason: str = ""):
+        self._final_close_requested = True
+        if reason:
+            self.logger.bind(tag=TAG).info(
+                f"连接已标记为最终关闭: session_id={self.session_id}, "
+                f"device_id={self.device_id}, reason={reason}"
+            )
+
+    @staticmethod
+    def _drain_queue(q):
+        if not q:
+            return
+        while True:
+            try:
+                q.get_nowait()
+            except queue.Empty:
+                break
+            except Exception:
+                break
+
+    def _reset_transport_state(self):
+        self.client_abort = False
+        self.client_is_speaking = False
+        self.client_have_voice = False
+        self.client_voice_stop = False
+        self.last_is_voice = False
+        self.current_speaker = None
+        self.current_language_tag = None
+        self.tts_MessageText = ""
+
+        self.client_audio_buffer = bytearray()
+        self.client_voice_window.clear()
+        self.asr_audio.clear()
+        if hasattr(self, "asr_pcm_audio"):
+            self.asr_pcm_audio.clear()
+        self._pcm_packet_for_asr = None
+
+        if hasattr(self, "audio_timestamp_buffer"):
+            self.audio_timestamp_buffer.clear()
+            self.last_processed_timestamp = 0
+
+        self._drain_queue(getattr(self, "asr_audio_queue", None))
+
+        if hasattr(self, "audio_rate_controller") and self.audio_rate_controller:
+            self.audio_rate_controller.reset()
+
+        if self.tts:
+            self._drain_queue(getattr(self.tts, "tts_text_queue", None))
+            self._drain_queue(getattr(self.tts, "tts_audio_queue", None))
+
+        try:
+            self.reset_vad_states()
+        except Exception:
+            pass
+
+        try:
+            if getattr(self, "audio_frontend", None):
+                self.audio_frontend.reset()
+        except Exception:
+            pass
+
+    def _should_preserve_transport_disconnect(self, disconnect_code) -> bool:
+        if not self.keep_resources_on_transport_disconnect:
+            return False
+        if self._final_close_requested or self.close_after_chat or self._closed:
+            return False
+        if not self.device_id:
+            return False
+        return disconnect_code == 1006
+
+    async def _detach_transport(self, ws=None, disconnect_code=None):
+        target_ws = ws if ws else self.websocket
+        self.logger.bind(tag=TAG).info(
+            "[debug-close] transport detached, preserving resources: "
+            f"session_id={self.session_id}, device_id={self.device_id}, "
+            f"disconnect_code={disconnect_code}, "
+            f"target_ws_state={self._format_ws_state(target_ws)}, "
+            f"self_ws_state={self._format_ws_state(self.websocket)}"
+        )
+
+        self._reset_transport_state()
+        now_ms = time.time() * 1000
+        self.last_activity_time = now_ms
+        self.first_activity_time = now_ms
+
+        try:
+            if target_ws and self._ws_is_open(target_ws):
+                await target_ws.close()
+        except Exception:
+            pass
+        finally:
+            if target_ws is None or self.websocket is target_ws:
+                self.websocket = None
+            self._allow_transport_reconnect = True
+            self._transport_detached_event.set()
+            self.logger.bind(tag=TAG).info(
+                "连接进入等待重连状态，资源未释放: "
+                f"session_id={self.session_id}, device_id={self.device_id}, "
+                f"disconnect_code={disconnect_code}"
+            )
+
     def _initialize_audio_frontend(self):
         """为当前连接初始化音频前处理（AEC/NS等）。"""
         try:
@@ -272,6 +422,8 @@ class ConnectionHandler:
             self.logger.bind(tag=TAG).warning(f"音频前处理初始化失败，已降级为关闭: {e}")
 
     async def handle_connection(self, ws):
+        disconnect_code = None
+        preserve_transport = False
         try:
             # 获取运行中的事件循环（必须在异步上下文中）
             self.loop = asyncio.get_running_loop()
@@ -293,6 +445,8 @@ class ConnectionHandler:
 
             # 认证通过,继续处理
             self.websocket = ws
+            self._allow_transport_reconnect = False
+            self._transport_detached_event.clear()
             if self.server and hasattr(self.server, "register_connection"):
                 try:
                     await self.server.register_connection(self)
@@ -307,24 +461,38 @@ class ConnectionHandler:
             if self.conn_from_mqtt_gateway:
                 self.logger.bind(tag=TAG).info("连接来自:MQTT网关")
 
-            # 初始化活动时间戳
-            self.first_activity_time = time.time() * 1000
-            self.last_activity_time = time.time() * 1000
+            now_ms = time.time() * 1000
+            self.last_activity_time = now_ms
 
-            # 启动超时检查任务；当 close_connection_no_voice_time <= 0 时禁用自动断开
-            if self.timeout_seconds > 0:
-                self.timeout_task = asyncio.create_task(self._check_timeout())
+            if not self._connection_started:
+                # 初始化活动时间戳
+                self.first_activity_time = now_ms
 
-            self.welcome_msg = self.config["xiaozhi"]
-            self.welcome_msg["session_id"] = self.session_id
+                # 启动超时检查任务；当 close_connection_no_voice_time <= 0 时禁用自动断开
+                if self.timeout_seconds > 0:
+                    self.timeout_task = asyncio.create_task(self._check_timeout())
 
-            # 在后台初始化配置和组件（完全不阻塞主循环）
-            asyncio.create_task(self._background_initialize())
+                self.welcome_msg = self.config["xiaozhi"]
+                self.welcome_msg["session_id"] = self.session_id
+
+                # 在后台初始化配置和组件（完全不阻塞主循环）
+                asyncio.create_task(self._background_initialize())
+                self._connection_started = True
+            else:
+                self.close_after_chat = False
+                self.client_abort = False
+                self.client_is_speaking = False
+                self.logger.bind(tag=TAG).info(
+                    "同设备重连接管现有连接资源: "
+                    f"session_id={self.session_id}, device_id={self.device_id}, "
+                    f"ws_state={self._format_ws_state(self.websocket)}"
+                )
 
             try:
                 async for message in self.websocket:
                     await self._route_message(message)
             except websockets.exceptions.ConnectionClosed as e:
+                disconnect_code = getattr(e, "code", None)
                 self.logger.bind(tag=TAG).info(
                     f"客户端断开连接: {self._describe_connection_closed(e)}"
                 )
@@ -338,17 +506,30 @@ class ConnectionHandler:
             return
         finally:
             try:
-                await self._save_and_close(ws)
+                if disconnect_code is None:
+                    disconnect_code = getattr(ws, "close_code", None)
+                preserve_transport = self._should_preserve_transport_disconnect(
+                    disconnect_code
+                )
+                if preserve_transport:
+                    await self._detach_transport(ws, disconnect_code)
+                else:
+                    await self._save_and_close(ws)
             except Exception as final_error:
                 self.logger.bind(tag=TAG).error(f"最终清理时出错: {final_error}")
                 # 确保即使保存记忆失败，也要关闭连接
                 try:
+                    self.request_final_close("cleanup fallback")
                     await self.close(ws)
                 except Exception as close_error:
                     self.logger.bind(tag=TAG).error(
                         f"强制关闭连接时出错: {close_error}"
                     )
-            if self.server and hasattr(self.server, "unregister_connection"):
+            if (
+                not preserve_transport
+                and self.server
+                and hasattr(self.server, "unregister_connection")
+            ):
                 try:
                     await self.server.unregister_connection(self)
                 except Exception as unregister_error:
@@ -979,6 +1160,39 @@ class ConnectionHandler:
         if self.action_pulse_stop:
             self.action_pulse_stop.set()
 
+    def acquire_external_busy(self, token: str):
+        token = str(token or "").strip()
+        if not token:
+            return
+        should_start = False
+        with self._external_busy_lock:
+            if token not in self._external_busy_tokens:
+                self._external_busy_tokens.add(token)
+                should_start = (
+                    len(self._external_busy_tokens) == 1
+                    and self.llm_finish_task
+                    and not self.client_is_speaking
+                )
+        if should_start:
+            self._send_llm_event_message("[Thinking]", event="thinking", phase="start")
+            self._start_thinking_pulse()
+
+    def release_external_busy(self, token: str):
+        token = str(token or "").strip()
+        if not token:
+            return
+        should_stop = False
+        with self._external_busy_lock:
+            self._external_busy_tokens.discard(token)
+            should_stop = not self._external_busy_tokens
+        if should_stop:
+            self._stop_thinking_pulse()
+            self._send_llm_event_message("[Thinking Finished]", event="thinking", phase="done")
+
+    def has_external_busy(self) -> bool:
+        with self._external_busy_lock:
+            return bool(self._external_busy_tokens)
+
     def chat(self, query, depth=0):
         if query is not None:
             self.logger.bind(tag=TAG).info(f"大模型收到用户消息: {query}")
@@ -1284,9 +1498,12 @@ class ConnectionHandler:
             if not bHasError and len(tool_calls_list) > 0:
                 # 如需要大模型先处理一轮，添加相关处理后的日志情况
                 if len(response_message) > 0:
-                    text_buff = "".join(response_message)
+                    text_buff = textUtils.normalize_spoken_text(
+                        "".join(response_message)
+                    )
                     self.tts_MessageText = text_buff
-                    self.dialogue.put(Message(role="assistant", content=text_buff))
+                    if text_buff:
+                        self.dialogue.put(Message(role="assistant", content=text_buff))
                 response_message.clear()
 
                 self.logger.bind(tag=TAG).debug(
@@ -1320,9 +1537,12 @@ class ConnectionHandler:
 
         # 存储对话内容
         if len(response_message) > 0:
-            text_buff = "".join(response_message)
+            text_buff = textUtils.normalize_spoken_text(
+                "".join(response_message)
+            )
             self.tts_MessageText = text_buff
-            self.dialogue.put(Message(role="assistant", content=text_buff))
+            if text_buff:
+                self.dialogue.put(Message(role="assistant", content=text_buff))
         if depth == 0:
             self.tts.tts_text_queue.put(
                 TTSMessageDTO(
@@ -1351,8 +1571,12 @@ class ConnectionHandler:
                 Action.ERROR,
             ]:  # 直接回复前端
                 text = result.response if result.response else result.result
-                self.tts.tts_one_sentence(self, ContentType.TEXT, content_detail=text)
-                self.dialogue.put(Message(role="assistant", content=text))
+                text = textUtils.normalize_spoken_text(text)
+                if text:
+                    self.tts.tts_one_sentence(
+                        self, ContentType.TEXT, content_detail=text
+                    )
+                    self.dialogue.put(Message(role="assistant", content=text))
             elif result.action == Action.REQLLM:
                 # 收集需要 LLM 处理的工具
                 need_llm_tools.append((result, tool_call_data))
@@ -1436,6 +1660,7 @@ class ConnectionHandler:
     async def close(self, ws=None):
         """资源清理方法"""
         try:
+            self.request_final_close("close() called")
             target_ws = ws if ws else self.websocket
             self.logger.bind(tag=TAG).info(
                 "[debug-close] close() called: "
@@ -1496,6 +1721,8 @@ class ConnectionHandler:
             # 触发停止事件
             if self.stop_event:
                 self.stop_event.set()
+            with self._external_busy_lock:
+                self._external_busy_tokens.clear()
             self._stop_thinking_pulse()
             self._stop_action_pulse()
 
@@ -1546,6 +1773,8 @@ class ConnectionHandler:
             except Exception as ws_error:
                 self.logger.bind(tag=TAG).error(f"关闭WebSocket连接时出错: {ws_error}")
             finally:
+                if target_ws is None or self.websocket is target_ws:
+                    self.websocket = None
                 self.logger.bind(tag=TAG).info(
                     "[debug-close] close() websocket close phase done: "
                     f"param_ws_state={self._format_ws_state(ws)}, "
@@ -1564,6 +1793,9 @@ class ConnectionHandler:
                         f"关闭线程池时出错: {executor_error}"
                     )
                 self.executor = None
+            self._allow_transport_reconnect = False
+            self._transport_detached_event.set()
+            self._closed = True
             self.logger.bind(tag=TAG).info("连接资源已释放")
         except Exception as e:
             self.logger.bind(tag=TAG).error(f"关闭连接时出错: {e}")

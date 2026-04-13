@@ -213,6 +213,65 @@ class CodexAppService:
             "events": events,
         }
 
+    async def _handle_codex_response_stream(
+        self,
+        request: web.Request,
+        session_id: str,
+        dialogue,
+        kwargs: Dict,
+    ):
+        response = web.StreamResponse(
+            status=200,
+            headers={
+                "Content-Type": "application/x-ndjson; charset=utf-8",
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
+        )
+        await response.prepare(request)
+
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue = asyncio.Queue()
+
+        def worker():
+            try:
+                for token in self.llm.response(session_id, dialogue, **kwargs):
+                    if token is None:
+                        continue
+                    if isinstance(token, dict):
+                        item = {"kind": "event", "data": token}
+                    else:
+                        item = {"kind": "text", "data": str(token)}
+                    loop.call_soon_threadsafe(queue.put_nowait, item)
+            except Exception as exc:
+                loop.call_soon_threadsafe(
+                    queue.put_nowait,
+                    {"kind": "error", "message": str(exc)},
+                )
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, {"kind": "done"})
+
+        threading.Thread(target=worker, daemon=True).start()
+
+        try:
+            while True:
+                item = await queue.get()
+                line = json.dumps(item, ensure_ascii=False) + "\n"
+                await response.write(line.encode("utf-8"))
+                if item.get("kind") == "done":
+                    break
+        except ConnectionResetError:
+            logger.bind(tag=TAG).warning(
+                f"codex stream client disconnected: session={session_id}"
+            )
+        finally:
+            try:
+                await response.write_eof()
+            except Exception:
+                pass
+
+        return response
+
     async def handle_codex_response(self, request: web.Request):
         try:
             body = await request.json()
@@ -236,6 +295,24 @@ class CodexAppService:
 
         if not session_id:
             session_id = "utility"
+
+        if bool(body.get("stream", False)):
+            try:
+                return await self._handle_codex_response_stream(
+                    request,
+                    session_id,
+                    dialogue,
+                    kwargs,
+                )
+            except Exception as exc:
+                logger.bind(tag=TAG).error(f"codex streaming response failed: {exc}")
+                return web.json_response(
+                    {
+                        "success": False,
+                        "message": str(exc),
+                    },
+                    status=500,
+                )
 
         try:
             result = await asyncio.to_thread(
