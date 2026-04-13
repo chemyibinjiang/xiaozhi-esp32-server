@@ -84,6 +84,8 @@ class TTSProviderBase(ABC):
 
     def to_tts_stream(self, text, opus_handler: Callable[[bytes], None] = None) -> None:
         text = MarkdownCleaner.clean_markdown(text)
+        if not text:
+            return None
         max_repeat_time = 5
         if self.delete_audio_file:
             # 需要删除文件的直接转为音频数据
@@ -146,6 +148,8 @@ class TTSProviderBase(ABC):
     
     def to_tts(self, text):
         text = MarkdownCleaner.clean_markdown(text)
+        if not text:
+            return None
         max_repeat_time = 5
         if self.delete_audio_file:
             # 需要删除文件的直接转为音频数据
@@ -382,7 +386,7 @@ class TTSProviderBase(ABC):
         for punct in punctuations_to_use:
             pos = current_text.rfind(punct)
             if (pos != -1 and last_punct_pos == -1) or (
-                pos != -1 and pos < last_punct_pos
+                pos != -1 and pos > last_punct_pos
             ):
                 last_punct_pos = pos
 
