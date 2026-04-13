@@ -54,6 +54,22 @@ def _parse_positive_int(value, default: Optional[int]) -> Optional[int]:
     return parsed if parsed > 0 else default
 
 
+def _parse_bool(value, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+
+    normalized = str(value).strip().lower()
+    if normalized in ("1", "true", "yes", "y", "on"):
+        return True
+    if normalized in ("0", "false", "no", "n", "off"):
+        return False
+    return default
+
+
 class ASRProvider(ASRProviderBase):
     def __init__(self, config: dict, delete_audio_file: bool):
         super().__init__()
@@ -67,7 +83,9 @@ class ASRProvider(ASRProviderBase):
         self.language = _normalize_language(config.get("language", "auto"))
         self.max_inference_batch_size = int(config.get("max_inference_batch_size", 8))
         self.max_new_tokens = int(config.get("max_new_tokens", 512))
-        self.trust_remote_code = bool(config.get("trust_remote_code", True))
+        self.trust_remote_code = _parse_bool(
+            config.get("trust_remote_code"), True
+        )
         self.hf_endpoint = str(config.get("hf_endpoint", "")).strip()
         self.http_proxy = str(config.get("http_proxy", "")).strip()
         self.https_proxy = str(config.get("https_proxy", "")).strip()
@@ -76,6 +94,12 @@ class ASRProvider(ASRProviderBase):
         )
         self.hf_hub_download_timeout = _parse_positive_int(
             config.get("hf_hub_download_timeout"), None
+        )
+        self.local_files_only = _parse_bool(
+            config.get("local_files_only"), False
+        )
+        self.hf_hub_offline = _parse_bool(
+            config.get("hf_hub_offline"), self.local_files_only
         )
 
         configured_device = str(config.get("device", "auto")).strip().lower()
@@ -98,6 +122,24 @@ class ASRProvider(ASRProviderBase):
 
         os.makedirs(self.output_dir, exist_ok=True)
 
+        # Apply Hugging Face environment settings before importing qwen_asr /
+        # transformers so mirror or offline mode is respected during init.
+        if self.hf_endpoint:
+            os.environ["HF_ENDPOINT"] = self.hf_endpoint
+        if self.http_proxy:
+            os.environ["HTTP_PROXY"] = self.http_proxy
+            os.environ["http_proxy"] = self.http_proxy
+        if self.https_proxy:
+            os.environ["HTTPS_PROXY"] = self.https_proxy
+            os.environ["https_proxy"] = self.https_proxy
+        if self.hf_hub_etag_timeout is not None:
+            os.environ["HF_HUB_ETAG_TIMEOUT"] = str(self.hf_hub_etag_timeout)
+        if self.hf_hub_download_timeout is not None:
+            os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = str(self.hf_hub_download_timeout)
+        if self.hf_hub_offline:
+            os.environ["HF_HUB_OFFLINE"] = "1"
+            os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
         try:
             from qwen_asr import Qwen3ASRModel
         except Exception as e:
@@ -113,20 +155,8 @@ class ASRProvider(ASRProviderBase):
         }
         if self.dtype is not None:
             init_kwargs["dtype"] = self.dtype
-
-        # Optional network settings for Hugging Face access (mirror/proxy/timeout).
-        if self.hf_endpoint:
-            os.environ["HF_ENDPOINT"] = self.hf_endpoint
-        if self.http_proxy:
-            os.environ["HTTP_PROXY"] = self.http_proxy
-            os.environ["http_proxy"] = self.http_proxy
-        if self.https_proxy:
-            os.environ["HTTPS_PROXY"] = self.https_proxy
-            os.environ["https_proxy"] = self.https_proxy
-        if self.hf_hub_etag_timeout is not None:
-            os.environ["HF_HUB_ETAG_TIMEOUT"] = str(self.hf_hub_etag_timeout)
-        if self.hf_hub_download_timeout is not None:
-            os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = str(self.hf_hub_download_timeout)
+        if self.local_files_only:
+            init_kwargs["local_files_only"] = True
 
         start_time = time.time()
         self.model = Qwen3ASRModel.from_pretrained(self.model_name, **init_kwargs)
