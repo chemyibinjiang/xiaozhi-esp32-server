@@ -56,7 +56,11 @@ async def handleAudioMessage(conn, audio):
         return
     # Disable listen during chat to prevent barge-in
     if conn.config.get("disable_listen_during_chat", False):
-        if (not conn.llm_finish_task or conn.client_is_speaking) and conn.client_listen_mode != "manual":
+        if (
+            not conn.llm_finish_task
+            or conn.client_is_speaking
+            or conn.has_external_busy()
+        ) and conn.client_listen_mode != "manual":
             await no_voice_close_connect(conn, have_voice)
             if have_voice and hasattr(conn, "asr_audio"):
                 conn.asr_audio.clear()
