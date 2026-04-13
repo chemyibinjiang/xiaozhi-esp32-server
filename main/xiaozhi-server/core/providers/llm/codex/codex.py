@@ -131,6 +131,26 @@ def _normalize_whitespace(text: str) -> str:
     return re.sub(r"\s+", " ", str(text or "")).strip()
 
 
+def _system_prompt_restart_fingerprint(system_prompt: str) -> str:
+    """
+    Build a stable fingerprint for restart decisions.
+    Ignore volatile time-like fields so we don't restart Codex session on every turn.
+    """
+    text = _normalize_whitespace(system_prompt)
+    if not text:
+        return ""
+
+    # HH:MM or HH:MM:SS
+    text = re.sub(r"\b([01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d)?\b", "<TIME>", text)
+    # ISO-like datetime fragments
+    text = re.sub(
+        r"\b\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?\b",
+        "<DATETIME>",
+        text,
+    )
+    return text
+
+
 def _user_already_contains_system_prompt(system_prompt: str, user_text: str) -> bool:
     system_text = str(system_prompt or "").strip()
     user = str(user_text or "").strip()
@@ -537,10 +557,13 @@ class _CodexSession:
             return ""
 
         system_prompt = _extract_system_prompt(history)
-        if self._last_system_prompt is not None and system_prompt != self._last_system_prompt:
+        current_prompt_fp = _system_prompt_restart_fingerprint(system_prompt)
+        if (
+            self._last_system_prompt is not None
+            and current_prompt_fp != self._last_system_prompt
+        ):
             self._restart()
-        self._last_system_prompt = system_prompt
-        print(f"System prompt sent: {self._system_prompt_sent}")
+        self._last_system_prompt = current_prompt_fp
         include_system = (
             system_prompt
             and self.system_prompt_mode in ("always", "first_turn")
@@ -819,7 +842,6 @@ class _CodexSession:
             # correctly mark system-prompt/bootstrap state.
             self.start()
             prompt_text = self._compose_prompt(dialogue, routing_context=routing_context)
-            print(f"Prompt text: {prompt_text}")
             if not prompt_text:
                 return
             _, last_user, _ = _split_dialogue(dialogue)
