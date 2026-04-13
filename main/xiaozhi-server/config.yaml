@@ -206,7 +206,7 @@ voiceprint:
   dynamic_registration_reply: "你好，已记录你的声音，之后我只听你的。"
   dynamic_reject_reply: ""
   dynamic_fail_open: false
-  similarity_threshold: 0.4
+  similarity_threshold: 0.25
   speaker_filter:
     # 是否启用主说话人过滤
     enabled: true
