@@ -43,7 +43,7 @@ class VoiceprintProvider:
         self.original_url = config.get("url", "")
         self.speakers = config.get("speakers", [])
         self.speaker_map = self._parse_speakers()
-        self.similarity_threshold = float(config.get("similarity_threshold", 0.4))
+        self.similarity_threshold = float(config.get("similarity_threshold", 0.25))
 
         # Dynamic mode config.
         self.dynamic_mode = self._as_bool(
