@@ -347,8 +347,33 @@ class VoiceprintProvider:
                 decision["reason"] = "dynamic register completed"
                 return decision
 
-            # Speaker filter (dynamic mode only): window-based gating for the master speaker.
-            wav_for_verify = audio_data
+            # Stage 2: verify master speaker first, and allow directly when score meets threshold.
+            identify = await self._identify_by_speaker_ids(
+                audio_data, [self.dynamic_master_speaker_id]
+            )
+            if not identify["ok"]:
+                decision["status"] = "verify_error"
+                decision["allow_chat"] = self.dynamic_fail_open
+                decision["reason"] = identify["reason"]
+                return decision
+
+            score = float(identify["score"] or 0.0)
+            speaker_id = identify["speaker_id"]
+            decision["score"] = score
+
+            if (
+                speaker_id == self.dynamic_master_speaker_id
+                and score >= self.similarity_threshold
+            ):
+                decision["status"] = "accepted"
+                decision["allow_chat"] = True
+                decision["speaker_name"] = self.dynamic_master_name
+                decision["reason"] = "voiceprint matched"
+                return decision
+
+            # Stage 2b: low-score/edge case secondary filter (only when not already accepted).
+            # Keep the existing filter behavior here to avoid false positives, but it can no longer
+            # override a valid threshold match from full utterance.
             if getattr(self, "speaker_filter", None) and self.speaker_filter.enabled:
                 filter_result = await self._apply_speaker_filter(
                     audio_data, session_id, self.dynamic_master_speaker_id
@@ -373,29 +398,23 @@ class VoiceprintProvider:
                 if self.speaker_filter.debug_log:
                     decision["speaker_filter"] = filter_result
 
-            # Stage 2: verify master speaker.
-            identify = await self._identify_by_speaker_ids(
-                wav_for_verify, [self.dynamic_master_speaker_id]
-            )
-            if not identify["ok"]:
-                decision["status"] = "verify_error"
-                decision["allow_chat"] = self.dynamic_fail_open
-                decision["reason"] = identify["reason"]
-                return decision
-
-            score = float(identify["score"] or 0.0)
-            speaker_id = identify["speaker_id"]
-            decision["score"] = score
-
-            if (
-                speaker_id == self.dynamic_master_speaker_id
-                and score >= self.similarity_threshold
-            ):
-                decision["status"] = "accepted"
-                decision["allow_chat"] = True
-                decision["speaker_name"] = self.dynamic_master_name
-                decision["reason"] = "voiceprint matched"
-                return decision
+                # Retry verify with filtered segment for cleaner master speech when needed.
+                filtered_identify = await self._identify_by_speaker_ids(
+                    wav_for_verify, [self.dynamic_master_speaker_id], log_each=False
+                )
+                if filtered_identify.get("ok"):
+                    filtered_score = float(filtered_identify.get("score") or 0.0)
+                    filtered_speaker_id = filtered_identify.get("speaker_id")
+                    decision["score"] = max(score, filtered_score)
+                    if (
+                        filtered_speaker_id == self.dynamic_master_speaker_id
+                        and filtered_score >= self.similarity_threshold
+                    ):
+                        decision["status"] = "accepted"
+                        decision["allow_chat"] = True
+                        decision["speaker_name"] = self.dynamic_master_name
+                        decision["reason"] = "voiceprint matched after speaker_filter"
+                        return decision
 
             decision["status"] = "rejected"
             decision["allow_chat"] = False

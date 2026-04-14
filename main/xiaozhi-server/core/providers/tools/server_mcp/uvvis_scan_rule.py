@@ -21,6 +21,7 @@ SCAN_START_WAITING_RESPONSE = (
 SCAN_STARTED_CONFIRMED_RESPONSE = (
     "扫描已启动。扫完后告诉我扫描已经结束，我再读取最大吸收波长。"
 )
+DEFAULT_UVVIS_SCAN_OUTPUT_SUBDIR = Path("lab_runs") / "exp1_AgNPs_synthesis" / "data" / "uv_data_common"
 
 
 def _extract_uvvis_scan_context(
@@ -285,24 +286,14 @@ class UVVisScanRule:
     def _resolve_uvvis_output_root_dir(self) -> Path:
         override_root = str(self.conn.config.get("uvvis_scan_output_root", "")).strip()
         if override_root:
-            return Path(override_root)
+            return Path(override_root).resolve()
 
         llm_cfg = self.conn.config.get("LLM", {}).get("codex_app_server", {}) or {}
         workspace = str(llm_cfg.get("workspace", "")).strip()
-        yaml_path = str(llm_cfg.get("yaml_path", "")).strip()
-
-        if workspace and yaml_path:
-            yaml_abs = Path(yaml_path)
-            if not yaml_abs.is_absolute():
-                yaml_abs = Path(workspace) / yaml_abs
-            yaml_parent = yaml_abs.parent
-            if yaml_parent.name.lower() == "configs":
-                return yaml_parent.parent / "data"
-            return yaml_parent / "data"
-
         if workspace:
-            return Path(workspace) / "data"
-        return Path("data")
+            return (Path(workspace).resolve() / DEFAULT_UVVIS_SCAN_OUTPUT_SUBDIR).resolve()
+
+        return (Path("data") / "uv_data_common").resolve()
 
     def _inject_uvvis_scan_output_paths(
         self,
@@ -319,9 +310,8 @@ class UVVisScanRule:
                 sample_name = pick_text(context.get("sample_name"))
 
         sample_folder = self._normalize_sample_folder_name(sample_name)
-        device_folder = self._normalize_device_id(getattr(self.conn, "device_id", ""))
         root_dir = self._resolve_uvvis_output_root_dir()
-        target_dir = root_dir / device_folder / sample_folder
+        target_dir = root_dir / sample_folder
 
         try:
             target_dir.mkdir(parents=True, exist_ok=True)
