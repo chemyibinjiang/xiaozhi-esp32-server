@@ -35,8 +35,28 @@ def _is_server_request(msg: Dict) -> bool:
 
 
 def _accept_server_request(proc: subprocess.Popen, msg: Dict, auto_approve: bool) -> None:
-    decision = "accept" if auto_approve else "reject"
-    _send(proc, {"id": msg["id"], "result": {"decision": decision}})
+    method = str(msg.get("method") or "")
+    decision = "accept" if auto_approve else "decline"
+
+    if method == "mcpServer/elicitation/request":
+        # Newer Codex app-server versions use RMCP elicitation semantics here.
+        # This provider has no UI to collect structured input, so do not fake
+        # accepted content; decline cleanly to satisfy the protocol.
+        result = {"action": "decline", "content": None}
+    elif method == "item/tool/requestUserInput":
+        result = {"answers": {}}
+    elif method == "item/permissions/requestApproval":
+        result = {
+            "permissions": {
+                "fileSystem": None,
+                "network": {"enabled": bool(auto_approve)},
+            },
+            "scope": "turn",
+        }
+    else:
+        result = {"decision": decision}
+
+    _send(proc, {"id": msg["id"], "result": result})
 
 
 class _StdoutReader(threading.Thread):
@@ -311,6 +331,7 @@ class _CodexSession:
         self.sandbox_policy = config.get("sandbox_policy")
         self.effort = config.get("effort")
         self.summary = config.get("summary")
+        self.service_tier = config.get("service_tier") or config.get("serviceTier")
         self.system_prompt_mode = (config.get("system_prompt_mode") or "first_turn").lower()
         self.bootstrap_mode = (config.get("bootstrap_mode") or "none").lower()
         self.api_key = config.get("api_key")
@@ -411,7 +432,14 @@ class _CodexSession:
         if not self.proc or not self.proc.stderr:
             return
         for line in self.proc.stderr:
-            logger.bind(tag=TAG).warning(f"codex stderr: {line.rstrip()}")
+            text = line.rstrip()
+            if (
+                "failed to refresh available models" in text
+                and "timeout waiting for child process to exit" in text
+            ):
+                logger.bind(tag=TAG).debug(f"codex stderr suppressed: {text}")
+                continue
+            logger.bind(tag=TAG).warning(f"codex stderr: {text}")
 
     def _write_config(self, key: str, value) -> None:
         _send(
@@ -497,6 +525,8 @@ class _CodexSession:
                 )
 
         thread_params = {"model": self.model, "cwd": self.workspace, "sandbox": self.thread_sandbox}
+        if self.service_tier:
+            thread_params["serviceTier"] = self.service_tier
         if self.approval_policy:
             thread_params["approvalPolicy"] = self.approval_policy
         _send(self.proc, {"method": "thread/start", "id": self._next_id(), "params": thread_params})
@@ -615,6 +645,9 @@ class _CodexSession:
             turn_params["effort"] = effort
         if summary:
             turn_params["summary"] = summary
+        service_tier = kwargs.get("service_tier", kwargs.get("serviceTier", self.service_tier))
+        if service_tier:
+            turn_params["serviceTier"] = service_tier
 
         if self.sandbox_policy:
             turn_params["sandboxPolicy"] = self.sandbox_policy
