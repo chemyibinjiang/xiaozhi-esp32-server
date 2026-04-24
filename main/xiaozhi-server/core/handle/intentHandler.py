@@ -1,4 +1,5 @@
 import json
+import re
 import uuid
 import asyncio
 from core.utils.dialogue import Message
@@ -35,6 +36,9 @@ async def handle_user_intent(conn, text):
         return True
 
     if await handle_pending_direct_photo_confirmation(conn, text, filtered_text):
+        return True
+
+    if await handle_pending_server_photo_confirmation(conn, text, filtered_text):
         return True
 
     _update_server_photo_confirmation_state(conn, filtered_text)
@@ -476,6 +480,23 @@ def _get_last_assistant_text(conn) -> str:
     return ""
 
 
+def _extract_sample_photo_name(text: str) -> str:
+    src = textUtils.normalize_spoken_text(text or "")
+    if not src:
+        return ""
+
+    patterns = (
+        r"([0-9]+号样品)",
+        r"(样品[0-9]+)",
+        r"([一二三四五六七八九十]+号样品)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, src)
+        if match:
+            return match.group(1)
+    return ""
+
+
 def _assistant_is_waiting_for_photo_permission(conn) -> bool:
     last_text = _normalize_text_for_match(_get_last_assistant_text(conn))
     if not last_text:
@@ -526,12 +547,260 @@ def _assistant_is_waiting_for_photo_permission(conn) -> bool:
     )
 
 
+def _build_pending_server_photo_request(conn) -> dict:
+    last_text = textUtils.normalize_spoken_text(_get_last_assistant_text(conn))
+    sample_name = _extract_sample_photo_name(last_text)
+    safe_device_id = str(getattr(conn, "device_id", "") or "").strip()
+
+    if sample_name:
+        question = f"请拍摄{sample_name}当前状态的照片。"
+    else:
+        question = "请拍摄当前样品的照片。"
+
+    request = {
+        "device_id": safe_device_id,
+        "question": question,
+    }
+    if sample_name:
+        request["photo_name"] = sample_name
+    return request
+
+
+def _get_last_assistant_text_raw(conn) -> str:
+    dialogue_items = getattr(getattr(conn, "dialogue", None), "dialogue", [])
+    for item in reversed(dialogue_items):
+        if getattr(item, "role", "") != "assistant":
+            continue
+        content = getattr(item, "content", "")
+        if isinstance(content, str) and content.strip():
+            return content.strip()
+    return ""
+
+
+def _extract_sample_photo_name_fixed(text: str) -> str:
+    src = text or ""
+    if not src:
+        return ""
+
+    patterns = (
+        r"([0-9]+号样品)",
+        r"(样品[0-9]+)",
+        r"([一二三四五六七八九十百两]+号样品)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, src)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def _looks_like_question_reply_fixed(text: str) -> bool:
+    if not text:
+        return False
+    if text.endswith(("吗", "么", "呢", "嘛")):
+        return True
+    question_tokens = (
+        "可不可以",
+        "能不能",
+        "行不行",
+        "要不要",
+        "是不是",
+        "为什么",
+        "怎么",
+        "如何",
+    )
+    return _contains_any(text, question_tokens)
+
+
+def _is_affirmative_short_reply_fixed(filtered_text: str) -> bool:
+    norm = _normalize_text_for_match(filtered_text)
+    if not norm:
+        return False
+
+    negative_tokens = (
+        "不可以",
+        "不要",
+        "别拍",
+        "不拍",
+        "先别",
+        "不能拍",
+        "不让拍",
+        "别现在拍",
+    )
+    if _contains_any(norm, negative_tokens):
+        return False
+
+    if norm in {
+        "好",
+        "好的",
+        "好啊",
+        "好呀",
+        "可以",
+        "可以的",
+        "可以拍",
+        "拍吧",
+        "拍",
+        "开始拍",
+        "行",
+        "行的",
+        "行啊",
+        "嗯",
+        "嗯嗯",
+        "是",
+        "对",
+        "没问题",
+        "同意",
+        "允许",
+        "准备好了",
+        "我准备好了",
+    }:
+        return True
+
+    if _looks_like_question_reply_fixed(norm):
+        return False
+
+    affirmative_tokens = (
+        "可以拍照",
+        "现在可以拍照",
+        "可以拍了",
+        "现在可以拍",
+        "现在可以了",
+        "可以了",
+        "拍照吧",
+        "拍一张吧",
+        "拍一下吧",
+        "直接拍吧",
+        "没问题拍",
+        "同意拍",
+    )
+    if _contains_any(norm, affirmative_tokens):
+        return True
+
+    affirmative_prefixes = (
+        "好",
+        "好的",
+        "好啊",
+        "好呀",
+        "可以",
+        "可以的",
+        "可以呀",
+        "可以喔",
+        "行",
+        "行的",
+        "行啊",
+        "行呀",
+        "嗯",
+        "嗯嗯",
+        "对",
+        "是",
+        "没问题",
+        "当然可以",
+        "同意",
+        "允许",
+        "准备好了",
+        "我准备好了",
+    )
+    return _starts_with_any(norm, affirmative_prefixes)
+
+
+def _is_negative_short_reply_fixed(filtered_text: str) -> bool:
+    norm = _normalize_text_for_match(filtered_text)
+    if norm in {
+        "不要",
+        "先别",
+        "别拍",
+        "不拍",
+        "还没准备好",
+        "没准备好",
+        "等等",
+        "等一下",
+        "暂时不要",
+        "不可以",
+        "取消",
+    }:
+        return True
+
+    if not norm or len(norm) > 12:
+        return False
+
+    negative_tokens = (
+        "不可以拍照",
+        "现在不可以拍照",
+        "还不可以拍照",
+        "还不能拍照",
+        "先别拍照",
+    )
+    return _contains_any(norm, negative_tokens)
+
+
+def _assistant_is_waiting_for_photo_permission_fixed(conn) -> bool:
+    last_text = _normalize_text_for_match(_get_last_assistant_text_raw(conn))
+    if not last_text:
+        return False
+
+    photo_tokens = ("拍照", "拍一张", "拍一下", "照一下", "照片")
+    if not _contains_any(last_text, photo_tokens):
+        return False
+
+    explicit_wait_tokens = (
+        "得到肯定答复后再拍",
+        "确认后再拍",
+        "同意后再拍",
+        "回复可以再拍",
+        "允许拍照后再告诉我",
+        "告诉我可以拍照",
+        "等你允许后我再拍",
+    )
+    if _contains_any(last_text, explicit_wait_tokens):
+        return True
+
+    if "告诉我" in last_text and "可以拍照" in last_text:
+        return True
+
+    prompt_tokens = (
+        "可以",
+        "能",
+        "要不要",
+        "要不",
+        "要我",
+        "帮你",
+        "给你",
+        "让我",
+        "是否",
+        "确认",
+        "同意",
+    )
+    question_tokens = ("吗", "么", "呢", "是否", "可不可以", "能不能", "要不要")
+    return _contains_any(last_text, prompt_tokens) and _contains_any(
+        last_text, question_tokens
+    )
+
+
+def _build_pending_server_photo_request_fixed(conn) -> dict:
+    last_text = _get_last_assistant_text_raw(conn)
+    sample_name = _extract_sample_photo_name_fixed(last_text)
+    safe_device_id = str(getattr(conn, "device_id", "") or "").strip()
+
+    if sample_name:
+        question = f"请拍摄{sample_name}当前状态的照片。"
+    else:
+        question = "请拍摄当前样品的照片。"
+
+    request = {
+        "device_id": safe_device_id,
+        "question": question,
+    }
+    if sample_name:
+        request["photo_name"] = sample_name
+    return request
+
+
 def _update_server_photo_confirmation_state(conn, filtered_text: str) -> None:
-    if not _assistant_is_waiting_for_photo_permission(conn):
+    if not _assistant_is_waiting_for_photo_permission_fixed(conn):
         return
-    if _is_affirmative_short_reply(filtered_text):
+    if _is_affirmative_short_reply_fixed(filtered_text):
         conn._server_photo_capture_granted = True
-    elif _is_negative_short_reply(filtered_text):
+    elif _is_negative_short_reply_fixed(filtered_text):
         conn._server_photo_capture_granted = False
 
 
@@ -580,6 +849,52 @@ async def _execute_direct_photo_intent(
     return True
 
 
+async def _execute_server_photo_intent(conn, arguments: dict) -> bool:
+    safe_device_id = str((arguments or {}).get("device_id", "") or "").strip()
+    if not safe_device_id:
+        speak_txt(conn, "\u8bbe\u5907\u8fde\u63a5\u4fe1\u606f\u7f3a\u5931\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5\u3002")
+        return True
+
+    if _get_server_mcp_manager(conn) is None:
+        speak_txt(conn, "\u62cd\u7167\u529f\u80fd\u8fd8\u6ca1\u51c6\u5907\u597d\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5\u3002")
+        return True
+
+    conn._server_photo_capture_granted = True
+    try:
+        result = await _execute_server_mcp_tool_direct(
+            conn,
+            "xiaozhi_take_photo",
+            arguments,
+        )
+    except Exception as e:
+        conn._server_photo_capture_granted = False
+        conn.logger.bind(tag=TAG).warning(f"direct server photo mcp failed: {e}")
+        speak_txt(conn, f"\u62cd\u7167\u5931\u8d25\uff1a{e}")
+        return True
+
+    payload = _extract_server_mcp_payload(result)
+    if isinstance(payload, dict) and payload.get("success") is False:
+        msg = (
+            str(payload.get("message", "")).strip()
+            or _extract_text_from_result_payload(payload)
+            or "\u62cd\u7167\u5931\u8d25\u4e86\u3002"
+        )
+        speak_txt(conn, msg)
+        return True
+
+    reply = _extract_text_from_result_payload(payload)
+    if not reply:
+        photo_meta = payload.get("photo_meta") if isinstance(payload, dict) else None
+        if isinstance(photo_meta, dict):
+            file_name = str(photo_meta.get("file_name", "")).strip()
+            if file_name:
+                reply = f"\u62cd\u597d\u4e86\uff0c\u5df2\u4fdd\u5b58\u4e3a {file_name}"
+    if not reply:
+        reply = "\u62cd\u597d\u4e86\u3002"
+    speak_txt(conn, reply)
+    return True
+
+
 async def handle_pending_direct_photo_confirmation(
     conn, original_text: str, filtered_text: str
 ) -> bool:
@@ -587,7 +902,7 @@ async def handle_pending_direct_photo_confirmation(
     if not isinstance(pending, dict):
         return False
 
-    if _is_negative_short_reply(filtered_text):
+    if _is_negative_short_reply_fixed(filtered_text):
         await send_stt_message(conn, original_text)
         conn.client_abort = False
         conn.sentence_id = str(uuid.uuid4().hex)
@@ -596,7 +911,7 @@ async def handle_pending_direct_photo_confirmation(
         speak_txt(conn, "\u597d\uff0c\u90a3\u6211\u5148\u4e0d\u62cd\u3002")
         return True
 
-    if not _is_affirmative_short_reply(filtered_text):
+    if not _is_affirmative_short_reply_fixed(filtered_text):
         return False
 
     await send_stt_message(conn, original_text)
@@ -609,6 +924,38 @@ async def handle_pending_direct_photo_confirmation(
         pending.get("question", "\u63cf\u8ff0\u4e00\u4e0b\u770b\u5230\u7684\u7269\u54c1"),
         pending.get("raw_tool_name", "self.camera.take_photo"),
         int(pending.get("timeout", 45)),
+    )
+
+
+async def handle_pending_server_photo_confirmation(
+    conn, original_text: str, filtered_text: str
+) -> bool:
+    if getattr(conn, "_pending_direct_photo", None):
+        return False
+
+    if not _assistant_is_waiting_for_photo_permission_fixed(conn):
+        return False
+
+    if _is_negative_short_reply_fixed(filtered_text):
+        conn._server_photo_capture_granted = False
+        await send_stt_message(conn, original_text)
+        conn.client_abort = False
+        conn.sentence_id = str(uuid.uuid4().hex)
+        conn.dialogue.put(Message(role="user", content=original_text))
+        speak_txt(conn, "\u597d\uff0c\u90a3\u6211\u5148\u4e0d\u62cd\u3002")
+        return True
+
+    if not _is_affirmative_short_reply_fixed(filtered_text):
+        return False
+
+    await send_stt_message(conn, original_text)
+    conn.client_abort = False
+    conn.sentence_id = str(uuid.uuid4().hex)
+    conn.dialogue.put(Message(role="user", content=original_text))
+    conn.logger.bind(tag=TAG).info("confirmed pending server photo capture, executing xiaozhi_take_photo directly")
+    return await _execute_server_photo_intent(
+        conn,
+        _build_pending_server_photo_request_fixed(conn),
     )
 
 
@@ -684,9 +1031,9 @@ async def handle_direct_photo_intent(conn, original_text: str, filtered_text: st
     if not _is_direct_photo_command(filtered_text):
         return False
 
-    if _assistant_is_waiting_for_photo_permission(conn) and (
-        _is_affirmative_short_reply(filtered_text)
-        or _is_negative_short_reply(filtered_text)
+    if _assistant_is_waiting_for_photo_permission_fixed(conn) and (
+        _is_affirmative_short_reply_fixed(filtered_text)
+        or _is_negative_short_reply_fixed(filtered_text)
     ):
         return False
 

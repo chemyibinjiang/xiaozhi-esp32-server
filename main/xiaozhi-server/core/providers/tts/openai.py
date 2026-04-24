@@ -23,6 +23,7 @@ class TTSProvider(TTSProviderBase):
         self.response_format = config.get("response_format") or config.get(
             "format", "wav"
         )
+        self.lang_code = config.get("lang_code")
         self.audio_file_type = self.response_format
         self.sample_rate = config.get("sample_rate")
         self.timeout = float(config.get("timeout", 30))
@@ -47,6 +48,8 @@ class TTSProvider(TTSProviderBase):
             "response_format": self.response_format,
             "speed": self.speed,
         }
+        if self.lang_code:
+            data["lang_code"] = self.lang_code
         if self.sample_rate:
             data["sample_rate"] = int(self.sample_rate)
 

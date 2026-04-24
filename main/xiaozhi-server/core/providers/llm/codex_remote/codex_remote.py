@@ -1,10 +1,12 @@
 import json
+from copy import deepcopy
 from typing import Dict, Iterable
 
 import requests
 
 from config.logger import setup_logging
 from core.providers.llm.base import LLMProviderBase
+from core.providers.llm.system_prompt import get_system_prompt_for_function
 
 TAG = __name__
 logger = setup_logging()
@@ -150,7 +152,34 @@ class LLMProvider(LLMProviderBase):
             yield text
 
     def response_with_functions(self, session_id, dialogue, functions=None, **kwargs):
-        for token in self.response(session_id, dialogue, **kwargs):
+        patched_dialogue = deepcopy(dialogue)
+
+        if len(patched_dialogue) == 2 and functions:
+            last_msg = str(patched_dialogue[-1].get("content", ""))
+            function_str = json.dumps(functions, ensure_ascii=False)
+            patched_dialogue[-1]["content"] = (
+                get_system_prompt_for_function(function_str) + last_msg
+            )
+
+        if len(patched_dialogue) > 1 and patched_dialogue[-1].get("role") == "tool":
+            assistant_msg = (
+                "\ntool call result: "
+                + str(patched_dialogue[-1].get("content", ""))
+                + "\n\n"
+            )
+            while len(patched_dialogue) > 1:
+                if patched_dialogue[-1].get("role") == "user":
+                    patched_dialogue[-1]["content"] = (
+                        assistant_msg + str(patched_dialogue[-1].get("content", ""))
+                    )
+                    break
+                patched_dialogue.pop()
+
+        if functions:
+            kwargs = dict(kwargs)
+            kwargs["functions"] = functions
+
+        for token in self.response(session_id, patched_dialogue, **kwargs):
             if isinstance(token, dict):
                 yield token
             else:
