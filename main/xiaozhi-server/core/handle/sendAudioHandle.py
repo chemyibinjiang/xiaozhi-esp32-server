@@ -63,25 +63,52 @@ async def sendAudioMessage(conn, sentenceType, audios, text):
 
 async def _wait_for_audio_completion(conn):
     """
-    等待音频队列清空并等待预缓冲包播放完成
+    等待音频队列清空，并根据已发送包时长和设备侧缓冲决定 stop 发送前的等待时间。
 
     Args:
         conn: 连接对象
     """
-    if hasattr(conn, "audio_rate_controller") and conn.audio_rate_controller:
-        rate_controller = conn.audio_rate_controller
-        conn.logger.bind(tag=TAG).debug(
-            f"等待音频发送完成，队列中还有 {len(rate_controller.queue)} 个包"
+    if not hasattr(conn, "audio_rate_controller") or not conn.audio_rate_controller:
+        return
+
+    rate_controller = conn.audio_rate_controller
+    conn.logger.bind(tag=TAG).debug(
+        f"waiting audio completion, queued_packets={len(rate_controller.queue)}"
+    )
+    await rate_controller.queue_empty_event.wait()
+
+    flow_control = getattr(conn, "audio_flow_control", {}) or {}
+    frame_duration_ms = int(
+        flow_control.get("frame_duration_ms", rate_controller.frame_duration)
+    )
+    packet_count = int(flow_control.get("packet_count", 0))
+    first_send_monotonic = flow_control.get("first_send_monotonic")
+
+    remaining_ms = 0
+    if first_send_monotonic is not None and packet_count > 0:
+        elapsed_ms = max((time.monotonic() - first_send_monotonic) * 1000, 0)
+        scheduled_audio_ms = packet_count * frame_duration_ms
+        remaining_ms = max(scheduled_audio_ms - elapsed_ms, 0)
+
+    extra_buffer_ms = int(
+        conn.config.get(
+            "tts_stop_extra_buffer_ms",
+            max((PRE_BUFFER_COUNT + 2) * frame_duration_ms, 360),
         )
-        await rate_controller.queue_empty_event.wait()
+    )
+    total_wait_ms = remaining_ms + extra_buffer_ms
+    conn.logger.bind(tag=TAG).info(
+        "tts stop wait: "
+        f"packet_count={packet_count}, "
+        f"frame_duration_ms={frame_duration_ms}, "
+        f"remaining_ms={remaining_ms:.0f}, "
+        f"extra_buffer_ms={extra_buffer_ms}, "
+        f"total_wait_ms={total_wait_ms:.0f}"
+    )
+    if total_wait_ms > 0:
+        await asyncio.sleep(total_wait_ms / 1000.0)
 
-        # 等待预缓冲包播放完成
-        # 前N个包直接发送，增加2个网络抖动包，需要额外等待它们在客户端播放完成
-        frame_duration_ms = rate_controller.frame_duration
-        pre_buffer_playback_time = (PRE_BUFFER_COUNT + 2) * frame_duration_ms / 1000.0
-        await asyncio.sleep(pre_buffer_playback_time)
-
-        conn.logger.bind(tag=TAG).debug("音频发送完成")
+    conn.logger.bind(tag=TAG).debug("audio completion wait finished")
 
 
 async def _send_to_mqtt_gateway(conn, opus_packet, timestamp, sequence):
@@ -185,6 +212,9 @@ def _get_or_create_rate_controller(conn, frame_duration, is_single_packet):
             "packet_count": 0,
             "sequence": 0,
             "sentence_id": conn.sentence_id,
+            "frame_duration_ms": frame_duration,
+            "first_send_monotonic": None,
+            "last_send_monotonic": None,
         }
 
         # 启动后台发送循环
@@ -262,6 +292,11 @@ async def _do_send_audio(conn, opus_packet, flow_control):
 
     packet_index = flow_control.get("packet_count", 0)
     sequence = flow_control.get("sequence", 0)
+    now_monotonic = time.monotonic()
+
+    if flow_control.get("first_send_monotonic") is None:
+        flow_control["first_send_monotonic"] = now_monotonic
+    flow_control["last_send_monotonic"] = now_monotonic
 
     if conn.conn_from_mqtt_gateway:
         # 计算时间戳（基于播放位置）
