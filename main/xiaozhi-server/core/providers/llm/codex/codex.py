@@ -289,6 +289,17 @@ def _recoverable_stderr_reason(text: str) -> Optional[str]:
     return None
 
 
+def _is_recoverable_turn_failure(exc: Exception, session: Optional["_CodexSession"]) -> bool:
+    if session and session._restart_required:
+        return True
+
+    text = str(exc or "")
+    if not text:
+        return False
+
+    return "codex app-server exited (stdout closed)" in text
+
+
 def _format_action_desc(item: Dict) -> str:
     desc = item.get("type") or "item"
     if "command" in item:
@@ -607,17 +618,27 @@ class _CodexSession:
     def close(self) -> None:
         if not self.proc:
             return
+        proc = self.proc
         try:
-            if self.proc.stdin:
-                self.proc.stdin.close()
+            if proc.stdin:
+                proc.stdin.close()
         except Exception:
             pass
         try:
-            self.proc.terminate()
-            self.proc.wait(timeout=5)
-        except Exception:
+            proc.terminate()
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
             try:
-                self.proc.kill()
+                proc.kill()
+                proc.wait(timeout=5)
+            except Exception:
+                pass
+        except Exception:
+            pass
+        for stream in (proc.stdout, proc.stderr):
+            try:
+                if stream:
+                    stream.close()
             except Exception:
                 pass
         self.proc = None
@@ -969,35 +990,44 @@ class LLMProvider(LLMProviderBase):
         return self._sessions[session_id]
 
     def response(self, session_id, dialogue, **kwargs):
-        try:
-            if not session_id:
-                if self._reuse_utility_session:
-                    session = self._get_session(self._utility_session_key)
-                    for token in session.stream_response(dialogue, **kwargs):
-                        yield token
-                else:
-                    temp_session = _CodexSession(self.config, "utility")
-                    try:
-                        for token in temp_session.stream_response(dialogue, **kwargs):
-                            yield token
-                    finally:
-                        temp_session.close()
-                return
-
+        if not session_id:
+            if self._reuse_utility_session:
+                session = self._get_session(self._utility_session_key)
+                use_temp_session = False
+            else:
+                session = _CodexSession(self.config, "utility")
+                use_temp_session = True
+        else:
             session = self._get_session(session_id)
-            for token in session.stream_response(dialogue, **kwargs):
-                yield token
-        except Exception as exc:
-            if session_id:
-                session = self._sessions.get(session_id)
-                if session:
+            use_temp_session = False
+
+        try:
+            for attempt in range(2):
+                emitted_any = False
+                try:
+                    for token in session.stream_response(dialogue, **kwargs):
+                        emitted_any = True
+                        yield token
+                    return
+                except Exception as exc:
+                    should_retry = (
+                        attempt == 0
+                        and not emitted_any
+                        and _is_recoverable_turn_failure(exc, session)
+                    )
                     session.close()
-            elif self._reuse_utility_session:
-                session = self._sessions.get(self._utility_session_key)
-                if session:
-                    session.close()
-            logger.bind(tag=TAG).error(f"Codex response error: {exc}")
-            yield "[Codex response error]"
+                    if should_retry:
+                        logger.bind(tag=TAG).warning(
+                            "Codex turn hit recoverable child-process failure; "
+                            f"retrying once: {exc}"
+                        )
+                        continue
+                    logger.bind(tag=TAG).error(f"Codex response error: {exc}")
+                    yield "[Codex response error]"
+                    return
+        finally:
+            if use_temp_session:
+                session.close()
 
     def response_with_functions(self, session_id, dialogue, functions=None, **kwargs):
         patched_dialogue = deepcopy(dialogue)
