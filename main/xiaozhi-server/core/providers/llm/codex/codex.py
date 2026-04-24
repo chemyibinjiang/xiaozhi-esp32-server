@@ -266,6 +266,27 @@ def _should_suppress_stderr_warning(text: str) -> bool:
     return False
 
 
+def _recoverable_stderr_reason(text: str) -> Optional[str]:
+    text = str(text or "")
+    if not text:
+        return None
+
+    if (
+        "failed to refresh available models" in text
+        and "timeout waiting for child process to exit" in text
+    ):
+        return "models_refresh_timeout"
+
+    if (
+        "worker quit with fatal: Transport channel closed" in text
+        and "https://chatgpt.com/backend-api/wham/apps" in text
+        and "unexpected EOF during handshake" in text
+    ):
+        return "wham_transport_eof"
+
+    return None
+
+
 def _format_action_desc(item: Dict) -> str:
     desc = item.get("type") or "item"
     if "command" in item:
@@ -404,6 +425,8 @@ class _CodexSession:
         self._system_prompt_sent = False
         self._bootstrap_history = True
         self._active_turn_id: Optional[str] = None
+        self._restart_required = False
+        self._restart_reason: Optional[str] = None
         self._lock = threading.Lock()
 
     def _next_id(self) -> int:
@@ -459,6 +482,11 @@ class _CodexSession:
             text = line.rstrip()
             if not text:
                 continue
+            recovery_reason = _recoverable_stderr_reason(text)
+            if recovery_reason:
+                with self._lock:
+                    self._restart_required = True
+                    self._restart_reason = recovery_reason
             if _should_suppress_stderr_warning(text):
                 logger.bind(tag=TAG).debug(f"codex stderr suppressed: {text}")
                 continue
@@ -564,7 +592,14 @@ class _CodexSession:
 
     def start(self) -> None:
         if self.proc and self.proc.poll() is None:
-            return
+            if self._restart_required:
+                logger.bind(tag=TAG).info(
+                    "restarting codex session after recoverable stderr: "
+                    f"session={self.session_key} reason={self._restart_reason or 'unknown'}"
+                )
+                self.close()
+            else:
+                return
         self._start_process()
 
     def close(self) -> None:
@@ -586,6 +621,9 @@ class _CodexSession:
         self.proc = None
         self.q = None
         self.thread_id = None
+        self._active_turn_id = None
+        self._restart_required = False
+        self._restart_reason = None
 
     def _restart(self) -> None:
         self.close()
@@ -920,7 +958,7 @@ class LLMProvider(LLMProviderBase):
     def __init__(self, config: Dict):
         self.config = config
         self._sessions: Dict[str, _CodexSession] = {}
-        self._reuse_utility_session = bool(config.get("reuse_utility_session", False))
+        self._reuse_utility_session = bool(config.get("reuse_utility_session", True))
         self._utility_session_key = "__utility__"
 
     def _get_session(self, session_id: str) -> _CodexSession:
