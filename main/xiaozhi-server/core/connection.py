@@ -845,10 +845,24 @@ class ConnectionHandler:
         try:
             voiceprint_config = self.config.get("voiceprint", {})
             if voiceprint_config:
-                voiceprint_provider = VoiceprintProvider(voiceprint_config)
+                runtime_scope = str(self.device_id or "").strip()
+                if not runtime_scope and isinstance(self.headers, dict):
+                    runtime_scope = str(
+                        self.headers.get("client-id", self.headers.get("device-id", ""))
+                    ).strip()
+                if not runtime_scope:
+                    runtime_scope = self.session_id
+                voiceprint_provider = VoiceprintProvider(
+                    voiceprint_config,
+                    runtime_scope=runtime_scope,
+                )
                 if voiceprint_provider is not None and voiceprint_provider.enabled:
                     self.voiceprint_provider = voiceprint_provider
-                    self.logger.bind(tag=TAG).info("声纹识别功能已在连接时动态启用")
+                    self.logger.bind(tag=TAG).info(
+                        "声纹识别功能已在连接时动态启用: "
+                        f"runtime_scope={runtime_scope}, "
+                        f"master_speaker_id={voiceprint_provider.dynamic_master_speaker_id}"
+                    )
                 else:
                     self.logger.bind(tag=TAG).warning("声纹识别功能启用但配置不完整")
             else:
