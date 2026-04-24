@@ -18,7 +18,9 @@ RESUME_INTENT_PATTERNS = (
 
 EXPORT_RECORD_PATTERNS = (
     re.compile(r"(实验结束|结束实验|结束当前实验)"),
-    re.compile(r"(生成|导出|写出|保存)(实验记录|记录yaml|记录YAML|yaml|YAML)"),
+    re.compile(
+        r"(生成|导出|写出|保存)(实验记录|实验报告|报告|记录yaml|记录YAML|yaml|YAML|pdf|PDF)"
+    ),
 )
 
 TURN_SPLIT_RE = re.compile(r"(?=^\[[^\]]+\] \[TURN_START\])", re.MULTILINE)
