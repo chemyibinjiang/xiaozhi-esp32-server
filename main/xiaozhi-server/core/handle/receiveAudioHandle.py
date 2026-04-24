@@ -214,7 +214,7 @@ async def check_bind_device(conn):
         # 播放提示音
         music_path = "config/assets/bind_code.wav"
         opus_packets = await audio_to_data(music_path)
-        conn.tts.tts_audio_queue.put((SentenceType.FIRST, opus_packets, text))
+        conn.tts.tts_audio_queue.put((SentenceType.FIRST, opus_packets, text, conn.sentence_id))
 
         # 逐个播放数字
         for i in range(6):  # 确保只播放6位数字
@@ -222,11 +222,11 @@ async def check_bind_device(conn):
                 digit = conn.bind_code[i]
                 num_path = f"config/assets/bind_code/{digit}.wav"
                 num_packets = await audio_to_data(num_path)
-                conn.tts.tts_audio_queue.put((SentenceType.MIDDLE, num_packets, None))
+                conn.tts.tts_audio_queue.put((SentenceType.MIDDLE, num_packets, None, conn.sentence_id))
             except Exception as e:
                 conn.logger.bind(tag=TAG).error(f"播放数字音频失败: {e}")
                 continue
-        conn.tts.tts_audio_queue.put((SentenceType.LAST, [], None))
+        conn.tts.tts_audio_queue.put((SentenceType.LAST, [], None, conn.sentence_id))
     else:
         # 播放未绑定提示
         conn.client_abort = False
@@ -234,4 +234,4 @@ async def check_bind_device(conn):
         await send_stt_message(conn, text)
         music_path = "config/assets/bind_not_found.wav"
         opus_packets = await audio_to_data(music_path)
-        conn.tts.tts_audio_queue.put((SentenceType.LAST, opus_packets, text))
+        conn.tts.tts_audio_queue.put((SentenceType.LAST, opus_packets, text, conn.sentence_id))

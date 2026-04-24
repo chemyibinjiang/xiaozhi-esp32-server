@@ -330,6 +330,87 @@ def _extract_direct_photo_reply(raw_result) -> str:
     return ""
 
 
+def _extract_photo_result_meta(payload) -> dict:
+    data = _to_plain_data(payload)
+    if not isinstance(data, dict):
+        return {}
+
+    photo_meta = data.get("photo_meta")
+    if not isinstance(photo_meta, dict):
+        nested = data.get("result")
+        nested_data = _to_plain_data(nested)
+        if isinstance(nested_data, dict):
+            photo_meta = nested_data.get("photo_meta")
+
+    if not isinstance(photo_meta, dict):
+        photo_meta = {}
+
+    file_name = str(photo_meta.get("file_name", "")).strip()
+    photo_path = str(
+        photo_meta.get("mirrored_path")
+        or photo_meta.get("local_path")
+        or ""
+    ).strip()
+    requested_photo_name = str(
+        photo_meta.get("requested_photo_name") or data.get("requested_photo_name") or ""
+    ).strip()
+
+    return {
+        "found": bool(photo_meta.get("found", False)),
+        "file_name": file_name,
+        "photo_path": photo_path,
+        "requested_photo_name": requested_photo_name,
+    }
+
+
+def _build_post_server_photo_followup_query(payload) -> str:
+    meta = _extract_photo_result_meta(payload)
+    details = []
+
+    requested_photo_name = meta.get("requested_photo_name", "")
+    if requested_photo_name:
+        details.append(f"requested_photo_name={requested_photo_name}")
+
+    file_name = meta.get("file_name", "")
+    if file_name:
+        details.append(f"photo_file_name={file_name}")
+
+    photo_path = meta.get("photo_path", "")
+    if photo_path:
+        details.append(f"photo_path={photo_path}")
+
+    if meta.get("found", False):
+        details.append("photo_found=true")
+
+    detail_text = "；".join(details) if details else "未拿到可写回的照片元数据"
+    return (
+        "[系统提示] 当前已经通过 xiaozhi_take_photo 成功拍好照片。"
+        "请继续当前任务；如果当前处于实验拍照确认步骤，优先把拍照结果写回当前步骤，"
+        "至少记录 photo_taken=true 和 color_confirmed_by_photo=true；"
+        "如果下面提供了文件名或路径，也一并写入 photo_file_name 和 photo_path；"
+        "完成当前 trial 校验后，如允许则直接进入下一步。"
+        "面向学生只口播当前下一步操作或基于照片的结论，不要口播后台记录过程。"
+        f"拍照结果：{detail_text}。"
+    )
+
+
+def _run_post_server_photo_followup(conn, payload, fallback_reply: str = "") -> None:
+    query = _build_post_server_photo_followup_query(payload)
+    if not query:
+        if fallback_reply:
+            speak_txt(conn, fallback_reply)
+        return
+
+    try:
+        conn.chat(query)
+    except Exception as exc:
+        conn.logger.bind(tag=TAG).warning(
+            f"post server photo follow-up failed: {exc}"
+        )
+        if fallback_reply:
+            speak_txt(conn, fallback_reply)
+
+
 def _get_server_mcp_manager(conn):
     func_handler = getattr(conn, "func_handler", None)
     if not func_handler:
@@ -891,7 +972,7 @@ async def _execute_server_photo_intent(conn, arguments: dict) -> bool:
                 reply = f"\u62cd\u597d\u4e86\uff0c\u5df2\u4fdd\u5b58\u4e3a {file_name}"
     if not reply:
         reply = "\u62cd\u597d\u4e86\u3002"
-    speak_txt(conn, reply)
+    await asyncio.to_thread(_run_post_server_photo_followup, conn, payload, reply)
     return True
 
 

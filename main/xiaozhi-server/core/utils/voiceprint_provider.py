@@ -39,18 +39,23 @@ class VoiceprintProvider:
     - 动态模式（新增）：首次自动注册 master_speaker，后续仅对 master 进行鉴权
     """
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, runtime_scope: str = ""):
         self.original_url = config.get("url", "")
         self.speakers = config.get("speakers", [])
         self.speaker_map = self._parse_speakers()
         self.similarity_threshold = float(config.get("similarity_threshold", 0.25))
+        self.runtime_scope = self._sanitize_scope(runtime_scope)
 
         # Dynamic mode config.
         self.dynamic_mode = self._as_bool(
             config.get("dynamic_mode", config.get("dynamic_master", False))
         )
-        self.dynamic_master_speaker_id = str(
+        self.dynamic_master_speaker_id_base = str(
             config.get("dynamic_master_speaker_id", "master_speaker")
+        ).strip() or "master_speaker"
+        self.dynamic_master_speaker_id = self._build_dynamic_master_speaker_id(
+            self.dynamic_master_speaker_id_base,
+            self.runtime_scope,
         )
         self.dynamic_master_name = str(
             config.get("dynamic_master_name", "主说话人")
@@ -137,6 +142,7 @@ class VoiceprintProvider:
                 logger.bind(tag=TAG).info(
                     "声纹识别已启用（动态模式）: "
                     f"register={self.register_url}, identify={self.identify_url}, "
+                    f"speaker_id={self.dynamic_master_speaker_id}, "
                     f"required_samples={self.dynamic_registration_required_samples}, "
                     f"threshold={self.similarity_threshold}"
                 )
@@ -184,6 +190,30 @@ class VoiceprintProvider:
             return float(value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _sanitize_scope(value: Any) -> str:
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        sanitized = []
+        for char in text:
+            if char.isalnum() or char in {"_", "-"}:
+                sanitized.append(char)
+            else:
+                sanitized.append("_")
+        scope = "".join(sanitized).strip("_")
+        return scope[:96]
+
+    @classmethod
+    def _build_dynamic_master_speaker_id(
+        cls, base_speaker_id: Any, runtime_scope: Any
+    ) -> str:
+        base = cls._sanitize_scope(base_speaker_id) or "master_speaker"
+        scope = cls._sanitize_scope(runtime_scope)
+        if not scope:
+            return base
+        return f"{base}__{scope}"
 
     def _collect_score_candidates(self, body: Any) -> List[float]:
         """Extract score candidates only from whitelisted fields."""
