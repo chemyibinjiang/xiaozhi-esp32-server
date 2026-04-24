@@ -3,7 +3,7 @@ import sys
 from loguru import logger
 from config.config_loader import load_config
 from config.settings import check_config_file
-from datetime import datetime
+from config.safe_rotating_file_sink import SafeRotatingFileSink
 
 SERVER_VERSION = "0.8.11"
 _logger_initialized = False
@@ -76,6 +76,8 @@ def setup_logging():
         log_dir = log_config.get("log_dir", "tmp")
         log_file = log_config.get("log_file", "server.log")
         data_dir = log_config.get("data_dir", "data")
+        log_rotation = log_config.get("rotation", "10 MB")
+        log_retention = log_config.get("retention", "30 days")
 
         os.makedirs(log_dir, exist_ok=True)
         os.makedirs(data_dir, exist_ok=True)
@@ -89,20 +91,23 @@ def setup_logging():
         # 输出到文件 - 统一目录，按大小轮转
         # 日志文件完整路径
         log_file_path = os.path.join(log_dir, log_file)
+        file_sink = SafeRotatingFileSink(
+            log_file_path,
+            rotation=log_rotation,
+            retention=log_retention,
+            encoding="utf-8",
+        )
 
         # 添加日志处理器
         logger.add(
-            log_file_path,
+            file_sink,
             format=log_format_file,
             level=log_level,
             filter=formatter,
-            rotation="10 MB",  # 每个文件最大10MB
-            retention="30 days",  # 保留30天
-            compression=None,
-            encoding="utf-8",
             enqueue=True,  # 异步安全
             backtrace=True,
             diagnose=True,
+            catch=True,
         )
         _logger_initialized = True  # 标记为已初始化
 
