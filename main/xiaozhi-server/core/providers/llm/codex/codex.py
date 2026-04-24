@@ -242,6 +242,30 @@ def _short(text: Optional[str], limit: int = 240) -> str:
     return text if len(text) <= limit else text[:limit] + " ..."
 
 
+def _should_suppress_stderr_warning(text: str) -> bool:
+    text = str(text or "")
+    if not text:
+        return False
+
+    if (
+        "failed to refresh available models" in text
+        and "timeout waiting for child process to exit" in text
+    ):
+        return True
+
+    # Codex app-server may emit this when its internal MCP/WHAM transport
+    # hits a transient TLS/network handshake EOF. In practice the provider can
+    # continue serving later turns, so keep it out of warning-level logs.
+    if (
+        "worker quit with fatal: Transport channel closed" in text
+        and "https://chatgpt.com/backend-api/wham/apps" in text
+        and "unexpected EOF during handshake" in text
+    ):
+        return True
+
+    return False
+
+
 def _format_action_desc(item: Dict) -> str:
     desc = item.get("type") or "item"
     if "command" in item:
@@ -433,10 +457,9 @@ class _CodexSession:
             return
         for line in self.proc.stderr:
             text = line.rstrip()
-            if (
-                "failed to refresh available models" in text
-                and "timeout waiting for child process to exit" in text
-            ):
+            if not text:
+                continue
+            if _should_suppress_stderr_warning(text):
                 logger.bind(tag=TAG).debug(f"codex stderr suppressed: {text}")
                 continue
             logger.bind(tag=TAG).warning(f"codex stderr: {text}")
@@ -456,6 +479,9 @@ class _CodexSession:
         env = os.environ.copy()
         if self.api_key and self.export_api_key and "OPENAI_API_KEY" not in env:
             env["OPENAI_API_KEY"] = self.api_key
+        codex_bin_dir = str(Path(self.codex_bin).expanduser().resolve().parent)
+        if codex_bin_dir and Path(codex_bin_dir).exists():
+            env["PATH"] = codex_bin_dir + os.pathsep + env.get("PATH", "")
         env.update(self.env_overrides)
 
         self.proc = subprocess.Popen(
