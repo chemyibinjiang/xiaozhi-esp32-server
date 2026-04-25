@@ -845,13 +845,16 @@ class ConnectionHandler:
         try:
             voiceprint_config = self.config.get("voiceprint", {})
             if voiceprint_config:
-                runtime_scope = str(self.device_id or "").strip()
-                if not runtime_scope and isinstance(self.headers, dict):
-                    runtime_scope = str(
-                        self.headers.get("client-id", self.headers.get("device-id", ""))
+                runtime_device_id = str(self.device_id or "").strip()
+                if not runtime_device_id and isinstance(self.headers, dict):
+                    runtime_device_id = str(
+                        self.headers.get("device-id", self.headers.get("client-id", ""))
                     ).strip()
-                if not runtime_scope:
-                    runtime_scope = self.session_id
+                runtime_transport_id = str(self.transport_session_id or self.session_id).strip()
+                if runtime_device_id:
+                    runtime_scope = f"{runtime_device_id}__{runtime_transport_id}"
+                else:
+                    runtime_scope = runtime_transport_id
                 voiceprint_provider = VoiceprintProvider(
                     voiceprint_config,
                     runtime_scope=runtime_scope,
