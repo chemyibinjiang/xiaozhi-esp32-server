@@ -194,8 +194,6 @@ class ASRProviderBase(ABC):
             voiceprint_blocked = False
             voiceprint_prompt_text = ""
             voiceprint_status = ""
-            can_restore_dynamic_registration = False
-
             if isinstance(voiceprint_result, Exception):
                 logger.bind(tag=TAG).error(f"声纹识别失败: {voiceprint_result}")
                 speaker_name = ""
@@ -219,10 +217,6 @@ class ASRProviderBase(ABC):
                     voiceprint_prompt_text = UNKNOWN_SPEAKER_RETRY_PROMPT
                 elif not allow_chat:
                     voiceprint_blocked = True
-                    can_restore_dynamic_registration = status in {
-                        "registering",
-                        "registered",
-                    }
                     if voiceprint_result.get("need_register_prompt", False):
                         voiceprint_prompt_text = (
                             voiceprint_result.get("register_prompt_text") or ""
@@ -240,28 +234,6 @@ class ASRProviderBase(ABC):
                     voiceprint_blocked = True
                     voiceprint_prompt_text = UNKNOWN_SPEAKER_RETRY_PROMPT
 
-            if (
-                voiceprint_blocked
-                and resume_context
-                and can_restore_dynamic_registration
-                and getattr(conn, "voiceprint_provider", None)
-                and getattr(conn.voiceprint_provider, "dynamic_mode", False)
-            ):
-                restored = conn.voiceprint_provider.restore_dynamic_registration(
-                    reason="device log recovery"
-                )
-                if restored:
-                    voiceprint_blocked = False
-                    voiceprint_prompt_text = ""
-                    if not speaker_name:
-                        speaker_name = (
-                            getattr(conn.voiceprint_provider, "dynamic_master_name", "")
-                            or ""
-                        )
-                    logger.bind(tag=TAG).info(
-                        "voiceprint registration bypassed via device log recovery: "
-                        f"device_id={getattr(conn, 'device_id', '')}, status={voiceprint_status}"
-                    )
 
             # 判断 ASR 结果类型
             if isinstance(raw_text, dict):
