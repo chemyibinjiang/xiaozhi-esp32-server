@@ -93,6 +93,7 @@ class VoiceprintProvider:
         # Runtime state.
         self._dynamic_registered = False
         self._dynamic_registered_samples = 0
+        self._dynamic_cleanup_done = False
         self._dynamic_lock = asyncio.Lock()
 
         # API
@@ -100,6 +101,7 @@ class VoiceprintProvider:
         self.api_url: Optional[str] = None
         self.identify_url: Optional[str] = None
         self.register_url: Optional[str] = None
+        self.delete_url_prefix: Optional[str] = None
         self.api_key: Optional[str] = None
         self.speaker_ids = []
         self.enabled = False
@@ -112,6 +114,7 @@ class VoiceprintProvider:
         self.base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
         self.identify_url = f"{self.base_url}/voiceprint/identify"
         self.register_url = f"{self.base_url}/voiceprint/register"
+        self.delete_url_prefix = f"{self.base_url}/voiceprint"
         self.api_url = self.identify_url
 
         query_params = parse_qs(parsed_url.query or "")
@@ -604,6 +607,68 @@ class VoiceprintProvider:
         """Compatibility method: only return speaker_name."""
         decision = await self.evaluate_voiceprint(audio_data, session_id)
         return decision.get("speaker_name")
+
+    async def cleanup_dynamic_voiceprint(self, session_id: str = "") -> bool:
+        """Delete the current dynamic-session voiceprint only.
+
+        Safety boundary:
+        - dynamic mode only
+        - current connection's derived ``master_speaker_id`` only
+        - no-op when this connection has not enrolled any sample
+        """
+        if not self.enabled or not self.dynamic_mode:
+            return False
+        if self._dynamic_cleanup_done:
+            return True
+        if not self.delete_url_prefix or not self.dynamic_master_speaker_id:
+            return False
+        if self._dynamic_registered_samples <= 0 and not self._dynamic_registered:
+            self._dynamic_cleanup_done = True
+            return True
+
+        delete_url = f"{self.delete_url_prefix}/{self.dynamic_master_speaker_id}"
+        timeout = aiohttp.ClientTimeout(total=10)
+        begin = time.monotonic()
+
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.delete(
+                    delete_url,
+                    headers=self._build_headers(),
+                ) as response:
+                    elapsed = time.monotonic() - begin
+                    if response.status in (200, 204, 404):
+                        self._dynamic_cleanup_done = True
+                        self._dynamic_registered = False
+                        self._dynamic_registered_samples = 0
+                        logger.bind(tag=TAG).info(
+                            "dynamic voiceprint cleanup finished: "
+                            f"speaker_id={self.dynamic_master_speaker_id}, "
+                            f"session={session_id}, http={response.status}, "
+                            f"elapsed={elapsed:.3f}s"
+                        )
+                        return True
+
+                    body = await response.text()
+                    logger.bind(tag=TAG).error(
+                        "dynamic voiceprint cleanup failed: "
+                        f"speaker_id={self.dynamic_master_speaker_id}, "
+                        f"session={session_id}, http={response.status}, "
+                        f"body={body[:200]}"
+                    )
+                    return False
+        except asyncio.TimeoutError:
+            logger.bind(tag=TAG).error(
+                "dynamic voiceprint cleanup timeout: "
+                f"speaker_id={self.dynamic_master_speaker_id}, session={session_id}"
+            )
+            return False
+        except Exception as e:
+            logger.bind(tag=TAG).error(
+                "dynamic voiceprint cleanup exception: "
+                f"speaker_id={self.dynamic_master_speaker_id}, session={session_id}, error={e}"
+            )
+            return False
 
     async def _identify_by_speaker_ids_quiet(
         self, audio_data: bytes, speaker_ids: list

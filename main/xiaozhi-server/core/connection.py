@@ -1763,6 +1763,17 @@ class ConnectionHandler:
                         f"清理工具处理器时出错: {cleanup_error}"
                     )
 
+            # 只清理当前连接自己创建的动态声纹，避免误删其他设备或仍在使用中的会话。
+            if getattr(self, "voiceprint_provider", None):
+                try:
+                    await self.voiceprint_provider.cleanup_dynamic_voiceprint(
+                        self.session_id
+                    )
+                except Exception as voiceprint_cleanup_error:
+                    self.logger.bind(tag=TAG).error(
+                        f"清理当前连接声纹时出错: {voiceprint_cleanup_error}"
+                    )
+
             # 触发停止事件
             if self.stop_event:
                 self.stop_event.set()
