@@ -680,7 +680,8 @@ def _experiment_prompt_block(
 class _CodexSession:
     def __init__(self, config: Dict, session_key: str) -> None:
         self.session_key = session_key
-        self.codex_bin = config.get("codex_bin", "codex.cmd")
+        self.codex_bin_configured = str(config.get("codex_bin", "codex.cmd")).strip()
+        self.codex_bin = self._resolve_codex_bin(self.codex_bin_configured)
         self.model = config.get("model_name") or config.get("model") or "gpt-5.2"
         self.workspace = str(Path(config.get("workspace", os.getcwd())).resolve())
         self.auto_approve = bool(config.get("auto_approve", True))
@@ -742,6 +743,76 @@ class _CodexSession:
         self._restart_required = False
         self._restart_reason: Optional[str] = None
         self._lock = threading.Lock()
+
+    @staticmethod
+    def _looks_like_filesystem_path(path_text: str) -> bool:
+        text = str(path_text or "").strip()
+        return bool(text) and (
+            os.path.isabs(text)
+            or "/" in text
+            or "\\" in text
+            or text.startswith("~")
+        )
+
+    @classmethod
+    def _resolve_codex_bin(cls, configured_bin: str) -> str:
+        raw = str(configured_bin or "").strip() or "codex.cmd"
+        if not cls._looks_like_filesystem_path(raw):
+            return raw
+
+        configured_path = Path(raw).expanduser()
+        if configured_path.exists():
+            return str(configured_path)
+
+        matched_candidate = cls._discover_vscode_extension_codex_bin(configured_path)
+        if matched_candidate:
+            logger.bind(tag=TAG).warning(
+                "configured codex_bin was missing; auto-discovered a newer VS Code extension binary: "
+                f"configured={configured_path}, resolved={matched_candidate}"
+            )
+            return matched_candidate
+
+        return str(configured_path)
+
+    @staticmethod
+    def _discover_vscode_extension_codex_bin(configured_path: Path) -> str:
+        try:
+            parts = configured_path.parts
+        except Exception:
+            return ""
+
+        try:
+            ext_idx = next(
+                idx for idx, value in enumerate(parts) if str(value).lower() == "extensions"
+            )
+        except StopIteration:
+            return ""
+
+        if ext_idx + 2 >= len(parts):
+            return ""
+
+        extensions_dir = Path(*parts[: ext_idx + 1])
+        configured_extension_dir = parts[ext_idx + 1]
+        relative_suffix = Path(*parts[ext_idx + 2 :])
+        if not str(configured_extension_dir).startswith("openai.chatgpt-"):
+            return ""
+        if not extensions_dir.exists():
+            return ""
+
+        candidate_dirs = sorted(
+            (
+                item
+                for item in extensions_dir.iterdir()
+                if item.is_dir() and item.name.startswith("openai.chatgpt-")
+            ),
+            key=lambda item: item.name,
+            reverse=True,
+        )
+        for candidate_dir in candidate_dirs:
+            candidate_path = candidate_dir / relative_suffix
+            if candidate_path.exists():
+                return str(candidate_path)
+        return ""
 
     def _next_id(self) -> int:
         rid = self._req_id
@@ -821,6 +892,17 @@ class _CodexSession:
         env = os.environ.copy()
         if self.api_key and self.export_api_key and "OPENAI_API_KEY" not in env:
             env["OPENAI_API_KEY"] = self.api_key
+        if not Path(self.workspace).exists():
+            raise FileNotFoundError(
+                f"Codex workspace not found: {self.workspace}"
+            )
+        if self._looks_like_filesystem_path(self.codex_bin) and not Path(
+            self.codex_bin
+        ).expanduser().exists():
+            raise FileNotFoundError(
+                "Codex binary not found. "
+                f"configured={self.codex_bin_configured}, resolved={self.codex_bin}"
+            )
         codex_bin_dir = str(Path(self.codex_bin).expanduser().resolve().parent)
         if codex_bin_dir and Path(codex_bin_dir).exists():
             env["PATH"] = codex_bin_dir + os.pathsep + env.get("PATH", "")

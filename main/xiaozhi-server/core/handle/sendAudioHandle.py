@@ -13,6 +13,25 @@ AUDIO_FRAME_DURATION = 60
 PRE_BUFFER_COUNT = 5
 
 
+def _resolve_tts_stop_buffer_ms(conn, frame_duration_ms):
+    default_extra_ms = max((PRE_BUFFER_COUNT + 2) * frame_duration_ms, 360)
+
+    raw_extra_ms = conn.config.get("tts_stop_extra_buffer_ms", default_extra_ms)
+    try:
+        requested_extra_ms = max(0, int(raw_extra_ms))
+    except (TypeError, ValueError):
+        requested_extra_ms = default_extra_ms
+
+    raw_min_buffer_ms = conn.config.get("tts_stop_min_buffer_ms", 240)
+    try:
+        min_buffer_ms = max(0, int(raw_min_buffer_ms))
+    except (TypeError, ValueError):
+        min_buffer_ms = 240
+
+    effective_extra_ms = max(requested_extra_ms, min_buffer_ms)
+    return requested_extra_ms, min_buffer_ms, effective_extra_ms
+
+
 def _get_open_websocket(conn):
     ws = getattr(conn, "websocket", None)
     if ws is None:
@@ -137,19 +156,18 @@ async def _wait_for_audio_completion(conn):
         scheduled_audio_ms = packet_count * frame_duration_ms
         remaining_ms = max(scheduled_audio_ms - elapsed_ms, 0)
 
-    extra_buffer_ms = int(
-        conn.config.get(
-            "tts_stop_extra_buffer_ms",
-            max((PRE_BUFFER_COUNT + 2) * frame_duration_ms, 360),
-        )
+    requested_extra_ms, min_buffer_ms, effective_extra_ms = (
+        _resolve_tts_stop_buffer_ms(conn, frame_duration_ms)
     )
-    total_wait_ms = remaining_ms + extra_buffer_ms
+    total_wait_ms = remaining_ms + effective_extra_ms
     conn.logger.bind(tag=TAG).info(
         "tts stop wait: "
         f"packet_count={packet_count}, "
         f"frame_duration_ms={frame_duration_ms}, "
         f"remaining_ms={remaining_ms:.0f}, "
-        f"extra_buffer_ms={extra_buffer_ms}, "
+        f"requested_extra_ms={requested_extra_ms}, "
+        f"min_buffer_ms={min_buffer_ms}, "
+        f"effective_extra_ms={effective_extra_ms}, "
         f"total_wait_ms={total_wait_ms:.0f}"
     )
     if total_wait_ms > 0:

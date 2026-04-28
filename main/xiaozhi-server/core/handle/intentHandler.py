@@ -51,6 +51,11 @@ async def handle_user_intent(conn, text):
     if await handle_direct_photo_intent(conn, text, filtered_text):
         return True
 
+    # Fast path: short experiment control utterances go directly to
+    # experiment flow handling instead of a full Codex turn.
+    if await handle_experiment_control_fast_intent(conn, text, filtered_text):
+        return True
+
     if conn.intent_type == "function_call":
         # 使用支持function calling的聊天方法,不再进行意图分析
         return False
@@ -106,6 +111,10 @@ def _starts_with_any(text: str, words) -> bool:
     return any(text.startswith(w) for w in words)
 
 
+def _ends_with_any(text: str, words) -> bool:
+    return any(text.endswith(w) for w in words)
+
+
 def _looks_like_question_reply(text: str) -> bool:
     if not text:
         return False
@@ -122,6 +131,704 @@ def _looks_like_question_reply(text: str) -> bool:
         "如何",
     )
     return _contains_any(text, question_tokens)
+
+
+def _experiment_result_body(payload):
+    if isinstance(payload, dict):
+        nested = payload.get("result")
+        if isinstance(nested, dict):
+            return nested
+        return payload
+    return {}
+
+
+def _extract_experiment_result_message(payload) -> str:
+    body = _experiment_result_body(payload)
+    return str(body.get("message", "")).strip()
+
+
+def _extract_experiment_step_meta(payload) -> dict:
+    body = _experiment_result_body(payload)
+    meta = {
+        "step_id": "",
+        "title": "",
+        "instruction": "",
+        "description": "",
+        "safety": "",
+        "tip": "",
+    }
+
+    step = body.get("step")
+    if isinstance(step, dict):
+        meta["step_id"] = str(step.get("id", "")).strip()
+        meta["title"] = str(step.get("title", "")).strip()
+        meta["description"] = str(step.get("description", "")).strip()
+        prompts = step.get("prompts")
+        if isinstance(prompts, dict):
+            meta["instruction"] = str(prompts.get("instruction", "")).strip()
+            safety = prompts.get("safety")
+            if isinstance(safety, list):
+                meta["safety"] = str(safety[0] or "").strip() if safety else ""
+            elif isinstance(safety, str):
+                meta["safety"] = safety.strip()
+            tips = prompts.get("tips")
+            if isinstance(tips, list):
+                meta["tip"] = str(tips[0] or "").strip() if tips else ""
+            elif isinstance(tips, str):
+                meta["tip"] = tips.strip()
+
+    summary = body.get("summary")
+    if isinstance(summary, dict):
+        current_step = summary.get("current_step")
+        if isinstance(current_step, dict):
+            if not meta["step_id"]:
+                meta["step_id"] = str(current_step.get("step_id", "")).strip()
+            if not meta["title"]:
+                meta["title"] = str(current_step.get("title", "")).strip()
+        current_details = summary.get("current_step_details")
+        if isinstance(current_details, dict):
+            if not meta["title"]:
+                meta["title"] = str(current_details.get("title", "")).strip()
+            if not meta["description"]:
+                meta["description"] = str(
+                    current_details.get("description", "")
+                ).strip()
+            if not meta["instruction"]:
+                meta["instruction"] = str(
+                    current_details.get("instruction", "")
+                ).strip()
+            tips = current_details.get("tips")
+            if not meta["tip"]:
+                if isinstance(tips, list):
+                    meta["tip"] = str(tips[0] or "").strip() if tips else ""
+                elif isinstance(tips, str):
+                    meta["tip"] = tips.strip()
+    return meta
+
+
+def _merge_experiment_step_meta(primary: dict, fallback: dict) -> dict:
+    merged = dict(fallback or {})
+    for key, value in (primary or {}).items():
+        if value:
+            merged[key] = value
+    return merged
+
+
+def _get_cached_experiment_step_meta(conn) -> dict:
+    primary = _extract_experiment_step_meta(getattr(conn, "experiment_current_step", None))
+    fallback = _extract_experiment_step_meta(
+        getattr(conn, "experiment_progress_summary", None)
+    )
+    return _merge_experiment_step_meta(primary, fallback)
+
+
+def _extract_experiment_current_progress(payload):
+    body = _experiment_result_body(payload)
+    progress = body.get("current_progress")
+    if isinstance(progress, dict):
+        return progress
+    progress = body.get("progress")
+    if isinstance(progress, dict):
+        return progress
+    step = body.get("step")
+    if isinstance(step, dict):
+        nested = step.get("current_progress")
+        if isinstance(nested, dict):
+            return nested
+    return None
+
+
+def _extract_experiment_schema_view(payload) -> dict:
+    body = _experiment_result_body(payload)
+    schema_view = body.get("schema_view")
+    result = {}
+    if isinstance(schema_view, list):
+        for item in schema_view:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name", "")).strip()
+            if name:
+                result[name] = item
+    return result
+
+
+def _clean_field_description(text: str) -> str:
+    value = " ".join(str(text or "").split()).strip()
+    value = re.sub(r"^[已请需]+", "", value)
+    value = value.replace("是否", "")
+    return value.strip("，。；;: ")
+
+
+def _format_missing_field_prompts(missing_fields, schema_by_name: dict) -> list:
+    prompts = []
+    for field_name in missing_fields or []:
+        field = schema_by_name.get(field_name, {})
+        description = _clean_field_description(field.get("description", ""))
+        if not description:
+            description = str(field_name or "").replace("_", " ").strip()
+        if description:
+            prompts.append(description)
+    return prompts
+
+
+def _compose_missing_field_reply(missing_fields, schema_by_name: dict) -> str:
+    prompts = _format_missing_field_prompts(missing_fields, schema_by_name)
+    if not prompts:
+        return "继续前还差这一步的关键信息，你补一句当前结果就行。"
+    if len(prompts) > 3:
+        return "继续前还差这一步的一整组关键记录。你把当前这一步要记录的数据按顺序告诉我就行。"
+    if len(prompts) == 1:
+        return f"继续前还差这一步的一个确认：{prompts[0]}。你补一句这个就行。"
+    if len(prompts) == 2:
+        joined = f"{prompts[0]}，还有 {prompts[1]}"
+    else:
+        joined = "、".join(prompts[:3])
+    return f"继续前还差这几个确认：{joined}。你补一句这几个结果就行。"
+
+
+def _first_nonempty_text(*values) -> str:
+    for value in values:
+        text = " ".join(str(value or "").split()).strip()
+        if text:
+            return text
+    return ""
+
+
+def _compose_experiment_step_reply(step_meta: dict, mode: str = "guide") -> str:
+    title = _first_nonempty_text(step_meta.get("title", ""))
+    instruction = _first_nonempty_text(
+        step_meta.get("instruction", ""),
+        step_meta.get("description", ""),
+        title,
+    )
+    safety = _first_nonempty_text(step_meta.get("safety", ""))
+    tip = _first_nonempty_text(step_meta.get("tip", ""))
+
+    if not instruction:
+        return ""
+
+    if title and title not in instruction:
+        core = f"{title}。{instruction}"
+    else:
+        core = instruction
+
+    if mode == "repeat":
+        parts = [f"我再简短说一遍：{core}。"]
+        if safety:
+            parts.append(f"注意{safety}。")
+        return "".join(parts)
+
+    if mode == "next":
+        parts = [f"接下来做这一步：{core}。"]
+    else:
+        parts = [f"现在做这一步：{core}。"]
+
+    if safety:
+        parts.append(f"注意{safety}。")
+    elif tip:
+        parts.append(f"{tip}。")
+    parts.append("做好后告诉我。")
+    return "".join(parts)
+
+
+def _looks_like_experiment_detail_request(norm: str) -> bool:
+    if not norm:
+        return False
+    detail_tokens = (
+        "为什么",
+        "原理",
+        "依据",
+        "详细",
+        "注意事项",
+        "多少",
+        "浓度",
+        "体积",
+        "怎么配",
+        "怎么算",
+        "公式",
+        "字段",
+        "schema",
+        "参考",
+        "后面所有",
+        "全部步骤",
+        "整个实验",
+        "完整流程",
+    )
+    return _contains_any(norm, detail_tokens)
+
+
+def _assistant_waiting_for_step_completion(conn) -> bool:
+    last_text = _normalize_text_for_match(_get_last_assistant_text(conn))
+    if not last_text:
+        return False
+    tokens = (
+        "做好后告诉我",
+        "做好告诉我",
+        "做完告诉我",
+        "完成后告诉我",
+        "完成了告诉我",
+        "做完了告诉我",
+        "测完告诉我",
+        "扫完告诉我",
+        "结束后告诉我",
+    )
+    return _contains_any(last_text, tokens)
+
+
+def _assistant_waiting_for_step_start(conn) -> bool:
+    last_text = _normalize_text_for_match(_get_last_assistant_text(conn))
+    if not last_text:
+        return False
+    tokens = (
+        "准备好开始了吗",
+        "准备好了吗",
+        "可以开始了吗",
+        "现在开始吗",
+        "要开始了吗",
+        "要不要开始",
+    )
+    return _contains_any(last_text, tokens)
+
+
+def _classify_short_experiment_control(conn, filtered_text: str) -> str:
+    norm = _normalize_text_for_match(filtered_text)
+    if not norm:
+        return ""
+    if len(norm) > 24:
+        return ""
+    if _looks_like_experiment_detail_request(norm):
+        return ""
+
+    clarify_tokens = (
+        "没听懂",
+        "没听清",
+        "再说一遍",
+        "重说一遍",
+        "重新说",
+        "重复一下",
+        "再讲一遍",
+        "再说下",
+        "当前步骤是什么",
+        "这步是什么",
+        "这步怎么做",
+        "什么意思",
+    )
+    if _contains_any(norm, clarify_tokens):
+        return "repeat"
+
+    advance_tokens = (
+        "继续下一步",
+        "下一步",
+        "往下走",
+        "往后走",
+        "做完了",
+        "做好了",
+        "完成了",
+        "已完成",
+        "当前步骤已完成",
+        "这步完成了",
+        "这一步完成了",
+        "都做好了",
+        "都做完了",
+    )
+    if _contains_any(norm, advance_tokens):
+        return "advance"
+
+    ready_tokens = (
+        "准备好了",
+        "我准备好了",
+        "可以开始",
+        "开始吧",
+        "开始",
+        "ready",
+    )
+    if _contains_any(norm, ready_tokens):
+        return "guide"
+
+    neutral_ack_tokens = (
+        "好了",
+        "可以了",
+        "行了",
+        "好啦",
+        "ok了",
+    )
+    if norm in neutral_ack_tokens or _ends_with_any(norm, neutral_ack_tokens):
+        if _assistant_waiting_for_step_completion(conn):
+            return "advance"
+        if _assistant_waiting_for_step_start(conn):
+            return "guide"
+
+    if norm in {"继续", "继续吧"}:
+        return "guide" if _assistant_waiting_for_step_start(conn) else "advance"
+
+    return ""
+
+
+def _is_experiment_fast_path_available(conn) -> bool:
+    if getattr(conn, "experiment_session_id", ""):
+        return True
+    step_meta = _get_cached_experiment_step_meta(conn)
+    return bool(step_meta.get("instruction") or step_meta.get("title"))
+
+
+async def _call_experiment_graph_tool_fast(
+    conn,
+    tool_name: str,
+    arguments: dict,
+    *,
+    priority: str = "foreground",
+):
+    if hasattr(conn, "_call_experiment_graph_tool"):
+        return await conn._call_experiment_graph_tool(
+            tool_name,
+            arguments,
+            priority=priority,
+        )
+    raw_result = await _execute_server_mcp_tool_direct(conn, tool_name, arguments)
+    return _extract_server_mcp_payload(raw_result)
+
+
+async def _load_experiment_step_meta(conn) -> dict:
+    step_meta = _get_cached_experiment_step_meta(conn)
+    if step_meta.get("instruction") or step_meta.get("title"):
+        return step_meta
+
+    session_id = str(getattr(conn, "experiment_session_id", "") or "").strip()
+    if not session_id:
+        return step_meta
+
+    try:
+        step_payload, progress_payload = await asyncio.gather(
+            _call_experiment_graph_tool_fast(
+                conn,
+                "get_step",
+                {"session_id": session_id},
+                priority="foreground",
+            ),
+            _call_experiment_graph_tool_fast(
+                conn,
+                "get_progress_summary",
+                {"session_id": session_id},
+                priority="foreground",
+            ),
+        )
+    except Exception:
+        return step_meta
+
+    conn.experiment_current_step = step_payload
+    conn.experiment_progress_summary = progress_payload
+    loaded_meta = _merge_experiment_step_meta(
+        _extract_experiment_step_meta(step_payload),
+        _extract_experiment_step_meta(progress_payload),
+    )
+    if hasattr(conn, "_extract_experiment_current_step_id"):
+        current_step_id = conn._extract_experiment_current_step_id(
+            step_payload,
+            progress_payload,
+        )
+        if current_step_id:
+            conn.experiment_current_step_id = current_step_id
+    return loaded_meta
+
+
+async def _refresh_experiment_step_cache(conn, session_id: str):
+    if not session_id:
+        return {}
+    step_payload, progress_payload = await asyncio.gather(
+        _call_experiment_graph_tool_fast(
+            conn,
+            "get_step",
+            {"session_id": session_id},
+            priority="foreground",
+        ),
+        _call_experiment_graph_tool_fast(
+            conn,
+            "get_progress_summary",
+            {"session_id": session_id},
+            priority="foreground",
+        ),
+    )
+    conn.experiment_current_step = step_payload
+    conn.experiment_progress_summary = progress_payload
+    if hasattr(conn, "_extract_experiment_current_step_id"):
+        current_step_id = conn._extract_experiment_current_step_id(
+            step_payload,
+            progress_payload,
+        )
+        if current_step_id:
+            conn.experiment_current_step_id = current_step_id
+    return _merge_experiment_step_meta(
+        _extract_experiment_step_meta(step_payload),
+        _extract_experiment_step_meta(progress_payload),
+    )
+
+
+def _build_experiment_autofill_fields(schema_by_name: dict, missing_fields) -> dict:
+    autofill = {}
+    unsafe_tokens = (
+        "photo",
+        "图片",
+        "照片",
+        "拍照",
+        "颜色",
+        "现象",
+        "观察",
+        "observed",
+        "tyndall",
+        "吸光",
+        "absorbance",
+        "波长",
+        "wavelength",
+        "lambda",
+        "kinetics",
+        "rate",
+        "constant",
+        "csv",
+        "file",
+        "path",
+        "task",
+        "导出",
+        "报告",
+        "pdf",
+    )
+    safe_name_tokens = (
+        "added",
+        "loaded",
+        "cleaned",
+        "prepared",
+        "confirmed",
+        "mixed",
+        "started",
+        "ready",
+        "placed",
+        "labeled",
+        "stir",
+        "returned",
+        "completed",
+        "setup",
+    )
+    safe_desc_tokens = (
+        "已",
+        "完成",
+        "确认",
+        "准备好",
+        "就位",
+        "清洗",
+        "混合均匀",
+        "加入",
+        "启动",
+    )
+
+    for field_name in missing_fields or []:
+        field = schema_by_name.get(field_name, {})
+        type_text = str(field.get("type", "")).strip().lower()
+        if type_text not in {"bool", "boolean"}:
+            continue
+
+        description = str(field.get("description", "")).strip()
+        haystack = f"{field_name} {description}".lower()
+        if _contains_any(haystack, unsafe_tokens):
+            continue
+
+        if not _contains_any(haystack, safe_name_tokens) and not _contains_any(
+            description,
+            safe_desc_tokens,
+        ):
+            continue
+
+        autofill[field_name] = True
+    return autofill
+
+
+async def _start_direct_intent_turn(conn, original_text: str):
+    await send_stt_message(conn, original_text)
+    conn.client_abort = False
+    conn.sentence_id = str(uuid.uuid4().hex)
+    conn.dialogue.put(Message(role="user", content=original_text))
+
+
+async def _advance_experiment_step_fast(conn, session_id: str) -> str:
+    step_payload, progress_payload, schema_payload, can_proceed_payload = await asyncio.gather(
+        _call_experiment_graph_tool_fast(
+            conn,
+            "get_step",
+            {"session_id": session_id},
+            priority="foreground",
+        ),
+        _call_experiment_graph_tool_fast(
+            conn,
+            "get_current_progress",
+            {"session_id": session_id},
+            priority="foreground",
+        ),
+        _call_experiment_graph_tool_fast(
+            conn,
+            "get_schema",
+            {"session_id": session_id},
+            priority="foreground",
+        ),
+        _call_experiment_graph_tool_fast(
+            conn,
+            "can_proceed",
+            {"session_id": session_id},
+            priority="foreground",
+        ),
+    )
+
+    conn.experiment_current_step = step_payload
+    if hasattr(conn, "_extract_experiment_current_step_id"):
+        current_step_id = conn._extract_experiment_current_step_id(step_payload)
+        if current_step_id:
+            conn.experiment_current_step_id = current_step_id
+
+    step_meta = _merge_experiment_step_meta(
+        _extract_experiment_step_meta(step_payload),
+        _extract_experiment_step_meta(getattr(conn, "experiment_progress_summary", None)),
+    )
+    schema_by_name = _extract_experiment_schema_view(schema_payload)
+
+    if bool(_experiment_result_body(can_proceed_payload).get("ok")):
+        proceed_payload = await _call_experiment_graph_tool_fast(
+            conn,
+            "proceed_to_next_step",
+            {"session_id": session_id},
+            priority="foreground",
+        )
+        if bool(_experiment_result_body(proceed_payload).get("ok")):
+            next_meta = await _refresh_experiment_step_cache(conn, session_id)
+            reply = _compose_experiment_step_reply(next_meta, mode="next")
+            if reply:
+                return reply
+            return "好，这一步结束了，接着按当前下一步继续做，做好后告诉我。"
+
+    current_progress = _extract_experiment_current_progress(progress_payload)
+    if current_progress is None:
+        start_payload = await _call_experiment_graph_tool_fast(
+            conn,
+            "start_trial",
+            {"session_id": session_id},
+            priority="foreground",
+        )
+        current_progress = _extract_experiment_current_progress(start_payload)
+
+    missing_fields = list((current_progress or {}).get("missing_fields") or [])
+    autofill_fields = _build_experiment_autofill_fields(schema_by_name, missing_fields)
+    if autofill_fields:
+        add_fields_payload = await _call_experiment_graph_tool_fast(
+            conn,
+            "add_fields",
+            {"session_id": session_id, "data": autofill_fields},
+            priority="foreground",
+        )
+        updated_progress = _extract_experiment_current_progress(add_fields_payload)
+        if isinstance(updated_progress, dict):
+            current_progress = updated_progress
+        missing_fields = list((current_progress or {}).get("missing_fields") or [])
+
+    if missing_fields:
+        return _compose_missing_field_reply(missing_fields, schema_by_name)
+
+    finish_payload = await _call_experiment_graph_tool_fast(
+        conn,
+        "finish_trial",
+        {"session_id": session_id, "validate": True},
+        priority="foreground",
+    )
+    if not bool(_experiment_result_body(finish_payload).get("ok")):
+        message = _extract_experiment_result_message(finish_payload)
+        if message:
+            return message
+        return _compose_experiment_step_reply(step_meta, mode="guide")
+
+    can_proceed_payload = await _call_experiment_graph_tool_fast(
+        conn,
+        "can_proceed",
+        {"session_id": session_id},
+        priority="foreground",
+    )
+    if not bool(_experiment_result_body(can_proceed_payload).get("ok")):
+        message = _extract_experiment_result_message(can_proceed_payload)
+        if message:
+            return message
+        return _compose_experiment_step_reply(step_meta, mode="guide")
+
+    proceed_payload = await _call_experiment_graph_tool_fast(
+        conn,
+        "proceed_to_next_step",
+        {"session_id": session_id},
+        priority="foreground",
+    )
+    if not bool(_experiment_result_body(proceed_payload).get("ok")):
+        message = _extract_experiment_result_message(proceed_payload)
+        if message:
+            return message
+        return _compose_experiment_step_reply(step_meta, mode="guide")
+
+    next_meta = await _refresh_experiment_step_cache(conn, session_id)
+    reply = _compose_experiment_step_reply(next_meta, mode="next")
+    if reply:
+        return reply
+    return "好，这一步结束了，接着按当前下一步继续做，做好后告诉我。"
+
+
+async def handle_experiment_control_fast_intent(
+    conn, original_text: str, filtered_text: str
+) -> bool:
+    if not _is_experiment_fast_path_available(conn):
+        return False
+
+    action = _classify_short_experiment_control(conn, filtered_text)
+    if not action:
+        return False
+
+    conn.logger.bind(tag=TAG).info(
+        f"experiment control fast path hit: action={action}, text={filtered_text}"
+    )
+
+    if action in {"guide", "repeat"}:
+        step_meta = await _load_experiment_step_meta(conn)
+        reply = _compose_experiment_step_reply(
+            step_meta,
+            mode="repeat" if action == "repeat" else "guide",
+        )
+        if not reply:
+            return False
+        await _start_direct_intent_turn(conn, original_text)
+        speak_txt(conn, reply)
+        return True
+
+    if action == "advance":
+        session_id = str(getattr(conn, "experiment_session_id", "") or "").strip()
+        if not session_id:
+            step_meta = await _load_experiment_step_meta(conn)
+            reply = _compose_experiment_step_reply(step_meta, mode="guide")
+            if not reply:
+                return False
+            await _start_direct_intent_turn(conn, original_text)
+            speak_txt(conn, reply)
+            return True
+
+        try:
+            reply = await _advance_experiment_step_fast(conn, session_id)
+        except Exception as exc:
+            conn.logger.bind(tag=TAG).warning(
+                f"experiment control fast advance failed: {exc}"
+            )
+            return False
+
+        if not reply:
+            return False
+
+        await _start_direct_intent_turn(conn, original_text)
+        if hasattr(conn, "enrich_latest_clean_user_utterance_snapshot"):
+            try:
+                conn.enrich_latest_clean_user_utterance_snapshot()
+            except Exception:
+                pass
+        speak_txt(conn, reply)
+        return True
+
+    return False
 
 
 def _is_direct_photo_command(filtered_text: str) -> bool:
@@ -876,6 +1583,26 @@ def _build_pending_server_photo_request_fixed(conn) -> dict:
     return request
 
 
+def _resolve_photo_confirm_delay_seconds(conn) -> float:
+    shortcut_cfg = conn.config.get("device_mcp_shortcuts", {}) or {}
+    raw_value = shortcut_cfg.get("photo_confirm_delay_seconds", 3.0)
+    try:
+        return max(0.0, float(raw_value))
+    except (TypeError, ValueError):
+        return 3.0
+
+
+async def _maybe_wait_before_photo_capture(conn, source: str) -> None:
+    delay_seconds = _resolve_photo_confirm_delay_seconds(conn)
+    if delay_seconds <= 0:
+        return
+    conn.logger.bind(tag=TAG).info(
+        "photo capture confirm delay: "
+        f"source={source}, delay_seconds={delay_seconds:.2f}"
+    )
+    await asyncio.sleep(delay_seconds)
+
+
 def _update_server_photo_confirmation_state(conn, filtered_text: str) -> None:
     if not _assistant_is_waiting_for_photo_permission_fixed(conn):
         return
@@ -1000,6 +1727,7 @@ async def handle_pending_direct_photo_confirmation(
     conn.sentence_id = str(uuid.uuid4().hex)
     conn.dialogue.put(Message(role="user", content=original_text))
     conn._pending_direct_photo = None
+    await _maybe_wait_before_photo_capture(conn, "direct_photo_confirmation")
     return await _execute_direct_photo_intent(
         conn,
         pending.get("question", "\u63cf\u8ff0\u4e00\u4e0b\u770b\u5230\u7684\u7269\u54c1"),
@@ -1034,6 +1762,7 @@ async def handle_pending_server_photo_confirmation(
     conn.sentence_id = str(uuid.uuid4().hex)
     conn.dialogue.put(Message(role="user", content=original_text))
     conn.logger.bind(tag=TAG).info("confirmed pending server photo capture, executing xiaozhi_take_photo directly")
+    await _maybe_wait_before_photo_capture(conn, "server_photo_confirmation")
     return await _execute_server_photo_intent(
         conn,
         _build_pending_server_photo_request_fixed(conn),
