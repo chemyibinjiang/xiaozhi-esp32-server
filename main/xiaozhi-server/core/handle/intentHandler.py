@@ -115,6 +115,10 @@ def _ends_with_any(text: str, words) -> bool:
     return any(text.endswith(w) for w in words)
 
 
+def _matches_any_pattern(text: str, patterns) -> bool:
+    return any(pattern.fullmatch(text) for pattern in patterns)
+
+
 def _looks_like_question_reply(text: str) -> bool:
     if not text:
         return False
@@ -358,7 +362,7 @@ def _looks_like_experiment_detail_request(norm: str) -> bool:
 
 
 def _assistant_waiting_for_step_completion(conn) -> bool:
-    last_text = _normalize_text_for_match(_get_last_assistant_text(conn))
+    last_text = _normalize_text_for_match(_get_recent_assistant_text(conn, limit=3))
     if not last_text:
         return False
     tokens = (
@@ -371,12 +375,36 @@ def _assistant_waiting_for_step_completion(conn) -> bool:
         "测完告诉我",
         "扫完告诉我",
         "结束后告诉我",
+        "加完告诉我",
+        "加好了告诉我",
+        "拍完告诉我",
+        "拍好了告诉我",
+        "看完告诉我",
+        "观察完告诉我",
+        "记录完告诉我",
     )
-    return _contains_any(last_text, tokens)
+    completion_markers = (
+        "做好",
+        "做完",
+        "完成",
+        "测完",
+        "扫完",
+        "结束",
+        "加完",
+        "加好",
+        "拍完",
+        "拍好",
+        "看完",
+        "观察完",
+        "记录完",
+    )
+    return _contains_any(last_text, tokens) or (
+        "告诉我" in last_text and _contains_any(last_text, completion_markers)
+    )
 
 
 def _assistant_waiting_for_step_start(conn) -> bool:
-    last_text = _normalize_text_for_match(_get_last_assistant_text(conn))
+    last_text = _normalize_text_for_match(_get_recent_assistant_text(conn, limit=3))
     if not last_text:
         return False
     tokens = (
@@ -388,6 +416,25 @@ def _assistant_waiting_for_step_start(conn) -> bool:
         "要不要开始",
     )
     return _contains_any(last_text, tokens)
+
+
+PURE_SHORT_COMPLETION_PATTERNS = (
+    re.compile(
+        r"^(?:(?:我|这步|这一步|当前步骤|当前这步|本步|这轮|已经|已|都|就|现在|目前|刚刚|这里|这边|样品)){0,3}"
+        r"(?:加|装|配|放|做|弄|拍|扫|看|测|量|记|写|填|观察|确认|核对|处理|准备|调|搅拌|滴加|记录|补记)?"
+        r"(?:好|完|成)(?:了|啦)$"
+    ),
+    re.compile(
+        r"^(?:(?:我|这步|这一步|当前步骤|当前这步|本步|这轮|已经|已|都|就|现在|目前|刚刚|这里|这边|样品)){0,3}"
+        r"(?:搞定|结束|齐活|妥)(?:了|啦)?$"
+    ),
+)
+
+
+def _looks_like_pure_short_completion_control(norm: str) -> bool:
+    if not norm or len(norm) > 18:
+        return False
+    return _matches_any_pattern(norm, PURE_SHORT_COMPLETION_PATTERNS)
 
 
 def _classify_short_experiment_control(conn, filtered_text: str) -> str:
@@ -432,6 +479,11 @@ def _classify_short_experiment_control(conn, filtered_text: str) -> str:
         "都做完了",
     )
     if _contains_any(norm, advance_tokens):
+        return "advance"
+
+    if _assistant_waiting_for_step_completion(conn) and _looks_like_pure_short_completion_control(
+        norm
+    ):
         return "advance"
 
     ready_tokens = (
@@ -638,6 +690,165 @@ def _build_experiment_autofill_fields(schema_by_name: dict, missing_fields) -> d
 
         autofill[field_name] = True
     return autofill
+
+
+def _build_experiment_photo_writeback_fields(schema_by_name: dict, photo_meta: dict) -> dict:
+    result = {}
+    if "photo_taken" in schema_by_name:
+        result["photo_taken"] = True
+    if "color_confirmed_by_photo" in schema_by_name:
+        result["color_confirmed_by_photo"] = True
+
+    file_name = str(photo_meta.get("file_name", "") or "").strip()
+    photo_path = str(photo_meta.get("photo_path", "") or "").strip()
+    if file_name and "photo_file_name" in schema_by_name:
+        result["photo_file_name"] = file_name
+    if photo_path and "photo_path" in schema_by_name:
+        result["photo_path"] = photo_path
+    return result
+
+
+def _step_meta_looks_like_photo_confirmation(step_meta: dict) -> bool:
+    haystack = _normalize_text_for_match(
+        " ".join(
+            str(
+                step_meta.get(key, "")
+                or ""
+            ).strip()
+            for key in ("title", "instruction", "description", "tip")
+        )
+    )
+    if not haystack:
+        return False
+    return _contains_any(haystack, ("拍照", "照片", "拍一下", "拍一张", "拍摄"))
+
+
+async def _advance_photo_confirmation_step_locally(
+    conn,
+    payload,
+    fallback_reply: str = "",
+) -> str:
+    session_id = str(getattr(conn, "experiment_session_id", "") or "").strip()
+    if not session_id:
+        return fallback_reply or "拍好了。"
+
+    step_payload, progress_payload, schema_payload = await asyncio.gather(
+        _call_experiment_graph_tool_fast(
+            conn,
+            "get_step",
+            {"session_id": session_id},
+            priority="foreground",
+        ),
+        _call_experiment_graph_tool_fast(
+            conn,
+            "get_current_progress",
+            {"session_id": session_id},
+            priority="foreground",
+        ),
+        _call_experiment_graph_tool_fast(
+            conn,
+            "get_schema",
+            {"session_id": session_id},
+            priority="foreground",
+        ),
+    )
+
+    conn.experiment_current_step = step_payload
+    if hasattr(conn, "_extract_experiment_current_step_id"):
+        current_step_id = conn._extract_experiment_current_step_id(step_payload)
+        if current_step_id:
+            conn.experiment_current_step_id = current_step_id
+
+    step_meta = _merge_experiment_step_meta(
+        _extract_experiment_step_meta(step_payload),
+        _extract_experiment_step_meta(getattr(conn, "experiment_progress_summary", None)),
+    )
+    current_progress = _extract_experiment_current_progress(progress_payload)
+    if current_progress is None:
+        start_payload = await _call_experiment_graph_tool_fast(
+            conn,
+            "start_trial",
+            {"session_id": session_id},
+            priority="foreground",
+        )
+        current_progress = _extract_experiment_current_progress(start_payload)
+
+    schema_by_name = _extract_experiment_schema_view(schema_payload)
+    photo_meta = _extract_photo_result_meta(payload)
+    photo_fields = _build_experiment_photo_writeback_fields(schema_by_name, photo_meta)
+    missing_fields = list((current_progress or {}).get("missing_fields") or [])
+    photo_related_fields = {
+        "photo_taken",
+        "color_confirmed_by_photo",
+        "photo_file_name",
+        "photo_path",
+    }
+    is_photo_confirmation_step = _step_meta_looks_like_photo_confirmation(step_meta) or (
+        bool(schema_by_name)
+        and any(name in schema_by_name for name in photo_related_fields)
+    ) or any(name in photo_related_fields for name in missing_fields)
+    if not is_photo_confirmation_step:
+        return fallback_reply or "拍好了。"
+
+    if photo_fields:
+        add_fields_payload = await _call_experiment_graph_tool_fast(
+            conn,
+            "add_fields",
+            {"session_id": session_id, "data": photo_fields},
+            priority="foreground",
+        )
+        updated_progress = _extract_experiment_current_progress(add_fields_payload)
+        if isinstance(updated_progress, dict):
+            current_progress = updated_progress
+        missing_fields = list((current_progress or {}).get("missing_fields") or [])
+
+    if missing_fields:
+        return _compose_missing_field_reply(missing_fields, schema_by_name)
+
+    finish_payload = await _call_experiment_graph_tool_fast(
+        conn,
+        "finish_trial",
+        {"session_id": session_id, "validate": True},
+        priority="foreground",
+    )
+    if not bool(_experiment_result_body(finish_payload).get("ok")):
+        message = _extract_experiment_result_message(finish_payload)
+        if message:
+            return message
+        reply = _compose_experiment_step_reply(step_meta, mode="guide")
+        return reply or fallback_reply or "拍好了。"
+
+    can_proceed_payload = await _call_experiment_graph_tool_fast(
+        conn,
+        "can_proceed",
+        {"session_id": session_id},
+        priority="foreground",
+    )
+    if not bool(_experiment_result_body(can_proceed_payload).get("ok")):
+        message = _extract_experiment_result_message(can_proceed_payload)
+        if message:
+            return message
+        reply = _compose_experiment_step_reply(step_meta, mode="guide")
+        return reply or fallback_reply or "拍好了。"
+
+    proceed_payload = await _call_experiment_graph_tool_fast(
+        conn,
+        "proceed_to_next_step",
+        {"session_id": session_id},
+        priority="foreground",
+    )
+    if not bool(_experiment_result_body(proceed_payload).get("ok")):
+        message = _extract_experiment_result_message(proceed_payload)
+        if message:
+            return message
+        reply = _compose_experiment_step_reply(step_meta, mode="guide")
+        return reply or fallback_reply or "拍好了。"
+
+    next_meta = await _refresh_experiment_step_cache(conn, session_id)
+    reply = _compose_experiment_step_reply(next_meta, mode="next")
+    if reply:
+        return reply
+    return fallback_reply or "拍照已经完成，继续做当前下一步。"
 
 
 async def _start_direct_intent_turn(conn, original_text: str):
@@ -1070,54 +1281,6 @@ def _extract_photo_result_meta(payload) -> dict:
     }
 
 
-def _build_post_server_photo_followup_query(payload) -> str:
-    meta = _extract_photo_result_meta(payload)
-    details = []
-
-    requested_photo_name = meta.get("requested_photo_name", "")
-    if requested_photo_name:
-        details.append(f"requested_photo_name={requested_photo_name}")
-
-    file_name = meta.get("file_name", "")
-    if file_name:
-        details.append(f"photo_file_name={file_name}")
-
-    photo_path = meta.get("photo_path", "")
-    if photo_path:
-        details.append(f"photo_path={photo_path}")
-
-    if meta.get("found", False):
-        details.append("photo_found=true")
-
-    detail_text = "；".join(details) if details else "未拿到可写回的照片元数据"
-    return (
-        "[系统提示] 当前已经通过 xiaozhi_take_photo 成功拍好照片。"
-        "请继续当前任务；如果当前处于实验拍照确认步骤，优先把拍照结果写回当前步骤，"
-        "至少记录 photo_taken=true 和 color_confirmed_by_photo=true；"
-        "如果下面提供了文件名或路径，也一并写入 photo_file_name 和 photo_path；"
-        "完成当前 trial 校验后，如允许则直接进入下一步。"
-        "面向学生只口播当前下一步操作或基于照片的结论，不要口播后台记录过程。"
-        f"拍照结果：{detail_text}。"
-    )
-
-
-def _run_post_server_photo_followup(conn, payload, fallback_reply: str = "") -> None:
-    query = _build_post_server_photo_followup_query(payload)
-    if not query:
-        if fallback_reply:
-            speak_txt(conn, fallback_reply)
-        return
-
-    try:
-        conn.chat(query)
-    except Exception as exc:
-        conn.logger.bind(tag=TAG).warning(
-            f"post server photo follow-up failed: {exc}"
-        )
-        if fallback_reply:
-            speak_txt(conn, fallback_reply)
-
-
 def _get_server_mcp_manager(conn):
     func_handler = getattr(conn, "func_handler", None)
     if not func_handler:
@@ -1363,6 +1526,25 @@ def _get_last_assistant_text_raw(conn) -> str:
         if isinstance(content, str) and content.strip():
             return content.strip()
     return ""
+
+
+def _get_recent_assistant_text(conn, limit: int = 3) -> str:
+    dialogue_items = getattr(getattr(conn, "dialogue", None), "dialogue", [])
+    texts = []
+    for item in reversed(dialogue_items):
+        if getattr(item, "role", "") != "assistant":
+            continue
+        content = getattr(item, "content", "")
+        if not isinstance(content, str):
+            continue
+        normalized = textUtils.normalize_spoken_text(content)
+        if not normalized:
+            continue
+        texts.append(normalized)
+        if len(texts) >= max(1, int(limit or 1)):
+            break
+    texts.reverse()
+    return " ".join(texts).strip()
 
 
 def _extract_sample_photo_name_fixed(text: str) -> str:
@@ -1699,7 +1881,26 @@ async def _execute_server_photo_intent(conn, arguments: dict) -> bool:
                 reply = f"\u62cd\u597d\u4e86\uff0c\u5df2\u4fdd\u5b58\u4e3a {file_name}"
     if not reply:
         reply = "\u62cd\u597d\u4e86\u3002"
-    await asyncio.to_thread(_run_post_server_photo_followup, conn, payload, reply)
+    try:
+        local_reply = await _advance_photo_confirmation_step_locally(
+            conn,
+            payload,
+            fallback_reply=reply,
+        )
+    except Exception as exc:
+        conn.logger.bind(tag=TAG).warning(
+            f"local server photo follow-up failed: {exc}"
+        )
+        local_reply = reply
+
+    if hasattr(conn, "enrich_latest_clean_user_utterance_snapshot"):
+        try:
+            conn.enrich_latest_clean_user_utterance_snapshot()
+        except Exception:
+            pass
+
+    if local_reply:
+        speak_txt(conn, local_reply)
     return True
 
 
