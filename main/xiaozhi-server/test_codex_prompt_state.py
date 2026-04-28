@@ -75,6 +75,15 @@ class CodexPromptStateTest(unittest.TestCase):
         session._stream_turn = MethodType(fake_stream_turn, session)
         return session
 
+    def _first_prompt_with_experiment_context(self, user_text: str, **kwargs) -> str:
+        session = self._make_session()
+        dialogue = [
+            {"role": "system", "content": "SYS"},
+            {"role": "user", "content": user_text},
+        ]
+        list(session.stream_response(dialogue, **kwargs))
+        return session._captured_prompts[0]["prompt_text"]
+
     def test_first_turn_only_sends_system_prompt_once(self):
         session = self._make_session()
 
@@ -98,6 +107,82 @@ class CodexPromptStateTest(unittest.TestCase):
 
         self.assertEqual("again", session._captured_prompts[1]["prompt_text"])
         self.assertEqual("again", session._captured_prompts[1]["user_text"])
+
+    def test_timeout_without_current_step_uses_operation_template(self):
+        prompt_text = self._first_prompt_with_experiment_context(
+            "\u6211\u73b0\u5728\u4e0b\u4e00\u6b65\u8be5\u505a\u4ec0\u4e48",
+            experiment_prewarm_wait_result="timeout",
+            experiment_prewarm_status="minimal_warming",
+            experiment_prewarm_ready_level="none",
+            experiment_yaml_path="C:/demo/experiments.yaml",
+        )
+        self.assertIn(
+            "Timeout first-turn template: operation or next-step guidance.",
+            prompt_text,
+        )
+        self.assertNotIn("Timeout first-turn template: recording intake.", prompt_text)
+        self.assertNotIn(
+            "Timeout first-turn template: theory or full-workflow request.",
+            prompt_text,
+        )
+
+    def test_timeout_without_current_step_uses_record_template(self):
+        prompt_text = self._first_prompt_with_experiment_context(
+            "\u5e2e\u6211\u8bb0\u5f55\u4e00\u4e0b\u6e29\u5ea628\u5ea6",
+            experiment_prewarm_wait_result="timeout",
+            experiment_prewarm_status="minimal_warming",
+            experiment_prewarm_ready_level="none",
+            experiment_yaml_path="C:/demo/experiments.yaml",
+        )
+        self.assertIn(
+            "Timeout first-turn template: recording intake.",
+            prompt_text,
+        )
+        self.assertIn(
+            "continue directly with the recording flow instead of detouring into theory or later steps.",
+            prompt_text,
+        )
+
+    def test_timeout_without_current_step_uses_theory_template(self):
+        prompt_text = self._first_prompt_with_experiment_context(
+            "\u8bb2\u4e00\u4e0b\u8fd9\u4e00\u6b65\u7684\u53cd\u5e94\u539f\u7406",
+            experiment_prewarm_wait_result="timeout",
+            experiment_prewarm_status="minimal_warming",
+            experiment_prewarm_ready_level="none",
+            experiment_yaml_path="C:/demo/experiments.yaml",
+        )
+        self.assertIn(
+            "Timeout first-turn template: theory or full-workflow request.",
+            prompt_text,
+        )
+        self.assertIn(
+            "ask one short current-state question before expanding.",
+            prompt_text,
+        )
+
+    def test_prompt_includes_deep_prefetch_detail_block(self):
+        prompt_text = self._first_prompt_with_experiment_context(
+            "\u628a\u540e\u7eed\u6b65\u9aa4\u548c\u5b57\u6bb5\u5b9a\u4e49\u8bf4\u4e00\u4e0b",
+            experiment_prewarm_wait_result="ready",
+            experiment_prewarm_status="completed",
+            experiment_prewarm_ready_level="completed",
+            experiment_session_id="exp-1",
+            experiment_current_step_id="step_prepare",
+            experiment_deep_prefetch_wait_result="ready",
+            experiment_deep_prefetch_status="ready",
+            experiment_deep_prefetch_focus="workflow,schema",
+            experiment_deep_prefetch_query="\u628a\u540e\u7eed\u6b65\u9aa4\u548c\u5b57\u6bb5\u5b9a\u4e49\u8bf4\u4e00\u4e0b",
+            experiment_list_steps_summary='{"tool":"list_steps"}',
+            experiment_schema_summary='{"tool":"get_schema"}',
+        )
+        self.assertIn(
+            "Deep-prefetched experiment detail context from server (trusted):",
+            prompt_text,
+        )
+        self.assertIn(
+            "Use this deep-prefetched detail context first before calling list_steps",
+            prompt_text,
+        )
 
 
 if __name__ == "__main__":
