@@ -474,6 +474,13 @@ def _extract_experiment_overview_title(payload) -> str:
         if value:
             return value
 
+    experiment = body.get("experiment")
+    if isinstance(experiment, dict):
+        for key in ("title", "experiment_title", "name"):
+            value = str(experiment.get(key, "")).strip()
+            if value:
+                return value
+
     overview = body.get("overview")
     if isinstance(overview, dict):
         for key in ("title", "experiment_title", "name"):
@@ -494,9 +501,7 @@ def _compose_experiment_start_reply(experiment_title: str, step_reply: str) -> s
     title = " ".join(str(experiment_title or "").split()).strip()
     reply = " ".join(str(step_reply or "").split()).strip()
     if title:
-        if reply:
-            return f"今天我们做的是{title}。{reply}"
-        return f"今天我们做的是{title}。"
+        return f"今天我们做的是{title}。你准备好开始了吗？"
     return reply
 
 

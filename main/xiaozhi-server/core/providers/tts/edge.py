@@ -1,5 +1,6 @@
 import os
 import uuid
+import asyncio
 import edge_tts
 from datetime import datetime
 from core.providers.tts.base import TTSProviderBase
@@ -13,6 +14,11 @@ class TTSProvider(TTSProviderBase):
         else:
             self.voice = config.get("voice")
         self.audio_file_type = config.get("format", "mp3")
+        timeout_value = config.get("timeout", 15)
+        try:
+            self.timeout = max(1.0, float(timeout_value))
+        except (TypeError, ValueError):
+            self.timeout = 15.0
 
     def generate_filename(self, extension=".mp3"):
         return os.path.join(
@@ -21,7 +27,7 @@ class TTSProvider(TTSProviderBase):
         )
 
     async def text_to_speak(self, text, output_file):
-        try:
+        async def _stream_to_target():
             communicate = edge_tts.Communicate(text, voice=self.voice)
             if output_file:
                 # 确保目录存在并创建空文件
@@ -34,13 +40,18 @@ class TTSProvider(TTSProviderBase):
                     async for chunk in communicate.stream():
                         if chunk["type"] == "audio":  # 只处理音频数据块
                             f.write(chunk["data"])
-            else:
-                # 返回音频二进制数据
-                audio_bytes = b""
-                async for chunk in communicate.stream():
-                    if chunk["type"] == "audio":
-                        audio_bytes += chunk["data"]
-                return audio_bytes
+                return None
+
+            audio_bytes = b""
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio_bytes += chunk["data"]
+            return audio_bytes
+
+        try:
+            return await asyncio.wait_for(_stream_to_target(), timeout=self.timeout)
+        except asyncio.TimeoutError:
+            raise Exception(f"Edge TTS请求超时（>{self.timeout:.1f}s）")
         except Exception as e:
             error_msg = f"Edge TTS请求失败: {e}"
             raise Exception(error_msg)  # 抛出异常，让调用方捕获

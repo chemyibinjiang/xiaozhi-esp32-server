@@ -100,16 +100,49 @@ def initialize_modules(
 
 def initialize_tts(config):
     select_tts_module = config["selected_module"]["TTS"]
+    tts_config = config["TTS"][select_tts_module]
     tts_type = (
         select_tts_module
-        if "type" not in config["TTS"][select_tts_module]
-        else config["TTS"][select_tts_module]["type"]
+        if "type" not in tts_config
+        else tts_config["type"]
     )
     new_tts = tts.create_instance(
         tts_type,
-        config["TTS"][select_tts_module],
+        tts_config,
         str(config.get("delete_audio", True)).lower() in ("true", "1", "yes"),
     )
+
+    fallback_module_name = str(
+        tts_config.get("fallback_module") or tts_config.get("fallback_provider") or ""
+    ).strip()
+    if fallback_module_name:
+        fallback_tts_config = config.get("TTS", {}).get(fallback_module_name)
+        if not fallback_tts_config:
+            logger.bind(tag=TAG).warning(
+                f"TTS备用模块未找到: {fallback_module_name}"
+            )
+            return new_tts
+
+        fallback_tts_type = (
+            fallback_module_name
+            if "type" not in fallback_tts_config
+            else fallback_tts_config["type"]
+        )
+        try:
+            fallback_tts = tts.create_instance(
+                fallback_tts_type,
+                fallback_tts_config,
+                str(config.get("delete_audio", True)).lower() in ("true", "1", "yes"),
+            )
+            if hasattr(new_tts, "set_fallback_provider"):
+                new_tts.set_fallback_provider(fallback_tts, fallback_module_name)
+                logger.bind(tag=TAG).info(
+                    f"TTS备用模块已启用: primary={select_tts_module}, fallback={fallback_module_name}"
+                )
+        except Exception as exc:
+            logger.bind(tag=TAG).warning(
+                f"TTS备用模块初始化失败: {fallback_module_name}, error={exc}"
+            )
     return new_tts
 
 
