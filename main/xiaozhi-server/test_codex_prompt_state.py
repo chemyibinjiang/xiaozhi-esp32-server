@@ -1,4 +1,5 @@
 import sys
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -183,6 +184,49 @@ class CodexPromptStateTest(unittest.TestCase):
             "Use this deep-prefetched detail context first before calling list_steps",
             prompt_text,
         )
+
+    def test_stale_vscode_extension_codex_bin_auto_discovers_newer_binary(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            workspace = root / "workspace"
+            workspace.mkdir()
+
+            stale_bin = (
+                root
+                / ".vscode"
+                / "extensions"
+                / "openai.chatgpt-26.422.21459-win32-x64"
+                / "bin"
+                / "windows-x86_64"
+                / "codex.exe"
+            )
+            live_bin = (
+                root
+                / ".vscode"
+                / "extensions"
+                / "openai.chatgpt-26.422.62136-win32-x64"
+                / "bin"
+                / "windows-x86_64"
+                / "codex.exe"
+            )
+            live_bin.parent.mkdir(parents=True, exist_ok=True)
+            live_bin.write_text("", encoding="utf-8")
+
+            session = _CodexSession(
+                {
+                    "codex_bin": str(stale_bin),
+                    "model_name": "gpt-5.4",
+                    "workspace": str(workspace),
+                    "system_prompt_mode": "first_turn",
+                    "bootstrap_mode": "none",
+                    "auto_approve": True,
+                    "network_access": True,
+                    "export_api_key": False,
+                },
+                "test-session",
+            )
+
+        self.assertEqual(str(live_bin), session.codex_bin)
 
 
 if __name__ == "__main__":

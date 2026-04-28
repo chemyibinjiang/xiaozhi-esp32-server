@@ -1061,6 +1061,25 @@ TTS:
       # Authorization: Bearer xxxx
     format: mp3 # 接口返回的音频格式
     output_dir: tmp/
+  PiperTTS:
+    # 本地 Piper TTS，免费、离线，不依赖外部 API
+    # 首次使用会自动下载声线模型到 model_dir
+    # 可先选 zh_CN-xiao_ya-medium / zh_CN-huayan-medium / zh_CN-huayan-x_low / zh_CN-chaowen-medium
+    type: piper
+    voice: zh_CN-xiao_ya-medium
+    model_dir: models/piper
+    auto_download: true
+    # 官方下载源；如果本地网络访问 Hugging Face 不稳定，可改成 https://hf-mirror.com/rhasspy/piper-voices/resolve/main
+    download_base_url: https://huggingface.co/rhasspy/piper-voices/resolve/main
+    download_retries: 3
+    use_cuda: false
+    format: wav
+    sentence_silence: 0.12
+    length_scale: 1.0
+    noise_scale: 0.667
+    noise_w_scale: 0.8
+    volume: 1.0
+    output_dir: tmp/
   LinkeraiTTS:
     type: linkerai
     api_url: https://tts.linkerai.cn/tts
