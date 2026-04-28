@@ -11,6 +11,7 @@ import threading
 import traceback
 import subprocess
 import websockets
+from pathlib import Path
 
 from core.utils.util import (
     extract_json_from_string,
@@ -43,7 +44,18 @@ from core.utils.prompt_manager import PromptManager
 from core.utils.voiceprint_provider import VoiceprintProvider
 from core.utils.audio_frontend import AudioFrontend
 from core.utils import textUtils
-from core.utils.experiment_resume import build_resume_tool_message
+from core.utils.experiment_resume import (
+    append_user_utterance_log,
+    build_resume_context,
+    build_resume_tool_message,
+    enrich_latest_user_utterance_log,
+)
+from core.providers.tools.server_mcp.payload_utils import extract_server_mcp_payload
+from core.session import (
+    load_experiment_session_binding,
+    save_experiment_session_binding,
+    delete_experiment_session_binding,
+)
 
 TAG = __name__
 
@@ -190,6 +202,53 @@ class ConnectionHandler:
         # 初始化提示词管理器
         self.prompt_manager = PromptManager(self.config, self.logger)
 
+        # Experiment prewarm state. This is intentionally server-side only:
+        # it should prepare enough graph context for the first real user turn
+        # without sending any audio/text back to the device.
+        self.experiment_prewarm_task = None
+        self.experiment_prewarm_lock = None
+        self.experiment_prewarm_minimal_ready_event = None
+        self.experiment_prewarm_status = "idle"
+        self.experiment_prewarm_ready_level = "none"
+        self.experiment_prewarm_trigger = ""
+        self.experiment_prewarm_error = ""
+        self.experiment_prewarm_started_at = 0.0
+        self.experiment_prewarm_minimal_ready_at = 0.0
+        self.experiment_prewarm_completed_at = 0.0
+        self.experiment_deep_prefetch_task = None
+        self.experiment_deep_prefetch_lock = None
+        self.experiment_deep_prefetch_status = "idle"
+        self.experiment_deep_prefetch_error = ""
+        self.experiment_deep_prefetch_focus = ""
+        self.experiment_deep_prefetch_query = ""
+        self.experiment_deep_prefetch_started_at = 0.0
+        self.experiment_deep_prefetch_completed_at = 0.0
+        self.experiment_graph_priority_lock = None
+        self.experiment_graph_background_resume_event = None
+        self.experiment_graph_foreground_active = 0
+        self.experiment_yaml_path = ""
+        self.experiment_session_id = ""
+        self.experiment_current_step_id = ""
+        self.experiment_overview = None
+        self.experiment_current_step = None
+        self.experiment_progress_summary = None
+        self.experiment_list_steps = None
+        self.experiment_schema = None
+        self.experiment_reference = None
+        self.experiment_reference_query = ""
+        self.experiment_resume_recovery_required = False
+        self.experiment_resume_recovery_source = ""
+        self.experiment_resume_previous_session_id = ""
+        self.experiment_resume_reason = ""
+        self.experiment_resume_log_path = ""
+        self.experiment_resume_turn_count = ""
+        self.experiment_resume_context_excerpt = ""
+        self.experiment_resume_latest_session_id = ""
+        self.experiment_resume_latest_current_step_id = ""
+        self.experiment_prewarm_session_adopted = False
+        self.experiment_first_real_user_turn_pending = True
+        self.experiment_first_real_user_turn_lock = threading.Lock()
+
         # 连接生命周期状态
         self.keep_resources_on_transport_disconnect = bool(
             self.config.get("keep_resources_on_transport_disconnect", True)
@@ -271,6 +330,1805 @@ class ConnectionHandler:
 
     def _memory_session_key(self) -> str:
         return self.chat_session_id if self.chat_session_id else self.session_id
+
+    def _llm_route_context_kwargs(self) -> Dict[str, str]:
+        context: Dict[str, str] = {}
+        for key, value in (
+            ("device_id", self.device_id),
+            ("chat_session_id", self.chat_session_id),
+            ("model_session_key", self.model_session_key),
+            ("connection_session_id", self.session_id),
+            ("transport_session_id", self.transport_session_id),
+            ("user_id", self.user_id),
+        ):
+            text = str(value or "").strip()
+            if text:
+                context[key] = text
+        return context
+
+    def _experiment_prewarm_enabled(self) -> bool:
+        return bool(self.config.get("codex_app", {}).get("prewarm_on_hello", False))
+
+    def _experiment_prewarm_wait_seconds(self) -> float:
+        raw_value = self.config.get("codex_app", {}).get("prewarm_wait_seconds", 0)
+        try:
+            return max(0.0, float(raw_value))
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _experiment_prewarm_debug_delay_seconds(self) -> float:
+        raw_value = (
+            self.config.get("codex_app", {}).get("prewarm_debug_delay_seconds", 0)
+        )
+        try:
+            return max(0.0, float(raw_value))
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _experiment_deep_prefetch_micro_wait_seconds(self) -> float:
+        raw_value = (
+            self.config.get("codex_app", {}).get("deep_prefetch_micro_wait_seconds", 0.05)
+        )
+        try:
+            return max(0.0, float(raw_value))
+        except (TypeError, ValueError):
+            return 0.05
+
+    async def _get_experiment_prewarm_minimal_ready_event(self):
+        event = self.experiment_prewarm_minimal_ready_event
+        if event is None:
+            event = asyncio.Event()
+            if self._experiment_prewarm_is_minimal_ready():
+                event.set()
+            self.experiment_prewarm_minimal_ready_event = event
+        return event
+
+    def _experiment_prewarm_is_minimal_ready(self) -> bool:
+        return bool(
+            self.experiment_session_id
+            and self.experiment_prewarm_ready_level in {"minimal_ready", "completed"}
+        )
+
+    def _experiment_prewarm_is_completed(self) -> bool:
+        return bool(
+            self.experiment_session_id
+            and self.experiment_prewarm_ready_level == "completed"
+        )
+
+    @staticmethod
+    def _experiment_deep_prefetch_focuses(query: Any) -> list[str]:
+        text = " ".join(str(query or "").strip().lower().split())
+        if not text:
+            return []
+
+        focuses: list[str] = []
+        theory_keywords = (
+            "原理",
+            "机理",
+            "为什么",
+            "背景",
+            "注意事项",
+            "依据",
+        )
+        workflow_keywords = (
+            "后续流程",
+            "后续步骤",
+            "后面步骤",
+            "完整流程",
+            "完整步骤",
+            "所有步骤",
+            "全部步骤",
+            "全流程",
+            "整个实验",
+            "后面都",
+        )
+        schema_keywords = (
+            "字段定义",
+            "字段",
+            "schema",
+            "记录项",
+            "记录字段",
+            "填什么",
+            "记录什么",
+            "单位",
+        )
+
+        if any(keyword in text for keyword in theory_keywords):
+            focuses.append("theory")
+        if any(keyword in text for keyword in workflow_keywords):
+            focuses.append("workflow")
+        if any(keyword in text for keyword in schema_keywords):
+            focuses.append("schema")
+        return focuses
+
+    @staticmethod
+    def _experiment_reference_sidecar_plan(query: Any) -> Dict[str, Any]:
+        text = " ".join(str(query or "").strip().split())
+        has_theory = any(
+            keyword in text for keyword in ("原理", "机理", "为什么", "背景", "依据")
+        )
+        has_safety = any(keyword in text for keyword in ("注意事项", "安全", "风险", "小心"))
+        has_materials = any(
+            keyword in text for keyword in ("试剂", "材料", "药品", "仪器")
+        )
+        has_data_processing = any(
+            keyword in text
+            for keyword in ("数据处理", "作图", "速率常数", "拟合", "计算", "excel", "origin")
+        )
+        has_extraction = any(
+            keyword in text for keyword in ("讲义", "原文", "整理", "提取")
+        )
+
+        only_safety = has_safety and not any(
+            (has_theory, has_materials, has_data_processing, has_extraction)
+        )
+        only_materials = has_materials and not any(
+            (has_theory, has_safety, has_data_processing, has_extraction)
+        )
+        only_data_processing = has_data_processing and not any(
+            (has_theory, has_safety, has_materials, has_extraction)
+        )
+        only_extraction = has_extraction and not any(
+            (has_theory, has_safety, has_materials, has_data_processing)
+        )
+
+        sections: list[str] = []
+        if only_safety:
+            sections = ["safety_notes"]
+            mode = "safety_only"
+            reference_query = "注意事项"
+            include_description = False
+            max_items_per_section = 3
+        elif only_materials:
+            sections = ["materials_notes"]
+            mode = "materials_only"
+            reference_query = "试剂与仪器"
+            include_description = False
+            max_items_per_section = 4
+        elif only_data_processing:
+            sections = ["data_processing_notes"]
+            mode = "data_processing_only"
+            reference_query = "数据处理"
+            include_description = False
+            max_items_per_section = 4
+        elif only_extraction:
+            sections = ["extraction_notes"]
+            mode = "extraction_only"
+            reference_query = "讲义提取"
+            include_description = False
+            max_items_per_section = 4
+        else:
+            if has_theory:
+                sections.append("principle_notes")
+            if has_safety:
+                sections.append("safety_notes")
+            if has_materials:
+                sections.append("materials_notes")
+            if has_data_processing:
+                sections.append("data_processing_notes")
+            if has_extraction:
+                sections.append("extraction_notes")
+            if not sections:
+                sections.append("principle_notes")
+
+            if has_theory and has_safety and not any(
+                (has_materials, has_data_processing, has_extraction)
+            ):
+                reference_query = "原理+注意事项"
+            elif has_theory and not any(
+                (has_safety, has_materials, has_data_processing, has_extraction)
+            ):
+                reference_query = "原理"
+            elif not text:
+                reference_query = "原理"
+            else:
+                reference_query = text[:24]
+
+            include_description = sections == ["principle_notes"]
+            max_items_per_section = 4
+            mode = "focused_multi" if len(sections) > 1 else "theory_default"
+
+        deduped: list[str] = []
+        for section in sections:
+            if section not in deduped:
+                deduped.append(section)
+        return {
+            "query_text": text,
+            "reference_query": reference_query,
+            "sections": deduped,
+            "include_description": include_description,
+            "max_items_per_section": max_items_per_section,
+            "mode": mode,
+        }
+
+    @classmethod
+    def _experiment_deep_prefetch_reference_query(cls, query: Any) -> str:
+        plan = cls._experiment_reference_sidecar_plan(query)
+        return str(plan.get("reference_query", "")).strip() or "原理"
+
+    @classmethod
+    def _experiment_reference_sidecar_sections(cls, query: Any) -> list[str]:
+        plan = cls._experiment_reference_sidecar_plan(query)
+        sections = plan.get("sections", [])
+        if not isinstance(sections, list):
+            return ["principle_notes"]
+        return [str(section).strip() for section in sections if str(section).strip()]
+
+    @staticmethod
+    def _trim_experiment_reference_sidecar_text(
+        value: Any, max_chars: int = 220
+    ) -> str:
+        text = " ".join(str(value or "").split()).strip()
+        if max_chars > 0 and len(text) > max_chars:
+            return text[: max_chars - 3].rstrip() + "..."
+        return text
+
+    def _normalize_experiment_reference_sidecar_notes(
+        self,
+        value: Any,
+        *,
+        max_items: int = 4,
+        max_item_chars: int = 180,
+    ) -> list[str]:
+        if isinstance(value, list):
+            raw_items = value
+        elif value is None:
+            raw_items = []
+        else:
+            raw_items = [value]
+
+        notes: list[str] = []
+        for item in raw_items:
+            text = self._trim_experiment_reference_sidecar_text(
+                item,
+                max_chars=max_item_chars,
+            )
+            if text:
+                notes.append(text)
+            if max_items > 0 and len(notes) >= max_items:
+                break
+        return notes
+
+    def _resolve_experiment_reference_sidecar_path(self) -> str:
+        yaml_path = str(
+            self.experiment_yaml_path or self._resolve_experiment_yaml_path() or ""
+        ).strip()
+        if not yaml_path:
+            return ""
+        return str(Path(yaml_path).with_suffix(".json"))
+
+    def _load_experiment_reference_sidecar(self, query: Any):
+        sidecar_path = self._resolve_experiment_reference_sidecar_path()
+        if not sidecar_path:
+            return None
+
+        path = Path(sidecar_path)
+        if not path.is_file():
+            return None
+
+        raw_text = None
+        last_decode_error = None
+        for encoding in ("utf-8-sig", "utf-8", "gb18030"):
+            try:
+                raw_text = path.read_text(encoding=encoding)
+                break
+            except UnicodeDecodeError as exc:
+                last_decode_error = exc
+            except OSError as exc:
+                self.logger.bind(tag=TAG).warning(
+                    "experiment reference sidecar read failed: "
+                    f"device_id={self.device_id}, path={path}, error={exc}"
+                )
+                return None
+
+        if raw_text is None:
+            if last_decode_error is not None:
+                self.logger.bind(tag=TAG).warning(
+                    "experiment reference sidecar decode failed: "
+                    f"device_id={self.device_id}, path={path}, error={last_decode_error}"
+                )
+            return None
+
+        try:
+            payload = json.loads(raw_text)
+        except json.JSONDecodeError as exc:
+            self.logger.bind(tag=TAG).warning(
+                "experiment reference sidecar json parse failed: "
+                f"device_id={self.device_id}, path={path}, error={exc}"
+            )
+            return None
+
+        if not isinstance(payload, dict):
+            self.logger.bind(tag=TAG).warning(
+                "experiment reference sidecar ignored non-dict payload: "
+                f"device_id={self.device_id}, path={path}, type={type(payload).__name__}"
+            )
+            return None
+
+        plan = self._experiment_reference_sidecar_plan(query)
+        reference_query = str(plan.get("reference_query", "")).strip() or "原理"
+        section_names = self._experiment_reference_sidecar_sections(query)
+        include_description = bool(plan.get("include_description", False))
+        max_items_per_section = int(plan.get("max_items_per_section", 4) or 4)
+        mode = str(plan.get("mode", "")).strip() or "default"
+        reference_payload: Dict[str, Any] = {
+            "source": "local_static_sidecar",
+            "query": reference_query,
+        }
+
+        title = self._trim_experiment_reference_sidecar_text(
+            payload.get("title", ""),
+            max_chars=160,
+        )
+        if title:
+            reference_payload["title"] = title
+
+        if include_description:
+            description = self._trim_experiment_reference_sidecar_text(
+                payload.get("description", ""),
+                max_chars=260,
+            )
+            if description:
+                reference_payload["description"] = description
+
+        matched_sections: list[str] = []
+        for section_name in section_names:
+            notes = self._normalize_experiment_reference_sidecar_notes(
+                payload.get(section_name),
+                max_items=max_items_per_section,
+                max_item_chars=180,
+            )
+            if not notes:
+                continue
+            reference_payload[section_name] = notes
+            matched_sections.append(section_name)
+
+        if matched_sections:
+            reference_payload["matched_sections"] = matched_sections
+
+        if len(reference_payload) <= 3:
+            return None
+
+        self.logger.bind(tag=TAG).info(
+            "experiment reference sidecar loaded: "
+            f"device_id={self.device_id}, path={path}, "
+            f"query={reference_query}, mode={mode}, "
+            f"sections={','.join(matched_sections) or 'none'}"
+        )
+        return reference_payload
+
+    @staticmethod
+    def _compact_experiment_payload(payload: Any, max_chars: int = 480) -> str:
+        if payload is None:
+            return ""
+
+        if isinstance(payload, (dict, list)):
+            try:
+                text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+            except Exception:
+                text = str(payload)
+        else:
+            text = str(payload)
+
+        compact = " ".join(text.split()).strip()
+        if max_chars > 0 and len(compact) > max_chars:
+            return compact[: max_chars - 3].rstrip() + "..."
+        return compact
+
+    def _experiment_context_presence_flags(self) -> Dict[str, bool]:
+        return {
+            "has_overview_summary": bool(
+                self._compact_experiment_payload(self.experiment_overview)
+            ),
+            "has_current_step_summary": bool(
+                self._compact_experiment_payload(self.experiment_current_step)
+            ),
+            "has_list_steps_summary": bool(
+                self._compact_experiment_payload(self.experiment_list_steps)
+            ),
+            "has_schema_summary": bool(
+                self._compact_experiment_payload(self.experiment_schema)
+            ),
+            "has_reference_summary": bool(
+                self._compact_experiment_payload(self.experiment_reference)
+            ),
+        }
+
+    def _experiment_context_presence_log_fields(self) -> str:
+        return ", ".join(
+            f"{key}={str(value).lower()}"
+            for key, value in self._experiment_context_presence_flags().items()
+        )
+
+    def _experiment_deep_prefetch_missing_focuses(
+        self, query: Any, focuses: list[str]
+    ) -> list[str]:
+        missing: list[str] = []
+        reference_query = self._experiment_deep_prefetch_reference_query(query)
+        for focus in focuses:
+            if focus == "workflow":
+                if self.experiment_list_steps is None:
+                    missing.append(focus)
+            elif focus == "schema":
+                if self.experiment_schema is None:
+                    missing.append(focus)
+            elif focus == "theory":
+                if (
+                    self.experiment_reference is None
+                    or self.experiment_reference_query != reference_query
+                ):
+                    missing.append(focus)
+        return missing
+
+    async def _get_experiment_deep_prefetch_lock(self):
+        if self.experiment_deep_prefetch_lock is None:
+            self.experiment_deep_prefetch_lock = asyncio.Lock()
+        return self.experiment_deep_prefetch_lock
+
+    async def _get_experiment_graph_priority_lock(self):
+        if self.experiment_graph_priority_lock is None:
+            self.experiment_graph_priority_lock = asyncio.Lock()
+        return self.experiment_graph_priority_lock
+
+    async def _get_experiment_graph_background_resume_event(self):
+        event = self.experiment_graph_background_resume_event
+        if event is None:
+            event = asyncio.Event()
+            event.set()
+            self.experiment_graph_background_resume_event = event
+        return event
+
+    async def _cancel_experiment_deep_prefetch_task(self):
+        task = self.experiment_deep_prefetch_task
+        if task is None or task.done():
+            return
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass
+
+    def _reset_experiment_deep_prefetch_state(self):
+        self.experiment_deep_prefetch_task = None
+        self.experiment_deep_prefetch_status = "idle"
+        self.experiment_deep_prefetch_error = ""
+        self.experiment_deep_prefetch_focus = ""
+        self.experiment_deep_prefetch_query = ""
+        self.experiment_deep_prefetch_started_at = 0.0
+        self.experiment_deep_prefetch_completed_at = 0.0
+        self.experiment_list_steps = None
+        self.experiment_schema = None
+        self.experiment_reference = None
+        self.experiment_reference_query = ""
+
+    def _reset_experiment_resume_recovery_state(self):
+        self.experiment_resume_recovery_required = False
+        self.experiment_resume_recovery_source = ""
+        self.experiment_resume_previous_session_id = ""
+        self.experiment_resume_reason = ""
+        self.experiment_resume_log_path = ""
+        self.experiment_resume_turn_count = ""
+        self.experiment_resume_context_excerpt = ""
+        self.experiment_resume_latest_session_id = ""
+        self.experiment_resume_latest_current_step_id = ""
+
+    async def _before_experiment_graph_tool_call(
+        self,
+        tool_name: str,
+        *,
+        priority: str = "foreground",
+    ):
+        priority_text = str(priority or "foreground").strip() or "foreground"
+        if priority_text == "background_common":
+            await self._wait_for_experiment_graph_background_slot(
+                tool_name=tool_name,
+                stage="common",
+            )
+            return
+        if not priority_text.startswith("foreground"):
+            return
+
+        event = await self._get_experiment_graph_background_resume_event()
+        lock = await self._get_experiment_graph_priority_lock()
+        async with lock:
+            self.experiment_graph_foreground_active += 1
+            event.clear()
+
+    async def _after_experiment_graph_tool_call(
+        self,
+        tool_name: str,
+        *,
+        priority: str = "foreground",
+    ):
+        priority_text = str(priority or "foreground").strip() or "foreground"
+        if not priority_text.startswith("foreground"):
+            return
+
+        event = await self._get_experiment_graph_background_resume_event()
+        lock = await self._get_experiment_graph_priority_lock()
+        async with lock:
+            if self.experiment_graph_foreground_active > 0:
+                self.experiment_graph_foreground_active -= 1
+            if self.experiment_graph_foreground_active <= 0:
+                self.experiment_graph_foreground_active = 0
+                event.set()
+
+    async def _wait_for_experiment_graph_background_slot(
+        self,
+        *,
+        tool_name: str,
+        stage: str,
+    ):
+        event = await self._get_experiment_graph_background_resume_event()
+        if event.is_set():
+            return
+
+        self.logger.bind(tag=TAG).info(
+            "experiment graph background warming yielding to foreground call: "
+            f"device_id={self.device_id}, tool_name={tool_name}, stage={stage}"
+        )
+
+        await event.wait()
+
+    @staticmethod
+    def _trim_experiment_resume_excerpt(value: Any, max_chars: int = 1600) -> str:
+        text = str(value or "").replace("\r\n", "\n").strip()
+        if max_chars > 0 and len(text) > max_chars:
+            return text[: max_chars - 3].rstrip() + "..."
+        return text
+
+    @staticmethod
+    def _normalize_user_utterance_text(value: Any) -> str:
+        return " ".join(str(value or "").split()).strip()
+
+    def _experiment_user_utterance_snapshot(self) -> Dict[str, str]:
+        experiment_yaml_path = str(
+            self.experiment_yaml_path or self._resolve_experiment_yaml_path() or ""
+        ).strip()
+        experiment_session_id = str(self.experiment_session_id or "").strip()
+        current_step_id = str(self.experiment_current_step_id or "").strip()
+        if not current_step_id:
+            current_step_id = self._extract_experiment_current_step_id(
+                self.experiment_current_step,
+                self.experiment_progress_summary,
+            )
+        return {
+            "experiment_yaml_path": experiment_yaml_path,
+            "experiment_session_id": experiment_session_id,
+            "current_step_id": current_step_id,
+        }
+
+    def log_clean_user_utterance(
+        self,
+        text: Any,
+        *,
+        source: str = "",
+        speaker_name: str = "",
+        language_tag: str = "",
+    ) -> str:
+        normalized_text = self._normalize_user_utterance_text(text)
+        if not self.device_id or not normalized_text:
+            return ""
+
+        snapshot = self._experiment_user_utterance_snapshot()
+        log_path = append_user_utterance_log(
+            self.config,
+            self.device_id,
+            normalized_text,
+            source=source,
+            speaker=speaker_name,
+            language=language_tag,
+            chat_session_id=self.chat_session_id or "",
+            model_session_key=self.model_session_key or "",
+            connection_session_id=self.session_id or "",
+            experiment_session_id=snapshot.get("experiment_session_id", ""),
+            current_step_id=snapshot.get("current_step_id", ""),
+            experiment_yaml_path=snapshot.get("experiment_yaml_path", ""),
+        )
+        if not log_path:
+            return ""
+
+        preview = normalized_text
+        if len(preview) > 120:
+            preview = preview[:117].rstrip() + "..."
+        self.logger.bind(tag=TAG).info(
+            "clean user utterance logged: "
+            f"device_id={self.device_id}, "
+            f"source={source or 'unknown'}, "
+            f"log_path={log_path}, "
+            f"text={preview}"
+        )
+        return log_path
+
+    def enrich_latest_clean_user_utterance_snapshot(self) -> str:
+        if not self.device_id:
+            return ""
+
+        snapshot = self._experiment_user_utterance_snapshot()
+        log_path = enrich_latest_user_utterance_log(
+            self.config,
+            self.device_id,
+            connection_session_id=self.session_id or "",
+            experiment_session_id=snapshot.get("experiment_session_id", ""),
+            current_step_id=snapshot.get("current_step_id", ""),
+            experiment_yaml_path=snapshot.get("experiment_yaml_path", ""),
+        )
+        if not log_path:
+            return ""
+
+        self.logger.bind(tag=TAG).info(
+            "clean user utterance snapshot enriched: "
+            f"device_id={self.device_id}, "
+            f"log_path={log_path}, "
+            f"experiment_session_id={snapshot.get('experiment_session_id', '')}, "
+            f"current_step_id={snapshot.get('current_step_id', '')}"
+        )
+        return log_path
+
+    def _prepare_experiment_resume_recovery_context(
+        self,
+        *,
+        previous_session_id: str,
+        reason: str,
+    ):
+        self._reset_experiment_resume_recovery_state()
+        self.experiment_resume_recovery_required = True
+        self.experiment_resume_recovery_source = "device_log"
+        self.experiment_resume_previous_session_id = str(
+            previous_session_id or ""
+        ).strip()
+        self.experiment_resume_reason = str(reason or "").strip()
+
+        resume_context = None
+        if self.device_id:
+            try:
+                resume_context = build_resume_context(
+                    self.config,
+                    self.device_id,
+                    max_turns=4,
+                    max_chars=1600,
+                )
+            except Exception as exc:
+                self.logger.bind(tag=TAG).warning(
+                    "experiment session recovery context load failed: "
+                    f"device_id={self.device_id}, error={exc}"
+                )
+
+        if isinstance(resume_context, dict):
+            self.experiment_resume_log_path = str(
+                resume_context.get("log_path", "")
+            ).strip()
+            self.experiment_resume_turn_count = str(
+                resume_context.get("turn_count", "")
+            ).strip()
+            self.experiment_resume_context_excerpt = (
+                self._trim_experiment_resume_excerpt(
+                    resume_context.get("context_text", ""),
+                    max_chars=1600,
+                )
+            )
+            self.experiment_resume_latest_session_id = str(
+                resume_context.get("latest_experiment_session_id", "")
+            ).strip()
+            self.experiment_resume_latest_current_step_id = str(
+                resume_context.get("latest_current_step_id", "")
+            ).strip()
+
+        self.logger.bind(tag=TAG).info(
+            "experiment session recovery context prepared: "
+            f"device_id={self.device_id}, "
+            f"previous_session_id={self.experiment_resume_previous_session_id}, "
+            f"source={self.experiment_resume_recovery_source}, "
+            f"log_path={self.experiment_resume_log_path or 'missing'}, "
+            f"log_turns={self.experiment_resume_turn_count or '0'}, "
+            f"latest_session_id={self.experiment_resume_latest_session_id or ''}, "
+            f"latest_current_step_id={self.experiment_resume_latest_current_step_id or ''}, "
+            f"reason={self.experiment_resume_reason or 'unknown'}"
+        )
+
+    def _experiment_deep_prefetch_route_context(
+        self, wait_result: str = ""
+    ) -> Dict[str, str]:
+        context: Dict[str, str] = {}
+        if wait_result:
+            context["experiment_deep_prefetch_wait_result"] = str(wait_result).strip()
+        if self.experiment_deep_prefetch_status != "idle":
+            context["experiment_deep_prefetch_status"] = str(
+                self.experiment_deep_prefetch_status
+            ).strip()
+        if self.experiment_deep_prefetch_focus:
+            context["experiment_deep_prefetch_focus"] = str(
+                self.experiment_deep_prefetch_focus
+            ).strip()
+        if self.experiment_deep_prefetch_query:
+            context["experiment_deep_prefetch_query"] = str(
+                self.experiment_deep_prefetch_query
+            ).strip()
+        if self.experiment_list_steps is not None:
+            context["experiment_list_steps_summary"] = self._compact_experiment_payload(
+                self.experiment_list_steps,
+                max_chars=720,
+            )
+        if self.experiment_schema is not None:
+            context["experiment_schema_summary"] = self._compact_experiment_payload(
+                self.experiment_schema,
+                max_chars=720,
+            )
+        if self.experiment_reference is not None:
+            context["experiment_reference_summary"] = self._compact_experiment_payload(
+                self.experiment_reference,
+                max_chars=960,
+            )
+        if self.experiment_deep_prefetch_error:
+            context["experiment_deep_prefetch_error"] = str(
+                self.experiment_deep_prefetch_error
+            ).strip()
+        return context
+
+    def _experiment_prewarm_route_context(
+        self, wait_result: str = "", deep_wait_result: str = ""
+    ) -> Dict[str, str]:
+        include_session_context = bool(wait_result) or bool(
+            self.experiment_prewarm_session_adopted
+        )
+        if not include_session_context and self._experiment_prewarm_is_minimal_ready():
+            # After a timeout first turn, prewarm may finish in the background a
+            # moment later. Subsequent turns should keep reusing that trusted
+            # session/current-step snapshot instead of dropping back to no
+            # experiment context just because the first wait already happened.
+            include_session_context = True
+        if not include_session_context:
+            return {}
+
+        context: Dict[str, str] = {}
+        if wait_result:
+            context["experiment_prewarm_wait_result"] = str(wait_result).strip()
+        if self.experiment_prewarm_status:
+            context["experiment_prewarm_status"] = str(
+                self.experiment_prewarm_status
+            ).strip()
+        if self.experiment_prewarm_ready_level:
+            context["experiment_prewarm_ready_level"] = str(
+                self.experiment_prewarm_ready_level
+            ).strip()
+        if self.experiment_prewarm_trigger:
+            context["experiment_prewarm_trigger"] = str(
+                self.experiment_prewarm_trigger
+            ).strip()
+        if include_session_context and self.experiment_yaml_path:
+            context["experiment_yaml_path"] = str(self.experiment_yaml_path).strip()
+        if include_session_context and self.experiment_session_id:
+            context["experiment_session_id"] = str(
+                self.experiment_session_id
+            ).strip()
+        if include_session_context and self.experiment_current_step_id:
+            context["experiment_current_step_id"] = str(
+                self.experiment_current_step_id
+            ).strip()
+
+        overview_summary = ""
+        if include_session_context:
+            overview_summary = self._compact_experiment_payload(self.experiment_overview)
+        if overview_summary:
+            context["experiment_overview_summary"] = overview_summary
+
+        step_summary = ""
+        if include_session_context:
+            step_summary = self._compact_experiment_payload(self.experiment_current_step)
+        if step_summary:
+            context["experiment_current_step_summary"] = step_summary
+
+        if include_session_context:
+            context.update(
+                self._experiment_deep_prefetch_route_context(
+                    wait_result=deep_wait_result
+                )
+            )
+
+        if include_session_context and self.experiment_resume_recovery_required:
+            context["experiment_resume_recovery_required"] = "true"
+            if self.experiment_resume_recovery_source:
+                context["experiment_resume_recovery_source"] = str(
+                    self.experiment_resume_recovery_source
+                ).strip()
+            if self.experiment_resume_previous_session_id:
+                context["experiment_resume_previous_session_id"] = str(
+                    self.experiment_resume_previous_session_id
+                ).strip()
+            if self.experiment_resume_reason:
+                context["experiment_resume_reason"] = str(
+                    self.experiment_resume_reason
+                ).strip()
+            if self.experiment_resume_log_path:
+                context["experiment_resume_log_path"] = str(
+                    self.experiment_resume_log_path
+                ).strip()
+            if self.experiment_resume_turn_count:
+                context["experiment_resume_turn_count"] = str(
+                    self.experiment_resume_turn_count
+                ).strip()
+            if self.experiment_resume_latest_session_id:
+                context["experiment_resume_latest_session_id"] = str(
+                    self.experiment_resume_latest_session_id
+                ).strip()
+            if self.experiment_resume_latest_current_step_id:
+                context["experiment_resume_latest_current_step_id"] = str(
+                    self.experiment_resume_latest_current_step_id
+                ).strip()
+            if self.experiment_resume_context_excerpt:
+                context["experiment_resume_context_excerpt"] = str(
+                    self.experiment_resume_context_excerpt
+                ).strip()
+
+        if self.experiment_prewarm_error:
+            context["experiment_prewarm_error"] = str(
+                self.experiment_prewarm_error
+            ).strip()
+        return context
+
+    def _consume_experiment_first_real_user_turn_gate(self) -> bool:
+        if not self._experiment_prewarm_enabled():
+            return False
+
+        with self.experiment_first_real_user_turn_lock:
+            if not self.experiment_first_real_user_turn_pending:
+                return False
+            self.experiment_first_real_user_turn_pending = False
+            return True
+
+    def _resolve_experiment_yaml_path(self) -> str:
+        llm_map = self.config.get("LLM", {}) or {}
+        if not isinstance(llm_map, dict):
+            return ""
+
+        preferred = str(self.config.get("codex_app", {}).get("llm_name", "")).strip()
+        llm_cfg = None
+        if preferred:
+            llm_cfg = llm_map.get(preferred)
+
+        if not isinstance(llm_cfg, dict):
+            selected_name = str(
+                self.config.get("selected_module", {}).get("LLM", "")
+            ).strip()
+            selected_cfg = llm_map.get(selected_name)
+            if (
+                isinstance(selected_cfg, dict)
+                and str(selected_cfg.get("type", "")).strip() == "codex"
+            ):
+                llm_cfg = selected_cfg
+
+        if not isinstance(llm_cfg, dict):
+            for candidate in llm_map.values():
+                if (
+                    isinstance(candidate, dict)
+                    and str(candidate.get("type", "")).strip() == "codex"
+                ):
+                    llm_cfg = candidate
+                    break
+
+        if not isinstance(llm_cfg, dict):
+            return ""
+
+        workspace = str(llm_cfg.get("workspace", "")).strip()
+        yaml_path = str(llm_cfg.get("yaml_path", "")).strip()
+        if not yaml_path:
+            return ""
+        if os.path.isabs(yaml_path):
+            return str(Path(yaml_path))
+        if workspace:
+            return str(Path(workspace) / yaml_path)
+        return str(Path(yaml_path).resolve())
+
+    @staticmethod
+    def _extract_experiment_session_id(payload: Any) -> str:
+        if isinstance(payload, dict):
+            for key in ("session_id", "sessionId"):
+                value = str(payload.get(key, "")).strip()
+                if value:
+                    return value
+            nested = payload.get("result")
+            if nested is not None:
+                return ConnectionHandler._extract_experiment_session_id(nested)
+        return ""
+
+    @staticmethod
+    def _experiment_result_body(payload: Any) -> Dict[str, Any]:
+        if isinstance(payload, dict):
+            nested = payload.get("result")
+            if isinstance(nested, dict):
+                return nested
+            return payload
+        return {}
+
+    @staticmethod
+    def _coerce_nonnegative_int(value: Any) -> int:
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            return 0
+
+    @classmethod
+    def _extract_experiment_result_ok(cls, payload: Any):
+        body = cls._experiment_result_body(payload)
+        value = body.get("ok")
+        return value if isinstance(value, bool) else None
+
+    @classmethod
+    def _extract_experiment_result_message(cls, payload: Any) -> str:
+        body = cls._experiment_result_body(payload)
+        return str(body.get("message", "")).strip()
+
+    @classmethod
+    def _extract_experiment_current_step_id(cls, *payloads: Any) -> str:
+        for payload in payloads:
+            body = cls._experiment_result_body(payload)
+            state = body.get("state")
+            if isinstance(state, dict):
+                text = str(state.get("current_step_id", "")).strip()
+                if text:
+                    return text
+            step = body.get("step")
+            if isinstance(step, dict):
+                text = str(step.get("id", "")).strip()
+                if text:
+                    return text
+            summary = body.get("summary")
+            if isinstance(summary, dict):
+                current_step = summary.get("current_step")
+                if isinstance(current_step, dict):
+                    text = str(current_step.get("step_id", "")).strip()
+                    if text:
+                        return text
+        return ""
+
+    @classmethod
+    def _extract_experiment_total_steps(cls, *payloads: Any) -> int:
+        for payload in payloads:
+            body = cls._experiment_result_body(payload)
+            total_steps = cls._coerce_nonnegative_int(body.get("steps_count"))
+            if total_steps > 0:
+                return total_steps
+            summary = body.get("summary")
+            if isinstance(summary, dict):
+                progress = summary.get("progress")
+                if isinstance(progress, dict):
+                    total_steps = cls._coerce_nonnegative_int(
+                        progress.get("total_steps")
+                    )
+                    if total_steps > 0:
+                        return total_steps
+        return 0
+
+    @classmethod
+    def _extract_experiment_completed_steps_count(cls, *payloads: Any) -> int:
+        for payload in payloads:
+            body = cls._experiment_result_body(payload)
+            state = body.get("state")
+            if isinstance(state, dict):
+                completed_steps = state.get("completed_steps")
+                if isinstance(completed_steps, list):
+                    return len(completed_steps)
+            summary = body.get("summary")
+            if isinstance(summary, dict):
+                progress = summary.get("progress")
+                if isinstance(progress, dict):
+                    completed_count = cls._coerce_nonnegative_int(
+                        progress.get("completed_steps")
+                    )
+                    if completed_count > 0 or "completed_steps" in progress:
+                        return completed_count
+        return 0
+
+    @classmethod
+    def _classify_experiment_resume_candidate(
+        cls,
+        state_payload: Any,
+        overview_payload: Any = None,
+        progress_summary_payload: Any = None,
+    ) -> str:
+        current_step_id = cls._extract_experiment_current_step_id(
+            state_payload, progress_summary_payload
+        )
+        total_steps = cls._extract_experiment_total_steps(
+            overview_payload, progress_summary_payload
+        )
+        completed_steps_count = cls._extract_experiment_completed_steps_count(
+            state_payload, progress_summary_payload
+        )
+
+        if total_steps > 0 and completed_steps_count >= total_steps:
+            return "completed"
+        if current_step_id:
+            return "active"
+        return "invalid"
+
+    async def _get_experiment_prewarm_lock(self):
+        if self.experiment_prewarm_lock is None:
+            self.experiment_prewarm_lock = asyncio.Lock()
+        return self.experiment_prewarm_lock
+
+    async def _run_experiment_deep_prefetch(
+        self,
+        *,
+        session_id: str,
+        query: str,
+        focuses: list[str],
+    ):
+        current_task = asyncio.current_task()
+        focus_text = ",".join(focuses)
+        query_text = " ".join(str(query or "").strip().split())
+        self.experiment_deep_prefetch_status = "running"
+        self.experiment_deep_prefetch_error = ""
+        self.experiment_deep_prefetch_focus = focus_text
+        self.experiment_deep_prefetch_query = query_text
+        self.experiment_deep_prefetch_started_at = time.time()
+        self.logger.bind(tag=TAG).info(
+            "experiment deep prefetch begin: "
+            f"device_id={self.device_id}, session_id={session_id}, "
+            f"focus={focus_text}, query={query_text[:120]}"
+        )
+
+        tool_tasks: dict[str, asyncio.Task] = {}
+        try:
+            if "workflow" in focuses and self.experiment_list_steps is None:
+                tool_tasks["workflow"] = asyncio.create_task(
+                    self._call_experiment_graph_tool(
+                        "list_steps",
+                        {"session_id": session_id},
+                        priority="foreground_detail",
+                    )
+                )
+            if "schema" in focuses and self.experiment_schema is None:
+                tool_tasks["schema"] = asyncio.create_task(
+                    self._call_experiment_graph_tool(
+                        "get_schema",
+                        {"session_id": session_id},
+                        priority="foreground_detail",
+                    )
+                )
+            if "theory" in focuses:
+                reference_query = self._experiment_deep_prefetch_reference_query(
+                    query_text
+                )
+                if (
+                    self.experiment_reference is None
+                    or self.experiment_reference_query != reference_query
+                ):
+                    sidecar_payload = self._load_experiment_reference_sidecar(query_text)
+                    if sidecar_payload is not None:
+                        self.experiment_reference = sidecar_payload
+                        self.experiment_reference_query = reference_query
+                    else:
+                        self.logger.bind(tag=TAG).info(
+                            "experiment reference sidecar unavailable, falling back to MCP: "
+                            f"device_id={self.device_id}, session_id={session_id}, "
+                            f"query={reference_query}"
+                        )
+                        tool_tasks["theory"] = asyncio.create_task(
+                            self._call_experiment_graph_tool(
+                                "search_experiment_reference",
+                                {
+                                    "session_id": session_id,
+                                    "query": reference_query,
+                                    "max_hits": 3,
+                                    "context_chars": 220,
+                                },
+                                priority="foreground_detail",
+                            )
+                        )
+
+            if not tool_tasks:
+                self.experiment_deep_prefetch_status = "ready"
+                self.experiment_deep_prefetch_completed_at = time.time()
+                return
+
+            results = await asyncio.gather(
+                *tool_tasks.values(),
+                return_exceptions=True,
+            )
+            errors: list[str] = []
+            success = False
+            for label, result in zip(tool_tasks.keys(), results):
+                if isinstance(result, Exception):
+                    errors.append(f"{label}: {result}")
+                    continue
+                success = True
+                if label == "workflow":
+                    self.experiment_list_steps = result
+                elif label == "schema":
+                    self.experiment_schema = result
+                elif label == "theory":
+                    reference_query = self._experiment_deep_prefetch_reference_query(
+                        query_text
+                    )
+                    self.experiment_reference = {
+                        "query": reference_query,
+                        "result": result,
+                    }
+                    self.experiment_reference_query = reference_query
+
+            if success:
+                self.experiment_deep_prefetch_status = "ready"
+                if errors:
+                    self.experiment_deep_prefetch_error = "; ".join(errors)
+            else:
+                self.experiment_deep_prefetch_status = "failed"
+                self.experiment_deep_prefetch_error = (
+                    "; ".join(errors) or "deep prefetch returned no usable payload"
+                )
+            self.experiment_deep_prefetch_completed_at = time.time()
+            self.logger.bind(tag=TAG).info(
+                "experiment deep prefetch finished: "
+                f"device_id={self.device_id}, session_id={session_id}, "
+                f"focus={focus_text}, status={self.experiment_deep_prefetch_status}"
+            )
+        except asyncio.CancelledError:
+            self.experiment_deep_prefetch_status = "cancelled"
+            self.experiment_deep_prefetch_error = "deep prefetch cancelled"
+            raise
+        except Exception as exc:
+            self.experiment_deep_prefetch_status = "failed"
+            self.experiment_deep_prefetch_error = str(exc)
+            self.experiment_deep_prefetch_completed_at = time.time()
+            self.logger.bind(tag=TAG).warning(
+                "experiment deep prefetch failed: "
+                f"device_id={self.device_id}, session_id={session_id}, "
+                f"focus={focus_text}, error={exc}"
+            )
+        finally:
+            if self.experiment_deep_prefetch_task is current_task:
+                self.experiment_deep_prefetch_task = None
+
+    async def _ensure_experiment_deep_prefetch_task(
+        self, query: str, focuses: list[str]
+    ):
+        lock = await self._get_experiment_deep_prefetch_lock()
+        async with lock:
+            task = self.experiment_deep_prefetch_task
+            if task is not None and task.done():
+                self.experiment_deep_prefetch_task = None
+                task = None
+
+            missing_focuses = self._experiment_deep_prefetch_missing_focuses(
+                query, focuses
+            )
+            if not missing_focuses:
+                self.experiment_deep_prefetch_status = "ready"
+                self.experiment_deep_prefetch_focus = ",".join(focuses)
+                self.experiment_deep_prefetch_query = " ".join(
+                    str(query or "").strip().split()
+                )
+                self.experiment_deep_prefetch_completed_at = time.time()
+                return None
+
+            if task is not None and not task.done():
+                return task
+
+            session_id = str(self.experiment_session_id or "").strip()
+            if not session_id:
+                return None
+
+            task = asyncio.create_task(
+                self._run_experiment_deep_prefetch(
+                    session_id=session_id,
+                    query=query,
+                    focuses=missing_focuses,
+                )
+            )
+            self.experiment_deep_prefetch_task = task
+            return task
+
+    async def wait_for_experiment_deep_prefetch(
+        self,
+        query: str,
+        timeout_seconds: float,
+    ) -> Dict[str, str]:
+        timeout_seconds = max(0.0, float(timeout_seconds or 0.0))
+        if not self._experiment_prewarm_is_minimal_ready():
+            return self._experiment_prewarm_route_context()
+
+        focuses = self._experiment_deep_prefetch_focuses(query)
+        if not focuses:
+            return self._experiment_prewarm_route_context()
+
+        self.logger.bind(tag=TAG).info(
+            "experiment deep prefetch requested: "
+            f"device_id={self.device_id}, session_id={self.experiment_session_id}, "
+            f"focus={','.join(focuses)}, timeout_seconds={timeout_seconds}"
+        )
+        task = await self._ensure_experiment_deep_prefetch_task(query, focuses)
+        missing_focuses = self._experiment_deep_prefetch_missing_focuses(
+            query, focuses
+        )
+        if task is None:
+            wait_result = "ready" if not missing_focuses else "skipped"
+            return self._experiment_prewarm_route_context(
+                deep_wait_result=wait_result
+            )
+
+        if task.done():
+            wait_result = (
+                "ready"
+                if not self._experiment_deep_prefetch_missing_focuses(query, focuses)
+                else (self.experiment_deep_prefetch_status or "done")
+            )
+            return self._experiment_prewarm_route_context(deep_wait_result=wait_result)
+
+        if timeout_seconds <= 0:
+            return self._experiment_prewarm_route_context(
+                deep_wait_result="skipped"
+            )
+
+        start = time.perf_counter()
+        done, _pending = await asyncio.wait(
+            {task},
+            timeout=timeout_seconds,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        elapsed_ms = (time.perf_counter() - start) * 1000.0
+        if task in done:
+            wait_result = (
+                "ready"
+                if not self._experiment_deep_prefetch_missing_focuses(query, focuses)
+                else (self.experiment_deep_prefetch_status or "done")
+            )
+        else:
+            wait_result = "timeout"
+        self.logger.bind(tag=TAG).info(
+            "experiment deep prefetch wait result: "
+            f"device_id={self.device_id}, session_id={self.experiment_session_id}, "
+            f"focus={','.join(focuses)}, wait_result={wait_result}, "
+            f"elapsed_ms={elapsed_ms:.1f}, status={self.experiment_deep_prefetch_status}, "
+            f"{self._experiment_context_presence_log_fields()}"
+        )
+        return self._experiment_prewarm_route_context(deep_wait_result=wait_result)
+
+    async def _wait_for_server_mcp_ready(self, timeout_seconds: float = 12.0) -> bool:
+        deadline = time.monotonic() + max(timeout_seconds, 0.1)
+        while time.monotonic() < deadline:
+            func_handler = getattr(self, "func_handler", None)
+            server_executor = getattr(func_handler, "server_mcp_executor", None)
+            if server_executor is not None:
+                if not getattr(server_executor, "_initialized", False):
+                    try:
+                        await server_executor.initialize()
+                    except Exception as exc:
+                        self.logger.bind(tag=TAG).debug(
+                            f"server MCP initialize not ready yet: {exc}"
+                        )
+                manager = getattr(server_executor, "mcp_manager", None)
+                if manager is not None and getattr(func_handler, "finish_init", False):
+                    return True
+            await asyncio.sleep(0.1)
+        return False
+
+    async def _call_experiment_graph_tool(
+        self,
+        tool_name: str,
+        arguments: Dict[str, Any],
+        *,
+        priority: str = "foreground",
+    ):
+        func_handler = getattr(self, "func_handler", None)
+        server_executor = getattr(func_handler, "server_mcp_executor", None)
+        manager = getattr(server_executor, "mcp_manager", None)
+        if manager is None:
+            raise RuntimeError("server MCP manager is not ready")
+        raw_result = await manager.execute_tool(
+            tool_name,
+            arguments,
+            priority=priority,
+        )
+        return extract_server_mcp_payload(raw_result)
+
+    async def _run_experiment_prewarm_deep_stage(
+        self,
+        *,
+        session_id: str,
+        progress_summary_payload: Any,
+    ):
+        # This stage is unconditional background warming that starts
+        # immediately after minimal_ready. It is not tied to user silence.
+        self.experiment_prewarm_status = "deep_warming"
+        self.logger.bind(tag=TAG).info(
+            "experiment prewarm deep warming begin: "
+            f"device_id={self.device_id}, trigger={self.experiment_prewarm_trigger}, "
+            f"session_id={session_id}, current_step_id={self.experiment_current_step_id}"
+        )
+
+        overview_payload = await self._call_experiment_graph_tool(
+            "get_overview",
+            {"session_id": session_id},
+            priority="background_common",
+        )
+        step_payload = await self._call_experiment_graph_tool(
+            "get_step",
+            {"session_id": session_id},
+            priority="background_common",
+        )
+        list_steps_payload = await self._call_experiment_graph_tool(
+            "list_steps",
+            {"session_id": session_id},
+            priority="background_common",
+        )
+        schema_payload = await self._call_experiment_graph_tool(
+            "get_schema",
+            {"session_id": session_id},
+            priority="background_common",
+        )
+
+        refreshed_current_step_id = self._extract_experiment_current_step_id(
+            step_payload, progress_summary_payload
+        )
+        if refreshed_current_step_id:
+            self.experiment_current_step_id = refreshed_current_step_id
+
+        self.experiment_progress_summary = progress_summary_payload
+        self.experiment_overview = overview_payload
+        self.experiment_current_step = step_payload
+        self.experiment_list_steps = list_steps_payload
+        self.experiment_schema = schema_payload
+        self.experiment_prewarm_status = "completed"
+        self.experiment_prewarm_ready_level = "completed"
+        self.experiment_prewarm_completed_at = time.time()
+        self.logger.bind(tag=TAG).info(
+            "experiment prewarm completed: "
+            f"device_id={self.device_id}, trigger={self.experiment_prewarm_trigger}, "
+            f"session_id={self.experiment_session_id}, "
+            f"current_step_id={self.experiment_current_step_id}, "
+            f"{self._experiment_context_presence_log_fields()}"
+        )
+
+    async def prewarm_experiment_session(self, trigger: str = "", force: bool = False) -> bool:
+        if not self.device_id:
+            return False
+
+        lock = await self._get_experiment_prewarm_lock()
+        async with lock:
+            if not force and self._experiment_prewarm_is_minimal_ready():
+                return True
+
+            await self._cancel_experiment_deep_prefetch_task()
+            self._reset_experiment_deep_prefetch_state()
+            minimal_ready_event = await self._get_experiment_prewarm_minimal_ready_event()
+            minimal_ready_event.clear()
+
+            self.experiment_prewarm_status = "minimal_warming"
+            self.experiment_prewarm_ready_level = "none"
+            self.experiment_prewarm_trigger = str(trigger or "").strip()
+            self.experiment_prewarm_error = ""
+            self.experiment_prewarm_started_at = time.time()
+            self.experiment_prewarm_minimal_ready_at = 0.0
+            self.experiment_prewarm_completed_at = 0.0
+            self.experiment_session_id = ""
+            self.experiment_current_step_id = ""
+            self.experiment_overview = None
+            self.experiment_current_step = None
+            self.experiment_progress_summary = None
+            self.experiment_list_steps = None
+            self.experiment_schema = None
+            self.experiment_reference = None
+            self.experiment_reference_query = ""
+
+            yaml_path = self._resolve_experiment_yaml_path()
+            self.experiment_yaml_path = yaml_path
+            if not yaml_path:
+                self.experiment_prewarm_status = "failed"
+                self.experiment_prewarm_error = "yaml_path is empty"
+                self.logger.bind(tag=TAG).warning(
+                    "experiment prewarm skipped: yaml_path is empty"
+                )
+                return False
+
+            ready = await self._wait_for_server_mcp_ready()
+            if not ready:
+                self.experiment_prewarm_status = "failed"
+                self.experiment_prewarm_error = "server MCP not ready"
+                self.logger.bind(tag=TAG).warning(
+                    "experiment prewarm skipped: server MCP not ready"
+                )
+                return False
+
+            minimal_ready_reached = False
+            try:
+                self._reset_experiment_resume_recovery_state()
+                session_id = ""
+                session_source = ""
+                progress_summary_payload = None
+                current_step_id = ""
+                total_steps = 0
+                completed_steps_count = 0
+                resume_recovery_needed = False
+                resume_recovery_previous_session_id = ""
+                resume_recovery_reason = ""
+
+                resume_binding = None
+                if self.chat_session_id:
+                    resume_binding = await load_experiment_session_binding(
+                        self.config,
+                        self.chat_session_id,
+                        yaml_path,
+                    )
+
+                if resume_binding and resume_binding.get("experiment_session_id"):
+                    candidate_session_id = str(
+                        resume_binding.get("experiment_session_id", "")
+                    ).strip()
+                    self.logger.bind(tag=TAG).info(
+                        "experiment session resume hit: "
+                        f"device_id={self.device_id}, "
+                        f"chat_session_id={self.chat_session_id}, "
+                        f"experiment_session_id={candidate_session_id}"
+                    )
+                    try:
+                        state_payload = await self._call_experiment_graph_tool(
+                            "get_state",
+                            {"session_id": candidate_session_id},
+                            priority="prewarm_minimal",
+                        )
+                        progress_summary_payload = await self._call_experiment_graph_tool(
+                            "get_progress_summary",
+                            {"session_id": candidate_session_id},
+                            priority="prewarm_minimal",
+                        )
+
+                        resume_reason = ""
+                        state_ok = self._extract_experiment_result_ok(state_payload)
+                        progress_ok = self._extract_experiment_result_ok(
+                            progress_summary_payload
+                        )
+                        if state_ok is False:
+                            resume_status = "invalid"
+                            resume_reason = (
+                                self._extract_experiment_result_message(state_payload)
+                                or "get_state returned not ok"
+                            )
+                        elif progress_ok is False:
+                            resume_status = "invalid"
+                            resume_reason = (
+                                self._extract_experiment_result_message(
+                                    progress_summary_payload
+                                )
+                                or "get_progress_summary returned not ok"
+                            )
+                        else:
+                            resume_status = self._classify_experiment_resume_candidate(
+                                state_payload,
+                                None,
+                                progress_summary_payload,
+                            )
+                        current_step_id = self._extract_experiment_current_step_id(
+                            state_payload, progress_summary_payload
+                        )
+                        total_steps = self._extract_experiment_total_steps(
+                            progress_summary_payload
+                        )
+                        completed_steps_count = (
+                            self._extract_experiment_completed_steps_count(
+                                state_payload, progress_summary_payload
+                            )
+                        )
+
+                        if resume_status == "active":
+                            session_id = candidate_session_id
+                            session_source = "resume"
+                            self.logger.bind(tag=TAG).info(
+                                "experiment session resume ready: "
+                                f"device_id={self.device_id}, "
+                                f"chat_session_id={self.chat_session_id}, "
+                                f"experiment_session_id={session_id}, "
+                                f"current_step_id={current_step_id}, "
+                                f"completed_steps={completed_steps_count}/{total_steps or '?'}"
+                            )
+                        else:
+                            await delete_experiment_session_binding(
+                                self.config,
+                                self.chat_session_id,
+                                yaml_path,
+                            )
+                            if resume_status == "completed":
+                                self.logger.bind(tag=TAG).info(
+                                    "experiment session resume completed_fallback_create: "
+                                    f"device_id={self.device_id}, "
+                                    f"chat_session_id={self.chat_session_id}, "
+                                    f"experiment_session_id={candidate_session_id}, "
+                                    f"completed_steps={completed_steps_count}/{total_steps or '?'}"
+                                )
+                            else:
+                                resume_recovery_needed = True
+                                resume_recovery_previous_session_id = (
+                                    candidate_session_id
+                                )
+                                resume_recovery_reason = (
+                                    resume_reason or "session payload invalid"
+                                )
+                                self.logger.bind(tag=TAG).info(
+                                    "experiment session resume invalid_fallback_create: "
+                                    f"device_id={self.device_id}, "
+                                    f"chat_session_id={self.chat_session_id}, "
+                                    f"experiment_session_id={candidate_session_id}, "
+                                    f"reason={resume_reason or 'session payload invalid'}"
+                                )
+                    except Exception as exc:
+                        await delete_experiment_session_binding(
+                            self.config,
+                            self.chat_session_id,
+                            yaml_path,
+                        )
+                        resume_recovery_needed = True
+                        resume_recovery_previous_session_id = candidate_session_id
+                        resume_recovery_reason = str(exc)
+                        self.logger.bind(tag=TAG).warning(
+                            "experiment session resume invalid_fallback_create: "
+                            f"device_id={self.device_id}, "
+                            f"chat_session_id={self.chat_session_id}, "
+                            f"experiment_session_id={candidate_session_id}, "
+                            f"error={exc}"
+                        )
+                else:
+                    self.logger.bind(tag=TAG).info(
+                        "experiment session resume miss: "
+                        f"device_id={self.device_id}, "
+                        f"chat_session_id={self.chat_session_id}, "
+                        f"yaml_path={yaml_path}"
+                    )
+
+                if not session_id:
+                    create_payload = await self._call_experiment_graph_tool(
+                        "create_session",
+                        {"yaml_path": yaml_path},
+                        priority="prewarm_minimal",
+                    )
+                    session_id = self._extract_experiment_session_id(create_payload)
+                    if not session_id:
+                        raise RuntimeError("create_session returned empty session_id")
+
+                    progress_summary_payload = await self._call_experiment_graph_tool(
+                        "get_progress_summary",
+                        {"session_id": session_id},
+                        priority="prewarm_minimal",
+                    )
+                    current_step_id = self._extract_experiment_current_step_id(
+                        progress_summary_payload
+                    )
+                    total_steps = self._extract_experiment_total_steps(
+                        progress_summary_payload
+                    )
+                    completed_steps_count = (
+                        self._extract_experiment_completed_steps_count(
+                            progress_summary_payload
+                        )
+                    )
+                    session_source = (
+                        "recovery_create" if resume_recovery_needed else "create"
+                    )
+                    if resume_recovery_needed:
+                        self._prepare_experiment_resume_recovery_context(
+                            previous_session_id=resume_recovery_previous_session_id,
+                            reason=resume_recovery_reason,
+                        )
+                        self.logger.bind(tag=TAG).info(
+                            "experiment session recovery armed after fallback create: "
+                            f"device_id={self.device_id}, "
+                            f"previous_session_id={resume_recovery_previous_session_id}, "
+                            f"new_session_id={session_id}, "
+                            f"log_path={self.experiment_resume_log_path or 'missing'}, "
+                            f"log_turns={self.experiment_resume_turn_count or '0'}"
+                        )
+
+                self.experiment_session_id = session_id
+                self.experiment_current_step_id = current_step_id
+                self.experiment_progress_summary = progress_summary_payload
+                if self.chat_session_id and self.experiment_session_id:
+                    await save_experiment_session_binding(
+                        self.config,
+                        chat_session_id=self.chat_session_id,
+                        model_session_key=self.model_session_key or "",
+                        device_id=self.device_id or "",
+                        user_id=self.user_id or "",
+                        yaml_path=yaml_path,
+                        experiment_session_id=self.experiment_session_id,
+                        status="active",
+                        source=session_source or "create",
+                        current_step_id=current_step_id,
+                        completed_steps_count=completed_steps_count,
+                        total_steps=total_steps,
+                    )
+
+                debug_delay_seconds = self._experiment_prewarm_debug_delay_seconds()
+                if debug_delay_seconds > 0:
+                    self.logger.bind(tag=TAG).info(
+                        "experiment prewarm debug delay before minimal ready: "
+                        f"device_id={self.device_id}, "
+                        f"trigger={self.experiment_prewarm_trigger}, "
+                        f"delay_seconds={debug_delay_seconds}"
+                    )
+                    await asyncio.sleep(debug_delay_seconds)
+
+                self.experiment_prewarm_ready_level = "minimal_ready"
+                self.experiment_prewarm_minimal_ready_at = time.time()
+                self.experiment_prewarm_status = "deep_warming"
+                minimal_ready_reached = True
+                minimal_ready_event.set()
+                self.logger.bind(tag=TAG).info(
+                    "experiment prewarm minimal ready: "
+                    f"device_id={self.device_id}, trigger={self.experiment_prewarm_trigger}, "
+                    f"session_id={self.experiment_session_id}, "
+                    f"current_step_id={self.experiment_current_step_id}, "
+                    f"completed_steps={completed_steps_count}/{total_steps or '?'}, "
+                    f"{self._experiment_context_presence_log_fields()}"
+                )
+
+                await self._run_experiment_prewarm_deep_stage(
+                    session_id=session_id,
+                    progress_summary_payload=progress_summary_payload,
+                )
+                return True
+            except asyncio.CancelledError:
+                self.experiment_prewarm_status = "cancelled"
+                self.experiment_prewarm_error = "prewarm cancelled"
+                raise
+            except Exception as exc:
+                self.experiment_prewarm_error = str(exc)
+                if minimal_ready_reached:
+                    self.experiment_prewarm_status = "failed"
+                    self.logger.bind(tag=TAG).warning(
+                        "experiment prewarm deep warming failed after minimal ready: "
+                        f"device_id={self.device_id}, trigger={self.experiment_prewarm_trigger}, "
+                        f"session_id={self.experiment_session_id}, error={exc}"
+                    )
+                    return True
+
+                self.experiment_prewarm_status = "failed"
+                self.logger.bind(tag=TAG).warning(
+                    "experiment prewarm failed before minimal ready: "
+                    f"device_id={self.device_id}, trigger={self.experiment_prewarm_trigger}, "
+                    f"error={exc}"
+                )
+                return False
+
+    def schedule_experiment_prewarm(self, trigger: str = "") -> bool:
+        if not self._experiment_prewarm_enabled():
+            return False
+        if not self.loop:
+            return False
+        if self._experiment_prewarm_is_minimal_ready():
+            return False
+        existing_task = self.experiment_prewarm_task
+        if existing_task is not None and not existing_task.done():
+            return False
+
+        async def _runner():
+            await self.prewarm_experiment_session(trigger=trigger)
+
+        self.experiment_prewarm_task = asyncio.create_task(_runner())
+        return True
+
+    async def wait_for_experiment_prewarm_for_real_user_turn(
+        self,
+        timeout_seconds: float,
+        trigger: str = "first_real_user_turn",
+    ) -> Dict[str, str]:
+        wait_result = "disabled"
+        timeout_seconds = max(0.0, float(timeout_seconds or 0.0))
+
+        if not self._experiment_prewarm_enabled():
+            return self._experiment_prewarm_route_context(wait_result=wait_result)
+
+        if self._experiment_prewarm_is_minimal_ready():
+            self.logger.bind(tag=TAG).info(
+                "experiment prewarm wait immediate-ready: "
+                f"device_id={self.device_id}, trigger={trigger}, "
+                f"session_id={self.experiment_session_id}, "
+                f"ready_level={self.experiment_prewarm_ready_level}, "
+                f"status={self.experiment_prewarm_status}"
+            )
+            return self._experiment_prewarm_route_context(wait_result="ready")
+
+        if self.experiment_prewarm_status == "idle":
+            self.schedule_experiment_prewarm(trigger=trigger)
+
+        task = self.experiment_prewarm_task
+        if task is None:
+            wait_result = (
+                "ready"
+                if self._experiment_prewarm_is_minimal_ready()
+                else (self.experiment_prewarm_status or "idle")
+            )
+            return self._experiment_prewarm_route_context(wait_result=wait_result)
+
+        if task.done():
+            wait_result = (
+                "ready"
+                if self._experiment_prewarm_is_minimal_ready()
+                else (self.experiment_prewarm_status or "done")
+            )
+            self.logger.bind(tag=TAG).info(
+                "experiment prewarm wait finished-before-block: "
+                f"device_id={self.device_id}, trigger={trigger}, result={wait_result}, "
+                f"session_id={self.experiment_session_id}, "
+                f"ready_level={self.experiment_prewarm_ready_level}, "
+                f"status={self.experiment_prewarm_status}"
+            )
+            return self._experiment_prewarm_route_context(wait_result=wait_result)
+
+        if timeout_seconds <= 0:
+            self.logger.bind(tag=TAG).info(
+                "experiment prewarm wait skipped: "
+                f"device_id={self.device_id}, trigger={trigger}, timeout_seconds={timeout_seconds}"
+            )
+            return self._experiment_prewarm_route_context(wait_result="skipped")
+
+        self.logger.bind(tag=TAG).info(
+            "experiment prewarm wait begin: "
+            f"device_id={self.device_id}, trigger={trigger}, timeout_seconds={timeout_seconds}, "
+            f"status={self.experiment_prewarm_status}, "
+            f"ready_level={self.experiment_prewarm_ready_level}"
+        )
+        minimal_ready_event = await self._get_experiment_prewarm_minimal_ready_event()
+        wait_task = asyncio.create_task(minimal_ready_event.wait())
+        try:
+            done, pending = await asyncio.wait(
+                {wait_task, task},
+                timeout=timeout_seconds,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            if wait_task in done and minimal_ready_event.is_set():
+                wait_result = (
+                    "ready"
+                    if self._experiment_prewarm_is_minimal_ready()
+                    else (self.experiment_prewarm_status or "done")
+                )
+                self.logger.bind(tag=TAG).info(
+                    "experiment prewarm wait minimal-ready: "
+                    f"device_id={self.device_id}, trigger={trigger}, result={wait_result}, "
+                    f"session_id={self.experiment_session_id}, "
+                    f"ready_level={self.experiment_prewarm_ready_level}, "
+                    f"status={self.experiment_prewarm_status}, "
+                    f"current_step_id={self.experiment_current_step_id}, "
+                    f"{self._experiment_context_presence_log_fields()}"
+                )
+            elif task in done:
+                wait_result = (
+                    "ready"
+                    if self._experiment_prewarm_is_minimal_ready()
+                    else (self.experiment_prewarm_status or "done")
+                )
+                self.logger.bind(tag=TAG).info(
+                    "experiment prewarm wait finished: "
+                    f"device_id={self.device_id}, trigger={trigger}, result={wait_result}, "
+                    f"session_id={self.experiment_session_id}, "
+                    f"ready_level={self.experiment_prewarm_ready_level}, "
+                    f"status={self.experiment_prewarm_status}, "
+                    f"{self._experiment_context_presence_log_fields()}"
+                )
+            else:
+                wait_result = "timeout"
+                self.logger.bind(tag=TAG).info(
+                    "experiment prewarm wait timeout: "
+                    f"device_id={self.device_id}, trigger={trigger}, timeout_seconds={timeout_seconds}, "
+                    f"status={self.experiment_prewarm_status}, "
+                    f"ready_level={self.experiment_prewarm_ready_level}"
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            wait_result = "failed"
+            self.logger.bind(tag=TAG).warning(
+                "experiment prewarm wait failed: "
+                f"device_id={self.device_id}, trigger={trigger}, error={exc}"
+            )
+        finally:
+            if not wait_task.done():
+                wait_task.cancel()
+            try:
+                await wait_task
+            except asyncio.CancelledError:
+                pass
+        return self._experiment_prewarm_route_context(wait_result=wait_result)
 
     @staticmethod
     def _ws_is_open(ws) -> bool:
@@ -1231,7 +3089,7 @@ class ConnectionHandler:
         with self._external_busy_lock:
             return bool(self._external_busy_tokens)
 
-    def chat(self, query, depth=0):
+    def chat(self, query, depth=0, is_real_user_turn=False):
         if query is not None:
             self.logger.bind(tag=TAG).info(f"大模型收到用户消息: {query}")
 
@@ -1280,15 +3138,114 @@ class ConnectionHandler:
         try:
             # 使用带记忆的对话
             memory_str = None
+            llm_route_kwargs = {}
+            if depth == 0:
+                llm_route_kwargs = self._llm_route_context_kwargs()
+                should_wait_for_prewarm = (
+                    is_real_user_turn
+                    and query is not None
+                    and self._consume_experiment_first_real_user_turn_gate()
+                )
+                if should_wait_for_prewarm and self.loop:
+                    prewarm_wait_seconds = self._experiment_prewarm_wait_seconds()
+                    self.logger.bind(tag=TAG).info(
+                        "first real user turn entering prewarm gate: "
+                        f"device_id={self.device_id}, wait_seconds={prewarm_wait_seconds}, "
+                        f"query={str(query)[:120]}"
+                    )
+                    try:
+                        future = asyncio.run_coroutine_threadsafe(
+                            self.wait_for_experiment_prewarm_for_real_user_turn(
+                                prewarm_wait_seconds
+                            ),
+                            self.loop,
+                        )
+                        wait_timeout = max(prewarm_wait_seconds + 2.0, 2.0)
+                        prewarm_route_context = future.result(timeout=wait_timeout)
+                        if (
+                            prewarm_route_context.get("experiment_prewarm_wait_result")
+                            == "ready"
+                            and prewarm_route_context.get("experiment_session_id")
+                        ):
+                            self.experiment_prewarm_session_adopted = True
+                        self.logger.bind(tag=TAG).info(
+                            "first real user turn prewarm gate result: "
+                            f"device_id={self.device_id}, "
+                            f"wait_result={prewarm_route_context.get('experiment_prewarm_wait_result', '')}, "
+                            f"ready_level={prewarm_route_context.get('experiment_prewarm_ready_level', '')}, "
+                            f"status={prewarm_route_context.get('experiment_prewarm_status', '')}, "
+                            f"adopted={self.experiment_prewarm_session_adopted}, "
+                            f"experiment_session_id={prewarm_route_context.get('experiment_session_id', '')}, "
+                            f"experiment_current_step_id={prewarm_route_context.get('experiment_current_step_id', '')}, "
+                            f"recovery_latest_current_step_id={prewarm_route_context.get('experiment_resume_latest_current_step_id', '')}, "
+                            f"{self._experiment_context_presence_log_fields()}"
+                        )
+                        llm_route_kwargs.update(prewarm_route_context)
+                    except Exception as exc:
+                        self.logger.bind(tag=TAG).warning(
+                            "experiment prewarm wait bridge failed: "
+                            f"device_id={self.device_id}, error={exc}"
+                        )
+                        llm_route_kwargs.update(
+                            self._experiment_prewarm_route_context(
+                                wait_result="bridge_error"
+                            )
+                        )
+                else:
+                    llm_route_kwargs.update(self._experiment_prewarm_route_context())
+
+                if is_real_user_turn and query is not None:
+                    self.enrich_latest_clean_user_utterance_snapshot()
+
+                if is_real_user_turn and query is not None and self.loop:
+                    deep_prefetch_wait_seconds = (
+                        self._experiment_deep_prefetch_micro_wait_seconds()
+                    )
+                    try:
+                        future = asyncio.run_coroutine_threadsafe(
+                            self.wait_for_experiment_deep_prefetch(
+                                query,
+                                deep_prefetch_wait_seconds,
+                            ),
+                            self.loop,
+                        )
+                        deep_wait_timeout = max(deep_prefetch_wait_seconds + 2.0, 2.0)
+                        deep_prefetch_context = future.result(
+                            timeout=deep_wait_timeout
+                        )
+                        if deep_prefetch_context:
+                            llm_route_kwargs.update(deep_prefetch_context)
+                    except Exception as exc:
+                        self.logger.bind(tag=TAG).warning(
+                            "experiment deep prefetch wait bridge failed: "
+                            f"device_id={self.device_id}, error={exc}"
+                        )
+
+                self.logger.bind(tag=TAG).info(
+                    "llm turn route ready: "
+                    f"device_id={self.device_id}, "
+                    f"chat_session_id={llm_route_kwargs.get('chat_session_id', '')}, "
+                    f"model_session_key={llm_route_kwargs.get('model_session_key', '')}, "
+                    f"wait_result={llm_route_kwargs.get('experiment_prewarm_wait_result', '')}, "
+                    f"experiment_status={llm_route_kwargs.get('experiment_prewarm_status', '')}, "
+                    f"experiment_ready_level={llm_route_kwargs.get('experiment_prewarm_ready_level', '')}, "
+                    f"experiment_session_id={llm_route_kwargs.get('experiment_session_id', '')}, "
+                    f"experiment_current_step_id={llm_route_kwargs.get('experiment_current_step_id', '')}, "
+                    f"deep_wait_result={llm_route_kwargs.get('experiment_deep_prefetch_wait_result', '')}, "
+                    f"deep_status={llm_route_kwargs.get('experiment_deep_prefetch_status', '')}, "
+                    f"deep_focus={llm_route_kwargs.get('experiment_deep_prefetch_focus', '')}, "
+                    f"{self._experiment_context_presence_log_fields()}, "
+                    f"recovery_required={llm_route_kwargs.get('experiment_resume_recovery_required', '')}, "
+                    f"recovery_log_turns={llm_route_kwargs.get('experiment_resume_turn_count', '')}, "
+                    f"recovery_latest_session_id={llm_route_kwargs.get('experiment_resume_latest_session_id', '')}, "
+                    f"recovery_latest_current_step_id={llm_route_kwargs.get('experiment_resume_latest_current_step_id', '')}"
+                )
+
             if self.memory is not None:
                 future = asyncio.run_coroutine_threadsafe(
                     self.memory.query_memory(query), self.loop
                 )
                 memory_str = future.result()
-
-            # Only inject routing context for the outer user turn.
-            # Internal recursive turns (depth>0) are tool-follow-up rounds.
-            llm_route_kwargs = {"device_id":self.device_id} if self.device_id else {}
 
             llm_dialogue = self.dialogue.get_llm_dialogue_with_memory(
                 memory_str, self.config.get("voiceprint", {})
@@ -1777,6 +3734,12 @@ class ConnectionHandler:
             # 触发停止事件
             if self.stop_event:
                 self.stop_event.set()
+            prewarm_task = getattr(self, "experiment_prewarm_task", None)
+            if prewarm_task is not None and not prewarm_task.done():
+                prewarm_task.cancel()
+            deep_prefetch_task = getattr(self, "experiment_deep_prefetch_task", None)
+            if deep_prefetch_task is not None and not deep_prefetch_task.done():
+                deep_prefetch_task.cancel()
             with self._external_busy_lock:
                 self._external_busy_tokens.clear()
             self._stop_thinking_pulse()

@@ -93,6 +93,14 @@ async def handleHelloMessage(conn, msg_json):
             # 发送初始化
             asyncio.create_task(send_mcp_initialize_message(conn))
 
+    if hasattr(conn, "schedule_experiment_prewarm"):
+        scheduled = conn.schedule_experiment_prewarm(trigger="hello")
+        if scheduled:
+            conn.logger.bind(tag=TAG).info(
+                "scheduled experiment prewarm on hello: "
+                f"device_id={conn.device_id}, session_id={conn.session_id}"
+            )
+
     await conn.websocket.send(json.dumps(conn.welcome_msg))
 
 

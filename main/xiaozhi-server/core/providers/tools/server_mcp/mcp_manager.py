@@ -212,10 +212,15 @@ class ServerMCPManager:
             )
             return client
 
-    async def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
+    async def execute_tool(
+        self,
+        tool_name: str,
+        arguments: Dict[str, Any],
+        priority: str = "foreground",
+    ) -> Any:
         """Execute a shared MCP tool call with retry and reconnect."""
         logger.bind(tag=TAG).info(
-            f"Executing server MCP tool {tool_name}, arguments: {arguments}"
+            f"Executing server MCP tool {tool_name}, priority={priority}, arguments: {arguments}"
         )
 
         max_retries = 3
@@ -229,34 +234,56 @@ class ServerMCPManager:
         if not target_client:
             raise RuntimeError(f"MCP client {client_name} is not initialized")
 
-        for attempt in range(max_retries):
-            try:
-                return await target_client.call_tool(
+        call_hook_entered = False
+        try:
+            if (
+                client_name == "experiment-graph"
+                and hasattr(self.conn, "_before_experiment_graph_tool_call")
+            ):
+                await self.conn._before_experiment_graph_tool_call(
                     tool_name,
-                    arguments,
-                    progress_callback=self.progress_callback,
+                    priority=priority,
                 )
-            except Exception as exc:
-                if attempt == max_retries - 1:
-                    raise
+                call_hook_entered = True
 
-                logger.bind(tag=TAG).warning(
-                    f"Tool {tool_name} failed (attempt {attempt + 1}/{max_retries}): {exc}"
-                )
-                logger.bind(tag=TAG).info(
-                    f"Trying to reconnect shared MCP client before retry: {client_name}"
-                )
-
+            for attempt in range(max_retries):
                 try:
-                    target_client = await self._reconnect_client(
-                        client_name, target_client
+                    return await target_client.call_tool(
+                        tool_name,
+                        arguments,
+                        progress_callback=self.progress_callback,
                     )
-                except Exception as reconnect_error:
-                    logger.bind(tag=TAG).error(
-                        f"Failed to reconnect MCP client {client_name}: {reconnect_error}"
+                except Exception as exc:
+                    if attempt == max_retries - 1:
+                        raise
+
+                    logger.bind(tag=TAG).warning(
+                        f"Tool {tool_name} failed (attempt {attempt + 1}/{max_retries}): {exc}"
+                    )
+                    logger.bind(tag=TAG).info(
+                        f"Trying to reconnect shared MCP client before retry: {client_name}"
                     )
 
-                await asyncio.sleep(retry_interval)
+                    try:
+                        target_client = await self._reconnect_client(
+                            client_name, target_client
+                        )
+                    except Exception as reconnect_error:
+                        logger.bind(tag=TAG).error(
+                            f"Failed to reconnect MCP client {client_name}: {reconnect_error}"
+                        )
+
+                    await asyncio.sleep(retry_interval)
+        finally:
+            if (
+                call_hook_entered
+                and client_name == "experiment-graph"
+                and hasattr(self.conn, "_after_experiment_graph_tool_call")
+            ):
+                await self.conn._after_experiment_graph_tool_call(
+                    tool_name,
+                    priority=priority,
+                )
 
     async def cleanup_all(self) -> None:
         """Release this connection's reference to the shared MCP pool."""

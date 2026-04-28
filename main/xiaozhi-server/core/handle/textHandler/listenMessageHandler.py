@@ -76,10 +76,15 @@ class ListenTextMessageHandler(TextMessageHandler):
                     conn.just_woken_up = True
                     # 上报纯文字数据（复用ASR上报功能，但不提供音频数据）
                     enqueue_asr_report(conn, "嘿，你好呀", [])
-                    await startToChat(conn, "嘿，你好呀")
+                    await startToChat(conn, "嘿，你好呀", is_real_user_turn=False)
                 else:
                     conn.just_woken_up = True
                     # 上报纯文字数据（复用ASR上报功能，但不提供音频数据）
                     enqueue_asr_report(conn, original_text, [])
+                    if hasattr(conn, "log_clean_user_utterance"):
+                        conn.log_clean_user_utterance(
+                            original_text,
+                            source="listen_text",
+                        )
                     # 否则需要LLM对文字内容进行答复
                     await startToChat(conn, original_text)
