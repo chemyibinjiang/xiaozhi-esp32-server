@@ -436,6 +436,30 @@ TRANSITION_BACKSTAGE_PATTERNS = [
         ")"
         "[^\\u3002\\uff01\\uff1f\\uff1b]{0,120}[\\u3002\\uff01\\uff1f\\uff1b\\uff0c\\s]*$"
     ),
+    re.compile(
+        "^(?:\\u6211\\u5148|\\u6211\\u518d|\\u6211\\u73b0\\u5728|\\u6211\\u8fd9\\u8fb9\\u5148)"
+        "[^\\u3002\\uff01\\uff1f\\uff1b]{0,60}"
+        "(?:\\u8865\\u8bb0|\\u8bb0\\u4e00\\u4e0b|\\u8865\\u4e00\\u4e0b)"
+        "[^\\u3002\\uff01\\uff1f\\uff1b]{0,120}"
+        "(?:\\u8fd9\\u4e00\\u8f6e\\u7ed3\\u679c|\\u8fd9\\u4e00\\u8f6e|\\u5f53\\u524d\\u7ed3\\u679c|\\u5f53\\u524d\\u8fd9\\u4e00\\u8f6e)"
+        "[^\\u3002\\uff01\\uff1f\\uff1b]{0,120}[\\u3002\\uff01\\uff1f\\uff1b\\uff0c\\s]*$"
+    ),
+    re.compile(
+        "^(?:\\u6211\\u5148|\\u6211\\u518d|\\u6211\\u73b0\\u5728|\\u6211\\u8fd9\\u8fb9\\u5148)"
+        "[^\\u3002\\uff01\\uff1f\\uff1b]{0,60}"
+        "(?:\\u6838\\u5bf9|\\u786e\\u8ba4|\\u770b\\u4e00\\u773c|\\u770b\\u4e00\\u4e0b)"
+        "[^\\u3002\\uff01\\uff1f\\uff1b]{0,120}"
+        "(?:\\u540e\\u9762\\u7684\\u7d27\\u63a5\\u6b65\\u9aa4|\\u540e\\u9762\\u7d27\\u63a5\\u6b65\\u9aa4|\\u540e\\u9762\\u6b65\\u9aa4|\\u7d27\\u63a5\\u6b65\\u9aa4|\\u4e0b\\u4e00\\u6b65)"
+        "[^\\u3002\\uff01\\uff1f\\uff1b]{0,120}[\\u3002\\uff01\\uff1f\\uff1b\\uff0c\\s]*$"
+    ),
+    re.compile(
+        "^(?:\\u6211\\u5148|\\u6211\\u518d|\\u6211\\u73b0\\u5728|\\u6211\\u8fd9\\u8fb9\\u5148)"
+        "[^\\u3002\\uff01\\uff1f\\uff1b]{0,60}"
+        "(?:\\u770b\\u4e00\\u773c|\\u770b\\u4e00\\u4e0b|\\u786e\\u8ba4|\\u68b3\\u7406)"
+        "[^\\u3002\\uff01\\uff1f\\uff1b]{0,120}"
+        "(?:\\u8fd9\\u4e00\\u6b65\\u8981\\u4f60\\u56de\\u62a5\\u4ec0\\u4e48|\\u8fd9\\u4e00\\u6b65\\u8981\\u56de\\u62a5\\u4ec0\\u4e48|\\u8981\\u4f60\\u56de\\u62a5\\u4ec0\\u4e48|\\u8981\\u56de\\u62a5\\u4ec0\\u4e48)"
+        "[^\\u3002\\uff01\\uff1f\\uff1b]{0,120}[\\u3002\\uff01\\uff1f\\uff1b\\uff0c\\s]*$"
+    ),
 ]
 
 

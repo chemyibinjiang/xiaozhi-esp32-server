@@ -1168,6 +1168,109 @@ class ConnectionHandler:
             ).strip()
         return context
 
+    def _current_experiment_step_snapshot_id(self) -> str:
+        current_step_id = str(self.experiment_current_step_id or "").strip()
+        if current_step_id:
+            return current_step_id
+        return self._extract_experiment_current_step_id(
+            self.experiment_current_step,
+            self.experiment_progress_summary,
+        )
+
+    def _should_refresh_experiment_state_before_llm(self) -> bool:
+        session_id = str(self.experiment_session_id or "").strip()
+        if not session_id:
+            return False
+
+        current_step_id = self._current_experiment_step_snapshot_id()
+        payload_step_id = self._extract_experiment_current_step_id(
+            self.experiment_current_step,
+            self.experiment_progress_summary,
+        )
+        recovery_step_id = str(
+            self.experiment_resume_latest_current_step_id or ""
+        ).strip()
+
+        if not current_step_id:
+            return True
+        if payload_step_id and payload_step_id != current_step_id:
+            return True
+        if self.experiment_resume_recovery_required and recovery_step_id:
+            return recovery_step_id != current_step_id
+        return False
+
+    async def refresh_experiment_foreground_state(
+        self,
+        *,
+        reason: str = "",
+    ) -> Dict[str, Any]:
+        session_id = str(self.experiment_session_id or "").strip()
+        if not session_id:
+            return {}
+
+        self.logger.bind(tag=TAG).info(
+            "experiment foreground state refresh begin: "
+            f"device_id={self.device_id}, session_id={session_id}, "
+            f"reason={reason or 'unknown'}, "
+            f"cached_step_id={self._current_experiment_step_snapshot_id()}, "
+            f"recovery_step_id={self.experiment_resume_latest_current_step_id or ''}"
+        )
+
+        step_payload, progress_payload = await asyncio.gather(
+            self._call_experiment_graph_tool(
+                "get_step",
+                {"session_id": session_id},
+                priority="foreground",
+            ),
+            self._call_experiment_graph_tool(
+                "get_progress_summary",
+                {"session_id": session_id},
+                priority="foreground",
+            ),
+        )
+
+        current_step_id = self._extract_experiment_current_step_id(
+            step_payload,
+            progress_payload,
+        )
+        self.experiment_current_step = step_payload
+        self.experiment_progress_summary = progress_payload
+        if current_step_id:
+            self.experiment_current_step_id = current_step_id
+            if self.experiment_resume_recovery_required:
+                self.experiment_resume_latest_current_step_id = current_step_id
+
+        self.logger.bind(tag=TAG).info(
+            "experiment foreground state refresh done: "
+            f"device_id={self.device_id}, session_id={session_id}, "
+            f"reason={reason or 'unknown'}, current_step_id={current_step_id}, "
+            f"{self._experiment_context_presence_log_fields()}"
+        )
+        return {
+            "step_payload": step_payload,
+            "progress_payload": progress_payload,
+            "current_step_id": current_step_id,
+        }
+
+    async def maybe_refresh_experiment_state_before_llm(
+        self,
+        *,
+        reason: str = "",
+    ) -> Dict[str, str]:
+        if not self._should_refresh_experiment_state_before_llm():
+            return {}
+
+        self.logger.bind(tag=TAG).info(
+            "experiment state stale before llm, forcing foreground refresh: "
+            f"device_id={self.device_id}, session_id={self.experiment_session_id}, "
+            f"reason={reason or 'unknown'}, "
+            f"cached_step_id={self._current_experiment_step_snapshot_id()}, "
+            f"recovery_step_id={self.experiment_resume_latest_current_step_id or ''}"
+        )
+
+        await self.refresh_experiment_foreground_state(reason=reason or "before_llm")
+        return self._experiment_prewarm_route_context()
+
     def _consume_experiment_first_real_user_turn_gate(self) -> bool:
         if not self._experiment_prewarm_enabled():
             return False
@@ -3218,6 +3321,23 @@ class ConnectionHandler:
                     except Exception as exc:
                         self.logger.bind(tag=TAG).warning(
                             "experiment deep prefetch wait bridge failed: "
+                            f"device_id={self.device_id}, error={exc}"
+                        )
+
+                if is_real_user_turn and query is not None and self.loop:
+                    try:
+                        future = asyncio.run_coroutine_threadsafe(
+                            self.maybe_refresh_experiment_state_before_llm(
+                                reason="real_user_turn"
+                            ),
+                            self.loop,
+                        )
+                        refreshed_route_context = future.result(timeout=3.0)
+                        if refreshed_route_context:
+                            llm_route_kwargs.update(refreshed_route_context)
+                    except Exception as exc:
+                        self.logger.bind(tag=TAG).warning(
+                            "experiment foreground refresh bridge failed: "
                             f"device_id={self.device_id}, error={exc}"
                         )
 
