@@ -107,6 +107,29 @@ def _contains_any(text: str, words) -> bool:
     return any(w in text for w in words)
 
 
+def _contains_match_token(text: str, words) -> bool:
+    normalized = _normalize_text_for_match(text)
+    if not normalized:
+        return False
+
+    ascii_chunks = re.findall(r"[a-z0-9_]+", normalized)
+    ascii_parts = set()
+    for chunk in ascii_chunks:
+        ascii_parts.update(part for part in chunk.split("_") if part)
+
+    for word in words:
+        token = _normalize_text_for_match(str(word or ""))
+        if not token:
+            continue
+        if re.fullmatch(r"[a-z0-9_]+", token):
+            if token in ascii_parts:
+                return True
+            continue
+        if token in normalized:
+            return True
+    return False
+
+
 def _starts_with_any(text: str, words) -> bool:
     return any(text.startswith(w) for w in words)
 
@@ -210,6 +233,17 @@ def _extract_experiment_step_meta(payload) -> dict:
     return meta
 
 
+def _extract_experiment_step_interaction(payload) -> dict:
+    body = _experiment_result_body(payload)
+    step = body.get("step")
+    if not isinstance(step, dict):
+        return {}
+    interaction = step.get("interaction")
+    if not isinstance(interaction, dict):
+        return {}
+    return interaction
+
+
 def _merge_experiment_step_meta(primary: dict, fallback: dict) -> dict:
     merged = dict(fallback or {})
     for key, value in (primary or {}).items():
@@ -253,6 +287,28 @@ def _extract_experiment_schema_view(payload) -> dict:
             name = str(item.get("name", "")).strip()
             if name:
                 result[name] = item
+    if result:
+        return result
+
+    json_schema = body.get("json_schema")
+    if isinstance(json_schema, dict):
+        properties = json_schema.get("properties")
+        required = set(json_schema.get("required") or [])
+        if isinstance(properties, dict):
+            for name, item in properties.items():
+                if not isinstance(item, dict):
+                    continue
+                field_name = str(name or "").strip()
+                if not field_name:
+                    continue
+                result[field_name] = {
+                    "name": field_name,
+                    "type": item.get("type"),
+                    "description": item.get("description"),
+                    "optional": field_name not in required,
+                    "default": item.get("default"),
+                    "validation": item,
+                }
     return result
 
 
@@ -261,6 +317,82 @@ def _clean_field_description(text: str) -> str:
     value = re.sub(r"^[已请需]+", "", value)
     value = value.replace("是否", "")
     return value.strip("，。；;: ")
+
+
+_CHINESE_DIGIT_MAP = str.maketrans(
+    {
+        "零": "0",
+        "一": "1",
+        "二": "2",
+        "两": "2",
+        "三": "3",
+        "四": "4",
+        "五": "5",
+        "六": "6",
+        "七": "7",
+        "八": "8",
+        "九": "9",
+    }
+)
+
+
+def _normalize_confirmation_signature(text: str) -> str:
+    norm = _normalize_text_for_match(text)
+    if not norm:
+        return ""
+    norm = norm.translate(_CHINESE_DIGIT_MAP)
+    norm = norm.replace("->", "-")
+    norm = norm.replace("至", "到")
+    norm = re.sub(r"([0-9]+)到([0-9]+)", r"\1-\2", norm)
+    norm = norm.replace("已按", "按")
+    norm = norm.replace("已经", "已")
+    norm = norm.replace("完成了", "完成")
+    norm = norm.replace("加入了", "加入")
+    return norm
+
+
+def _confirmation_char_ngrams(text: str, n: int = 2) -> set:
+    clean = re.sub(r"[\s，。；：、,.!?？]", "", text)
+    if not clean:
+        return set()
+    if len(clean) < n:
+        return {clean}
+    return {clean[i : i + n] for i in range(len(clean) - n + 1)}
+
+
+def _longest_common_substring_len(left: str, right: str) -> int:
+    if not left or not right:
+        return 0
+    prev = [0] * (len(right) + 1)
+    best = 0
+    for lch in left:
+        curr = [0] * (len(right) + 1)
+        for idx, rch in enumerate(right, start=1):
+            if lch == rch:
+                curr[idx] = prev[idx - 1] + 1
+                if curr[idx] > best:
+                    best = curr[idx]
+        prev = curr
+    return best
+
+
+def _looks_like_confirmation_signature_match(user_text: str, field_text: str) -> bool:
+    if not user_text or not field_text:
+        return False
+    if field_text in user_text or user_text in field_text:
+        return True
+
+    user_grams = _confirmation_char_ngrams(user_text)
+    field_grams = _confirmation_char_ngrams(field_text)
+    if not user_grams or not field_grams:
+        return False
+
+    overlap = len(user_grams & field_grams)
+    similarity = overlap / max(1, min(len(user_grams), len(field_grams)))
+    if similarity < 0.58:
+        return False
+
+    return _longest_common_substring_len(user_text, field_text) >= 4
 
 
 def _format_missing_field_prompts(missing_fields, schema_by_name: dict) -> list:
@@ -333,6 +465,56 @@ def _compose_experiment_step_reply(step_meta: dict, mode: str = "guide") -> str:
         parts.append(f"{tip}。")
     parts.append("做好后告诉我。")
     return "".join(parts)
+
+
+def _extract_experiment_overview_title(payload) -> str:
+    body = _experiment_result_body(payload)
+    for key in ("title", "experiment_title", "name"):
+        value = str(body.get(key, "")).strip()
+        if value:
+            return value
+
+    overview = body.get("overview")
+    if isinstance(overview, dict):
+        for key in ("title", "experiment_title", "name"):
+            value = str(overview.get(key, "")).strip()
+            if value:
+                return value
+
+    summary = body.get("summary")
+    if isinstance(summary, dict):
+        for key in ("title", "experiment_title", "name"):
+            value = str(summary.get(key, "")).strip()
+            if value:
+                return value
+    return ""
+
+
+def _compose_experiment_start_reply(experiment_title: str, step_reply: str) -> str:
+    title = " ".join(str(experiment_title or "").split()).strip()
+    reply = " ".join(str(step_reply or "").split()).strip()
+    if title:
+        if reply:
+            return f"今天我们做的是{title}。{reply}"
+        return f"今天我们做的是{title}。"
+    return reply
+
+
+def _is_explicit_experiment_start_request(filtered_text: str) -> bool:
+    norm = _normalize_text_for_match(filtered_text)
+    if not norm:
+        return False
+    explicit_tokens = (
+        "开始今天的实验",
+        "开始今天实验",
+        "开始本次实验",
+        "开始这个实验",
+        "开始实验",
+        "开始做实验",
+        "开始做今天的实验",
+        "开始今天做的实验",
+    )
+    return _contains_any(norm, explicit_tokens)
 
 
 def _looks_like_experiment_detail_request(norm: str) -> bool:
@@ -583,6 +765,29 @@ async def _load_experiment_step_meta(conn) -> dict:
     return loaded_meta
 
 
+async def _load_experiment_overview_title(conn) -> str:
+    title = _extract_experiment_overview_title(getattr(conn, "experiment_overview", None))
+    if title:
+        return title
+
+    session_id = str(getattr(conn, "experiment_session_id", "") or "").strip()
+    if not session_id:
+        return ""
+
+    try:
+        overview_payload = await _call_experiment_graph_tool_fast(
+            conn,
+            "get_overview",
+            {"session_id": session_id},
+            priority="foreground",
+        )
+    except Exception:
+        return ""
+
+    conn.experiment_overview = overview_payload
+    return _extract_experiment_overview_title(overview_payload)
+
+
 async def _refresh_experiment_step_cache(conn, session_id: str):
     if not session_id:
         return {}
@@ -615,7 +820,33 @@ async def _refresh_experiment_step_cache(conn, session_id: str):
     )
 
 
-def _build_experiment_autofill_fields(schema_by_name: dict, missing_fields) -> dict:
+def _step_supports_confirmation_autofill(step_payload) -> bool:
+    interaction = _extract_experiment_step_interaction(step_payload)
+    if not interaction:
+        return False
+
+    fast_path_mode = str(interaction.get("fast_path_mode", "")).strip().lower()
+    capabilities = {
+        str(item or "").strip().lower()
+        for item in (interaction.get("capabilities") or [])
+    }
+    tags = {
+        str(item or "").strip().lower()
+        for item in (interaction.get("tags") or [])
+    }
+    return (
+        fast_path_mode == "confirmation_step"
+        or "step_confirmation" in capabilities
+        or "confirmation_step" in tags
+    )
+
+
+def _build_experiment_autofill_fields(
+    schema_by_name: dict,
+    missing_fields,
+    *,
+    allow_confirmation_autofill: bool = False,
+) -> dict:
     autofill = {}
     unsafe_tokens = (
         "photo",
@@ -679,10 +910,14 @@ def _build_experiment_autofill_fields(schema_by_name: dict, missing_fields) -> d
 
         description = str(field.get("description", "")).strip()
         haystack = f"{field_name} {description}".lower()
-        if _contains_any(haystack, unsafe_tokens):
+        if _contains_match_token(haystack, unsafe_tokens):
             continue
 
-        if not _contains_any(haystack, safe_name_tokens) and not _contains_any(
+        if allow_confirmation_autofill:
+            autofill[field_name] = True
+            continue
+
+        if not _contains_match_token(haystack, safe_name_tokens) and not _contains_match_token(
             description,
             safe_desc_tokens,
         ):
@@ -690,6 +925,135 @@ def _build_experiment_autofill_fields(schema_by_name: dict, missing_fields) -> d
 
         autofill[field_name] = True
     return autofill
+
+
+def _looks_like_confirmation_field_statement(
+    filtered_text: str,
+    missing_fields,
+    schema_by_name: dict,
+) -> bool:
+    norm = _normalize_confirmation_signature(filtered_text)
+    if not norm or len(norm) > 80:
+        return False
+    if _looks_like_experiment_detail_request(norm):
+        return False
+    if _looks_like_question_reply(filtered_text):
+        return False
+
+    negative_tokens = (
+        "没做",
+        "还没做",
+        "还没有做",
+        "没做好",
+        "还没做好",
+        "没完成",
+        "还没完成",
+        "先别",
+        "不要",
+        "不行",
+        "没加",
+        "还没加",
+    )
+    if _contains_any(norm, negative_tokens):
+        return False
+
+    for field_name in missing_fields or []:
+        field = schema_by_name.get(field_name, {})
+        type_text = str(field.get("type", "")).strip().lower()
+        if type_text not in {"bool", "boolean"}:
+            continue
+        description = _normalize_confirmation_signature(
+            _clean_field_description(field.get("description", ""))
+        )
+        if not description:
+            continue
+        if _looks_like_confirmation_signature_match(norm, description):
+            return True
+    return False
+
+
+async def _handle_confirmation_step_semantic_fast_intent(
+    conn,
+    original_text: str,
+    filtered_text: str,
+) -> bool:
+    session_id = str(getattr(conn, "experiment_session_id", "") or "").strip()
+    if not session_id:
+        return False
+
+    try:
+        step_payload, progress_payload, schema_payload = await asyncio.gather(
+            _call_experiment_graph_tool_fast(
+                conn,
+                "get_step",
+                {"session_id": session_id},
+                priority="foreground",
+            ),
+            _call_experiment_graph_tool_fast(
+                conn,
+                "get_current_progress",
+                {"session_id": session_id},
+                priority="foreground",
+            ),
+            _call_experiment_graph_tool_fast(
+                conn,
+                "get_schema",
+                {"session_id": session_id},
+                priority="foreground",
+            ),
+        )
+    except Exception:
+        return False
+
+    current_progress = _extract_experiment_current_progress(progress_payload)
+    if current_progress is None:
+        try:
+            start_payload = await _call_experiment_graph_tool_fast(
+                conn,
+                "start_trial",
+                {"session_id": session_id},
+                priority="foreground",
+            )
+        except Exception:
+            return False
+        current_progress = _extract_experiment_current_progress(start_payload)
+
+    missing_fields = list((current_progress or {}).get("missing_fields") or [])
+    if not missing_fields:
+        return False
+
+    schema_by_name = _extract_experiment_schema_view(schema_payload)
+    if not _looks_like_confirmation_field_statement(
+        filtered_text,
+        missing_fields,
+        schema_by_name,
+    ):
+        return False
+
+    conn.logger.bind(tag=TAG).info(
+        "experiment confirmation semantic fast path hit: "
+        f"text={filtered_text}, missing_fields={missing_fields}"
+    )
+
+    try:
+        reply = await _advance_experiment_step_fast(conn, session_id)
+    except Exception as exc:
+        conn.logger.bind(tag=TAG).warning(
+            f"experiment confirmation semantic fast advance failed: {exc}"
+        )
+        return False
+
+    if not reply:
+        return False
+
+    await _start_direct_intent_turn(conn, original_text)
+    if hasattr(conn, "enrich_latest_clean_user_utterance_snapshot"):
+        try:
+            conn.enrich_latest_clean_user_utterance_snapshot()
+        except Exception:
+            pass
+    speak_txt(conn, reply)
+    return True
 
 
 def _build_experiment_photo_writeback_fields(schema_by_name: dict, photo_meta: dict) -> dict:
@@ -897,6 +1261,7 @@ async def _advance_experiment_step_fast(conn, session_id: str) -> str:
         _extract_experiment_step_meta(getattr(conn, "experiment_progress_summary", None)),
     )
     schema_by_name = _extract_experiment_schema_view(schema_payload)
+    allow_confirmation_autofill = _step_supports_confirmation_autofill(step_payload)
 
     if bool(_experiment_result_body(can_proceed_payload).get("ok")):
         proceed_payload = await _call_experiment_graph_tool_fast(
@@ -923,7 +1288,11 @@ async def _advance_experiment_step_fast(conn, session_id: str) -> str:
         current_progress = _extract_experiment_current_progress(start_payload)
 
     missing_fields = list((current_progress or {}).get("missing_fields") or [])
-    autofill_fields = _build_experiment_autofill_fields(schema_by_name, missing_fields)
+    autofill_fields = _build_experiment_autofill_fields(
+        schema_by_name,
+        missing_fields,
+        allow_confirmation_autofill=allow_confirmation_autofill,
+    )
     if autofill_fields:
         add_fields_payload = await _call_experiment_graph_tool_fast(
             conn,
@@ -990,7 +1359,11 @@ async def handle_experiment_control_fast_intent(
 
     action = _classify_short_experiment_control(conn, filtered_text)
     if not action:
-        return False
+        return await _handle_confirmation_step_semantic_fast_intent(
+            conn,
+            original_text,
+            filtered_text,
+        )
 
     conn.logger.bind(tag=TAG).info(
         f"experiment control fast path hit: action={action}, text={filtered_text}"
@@ -1002,6 +1375,9 @@ async def handle_experiment_control_fast_intent(
             step_meta,
             mode="repeat" if action == "repeat" else "guide",
         )
+        if action == "guide" and _is_explicit_experiment_start_request(filtered_text):
+            experiment_title = await _load_experiment_overview_title(conn)
+            reply = _compose_experiment_start_reply(experiment_title, reply)
         if not reply:
             return False
         await _start_direct_intent_turn(conn, original_text)
