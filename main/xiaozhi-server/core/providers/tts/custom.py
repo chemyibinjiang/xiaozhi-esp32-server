@@ -19,6 +19,7 @@ class TTSProvider(TTSProviderBase):
         self.audio_file_type = config.get("format", "wav")
         self.output_file = config.get("output_dir", "tmp/")
         self.params = config.get("params")
+        self.timeout = float(config.get("timeout", 10))
 
         if isinstance(self.params, str):
             try:
@@ -39,9 +40,19 @@ class TTSProvider(TTSProviderBase):
             request_params[k] = v
 
         if self.method.upper() == "POST":
-            resp = requests.post(self.url, json=request_params, headers=self.headers)
+            resp = requests.post(
+                self.url,
+                json=request_params,
+                headers=self.headers,
+                timeout=self.timeout,
+            )
         else:
-            resp = requests.get(self.url, params=request_params, headers=self.headers)
+            resp = requests.get(
+                self.url,
+                params=request_params,
+                headers=self.headers,
+                timeout=self.timeout,
+            )
         if resp.status_code == 200:
             if output_file:
                 with open(output_file, "wb") as file:
