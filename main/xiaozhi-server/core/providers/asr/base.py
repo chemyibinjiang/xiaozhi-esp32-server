@@ -280,6 +280,17 @@ class ASRProviderBase(ABC):
                 return
 
             if text_len > 0:
+                if hasattr(conn, "log_clean_user_utterance"):
+                    conn.log_clean_user_utterance(
+                        content_for_length_check,
+                        source="asr",
+                        speaker_name=speaker_name,
+                        language_tag=(
+                            raw_text.get("language", "")
+                            if isinstance(raw_text, dict)
+                            else ""
+                        ),
+                    )
                 await startToChat(conn, enhanced_text)
                 enqueue_asr_report(conn, enhanced_text, asr_audio_task)
 

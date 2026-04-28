@@ -329,6 +329,83 @@ def _norm_str(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _classify_timeout_first_turn_template(user_text: str) -> str:
+    text = _normalize_whitespace(user_text)
+    if not text:
+        return "action"
+
+    record_keywords = (
+        "记录",
+        "记一下",
+        "记个",
+        "填一下",
+        "补记",
+        "更正",
+        "改成",
+        "修改",
+        "录入",
+        "写入",
+        "record",
+        "log",
+        "save",
+    )
+    theory_keywords = (
+        "原理",
+        "机理",
+        "为什么",
+        "讲解",
+        "理论",
+        "依据",
+        "参考",
+        "文献",
+        "整个实验",
+        "后面所有步骤",
+        "全部步骤",
+        "全流程",
+        "theory",
+        "mechanism",
+        "principle",
+        "reference",
+        "workflow",
+    )
+    if any(keyword in text for keyword in record_keywords):
+        return "record"
+    if any(keyword in text for keyword in theory_keywords):
+        return "theory"
+    return "action"
+
+
+def _timeout_first_turn_template_block(user_text: str) -> str:
+    template_kind = _classify_timeout_first_turn_template(user_text)
+    if template_kind == "record":
+        return "\n".join(
+            [
+                "Timeout first-turn template: recording intake.",
+                "- Treat the user's first goal as recording or correcting experiment data, not as a request for a full experiment recap.",
+                "- First confirm only the minimum current-state fact needed to avoid writing the wrong field, step, or trial.",
+                "- Once that minimum fact is clear, continue directly with the recording flow instead of detouring into theory or later steps.",
+                "- Do not fetch broader reference/detail tools before hot-path record actions unless the field meaning is still too ambiguous to record safely.",
+            ]
+        )
+    if template_kind == "theory":
+        return "\n".join(
+            [
+                "Timeout first-turn template: theory or full-workflow request.",
+                "- Acknowledge the broader explanation request, but first narrow the current state enough to avoid explaining the wrong stage of the experiment.",
+                "- If the explanation depends on where the student currently is, ask one short current-state question before expanding.",
+                "- Start with the most relevant current-stage explanation first; only expand to the broader workflow or references when the user explicitly still wants that broader pass.",
+            ]
+        )
+    return "\n".join(
+        [
+            "Timeout first-turn template: operation or next-step guidance.",
+            "- Treat the first goal as helping the student continue the experiment from the correct point, not as giving a full lecture.",
+            "- Ask one narrow current-state question only if you still need it to place the student on the right step.",
+            "- After that, give the immediate next action and the most relevant safety or attention point for that moment.",
+        ]
+    )
+
+
 def _routing_context_from_kwargs(kwargs: Dict[str, Any]) -> Dict[str, str]:
     context: Dict[str, str] = {}
     for key in (
@@ -339,6 +416,43 @@ def _routing_context_from_kwargs(kwargs: Dict[str, Any]) -> Dict[str, str]:
         "session_id",
         "transport_session_id",
         "user_id",
+    ):
+        value = _norm_str(kwargs.get(key, ""))
+        if value:
+            context[key] = value
+    return context
+
+
+def _experiment_context_from_kwargs(kwargs: Dict[str, Any]) -> Dict[str, str]:
+    context: Dict[str, str] = {}
+    for key in (
+        "experiment_prewarm_wait_result",
+        "experiment_prewarm_status",
+        "experiment_prewarm_ready_level",
+        "experiment_prewarm_trigger",
+        "experiment_session_id",
+        "experiment_current_step_id",
+        "experiment_yaml_path",
+        "experiment_overview_summary",
+        "experiment_current_step_summary",
+        "experiment_resume_recovery_required",
+        "experiment_resume_recovery_source",
+        "experiment_resume_previous_session_id",
+        "experiment_resume_reason",
+        "experiment_resume_log_path",
+        "experiment_resume_turn_count",
+        "experiment_resume_latest_session_id",
+        "experiment_resume_latest_current_step_id",
+        "experiment_resume_context_excerpt",
+        "experiment_deep_prefetch_wait_result",
+        "experiment_deep_prefetch_status",
+        "experiment_deep_prefetch_focus",
+        "experiment_deep_prefetch_query",
+        "experiment_list_steps_summary",
+        "experiment_schema_summary",
+        "experiment_reference_summary",
+        "experiment_deep_prefetch_error",
+        "experiment_prewarm_error",
     ):
         value = _norm_str(kwargs.get(key, ""))
         if value:
@@ -374,6 +488,193 @@ def _routing_prompt_block(routing_context: Dict[str, str]) -> str:
         + "\nWhen calling xiaozhi device tools, reuse these exact values. "
         + "Do not fabricate IDs. If a field is missing here, keep that tool argument null."
     )
+
+
+def _experiment_prompt_block(
+    experiment_context: Dict[str, str], user_text: str = ""
+) -> str:
+    if not experiment_context:
+        return ""
+
+    ordered_keys = (
+        "experiment_prewarm_wait_result",
+        "experiment_prewarm_status",
+        "experiment_prewarm_ready_level",
+        "experiment_prewarm_trigger",
+        "experiment_session_id",
+        "experiment_current_step_id",
+        "experiment_yaml_path",
+        "experiment_overview_summary",
+        "experiment_current_step_summary",
+        "experiment_prewarm_error",
+    )
+    lines: List[str] = []
+    for key in ordered_keys:
+        value = _norm_str(experiment_context.get(key, ""))
+        if value:
+            lines.append(f"{key}: {value}")
+
+    if not lines:
+        return ""
+
+    wait_result = _norm_str(experiment_context.get("experiment_prewarm_wait_result", ""))
+    ready_level = _norm_str(
+        experiment_context.get("experiment_prewarm_ready_level", "")
+    )
+    current_step_id = _norm_str(experiment_context.get("experiment_current_step_id", ""))
+    deep_wait_result = _norm_str(
+        experiment_context.get("experiment_deep_prefetch_wait_result", "")
+    )
+
+    recovery_required = _norm_str(
+        experiment_context.get("experiment_resume_recovery_required", "")
+    ).lower() in {"1", "true", "yes", "on"}
+    recovery_block = ""
+    if recovery_required:
+        recovery_lines: List[str] = []
+        for key in (
+            "experiment_resume_recovery_required",
+            "experiment_resume_recovery_source",
+            "experiment_resume_previous_session_id",
+            "experiment_resume_reason",
+            "experiment_resume_log_path",
+            "experiment_resume_turn_count",
+            "experiment_resume_latest_session_id",
+            "experiment_resume_latest_current_step_id",
+        ):
+            value = _norm_str(experiment_context.get(key, ""))
+            if value:
+                recovery_lines.append(f"{key}: {value}")
+
+        recovery_excerpt = experiment_context.get("experiment_resume_context_excerpt", "")
+        if recovery_excerpt:
+            recovery_lines.append("experiment_resume_context_excerpt:")
+            recovery_lines.append(str(recovery_excerpt).strip())
+
+        if recovery_lines:
+            recovery_block = (
+                "Lost-session recovery context from server (trusted):\n"
+                + "\n".join(recovery_lines)
+            )
+
+    if experiment_context.get("experiment_session_id"):
+        reuse_rule = (
+            "Reuse this exact experiment_session_id for experiment_graph MCP calls. "
+            "Do not call create_session again unless the user explicitly asks to restart or switch experiments, "
+            "or the existing session proves invalid."
+        )
+    else:
+        reuse_rule = (
+            "If experiment_session_id is still missing and you need a session, create_session using "
+            "experiment_yaml_path when appropriate."
+        )
+
+    deep_prefetch_lines: List[str] = []
+    for key in (
+        "experiment_deep_prefetch_wait_result",
+        "experiment_deep_prefetch_status",
+        "experiment_deep_prefetch_focus",
+        "experiment_deep_prefetch_query",
+        "experiment_list_steps_summary",
+        "experiment_schema_summary",
+        "experiment_reference_summary",
+        "experiment_deep_prefetch_error",
+    ):
+        value = _norm_str(experiment_context.get(key, ""))
+        if value:
+            deep_prefetch_lines.append(f"{key}: {value}")
+
+    parts = [
+        "Experiment session context from server prewarm (trusted):\n"
+        + "\n".join(lines)
+    ]
+    if wait_result:
+        if wait_result == "timeout":
+            timeout_lines = [
+                "Timeout-specific first-turn strategy for this experiment handoff:",
+                "- The first-turn prewarm wait timed out before the server could confirm the full current-step context.",
+                "- First stabilize the conversation with the narrowest current-state confirmation you actually need, instead of expanding into the whole experiment.",
+                "- Do not invent the full experiment state, later steps, or a complete lab-handout summary on this timeout turn.",
+                "- Do not fetch get_schema, get_experiment_reference, search_experiment_reference, or list_steps on this timeout turn unless the user explicitly asks for theory, references, or the broader workflow, or a safety-critical ambiguity makes that extra detail necessary.",
+                "- If the user is providing data to record, asking to continue, or asking to correct an existing record, do not delay start_trial, add_field, add_fields, finish_trial, can_proceed, proceed_to_next_step, get_modifiable_records, or modify_record behind those broader reference/detail fetches.",
+                "- Only pull get_schema before recording when the field meaning is still unclear enough that skipping it would risk writing the wrong value.",
+            ]
+            if current_step_id:
+                timeout_lines.append(
+                    f"- You still have current_step_id={current_step_id}; use it as the anchor, but keep the first answer concise and current-state focused."
+                )
+            else:
+                timeout_lines.append(
+                    "- If a key fact is still missing, ask one narrow current-state question first, then continue once that fact is confirmed."
+                )
+            parts.append("\n".join(timeout_lines))
+            if not current_step_id:
+                parts.append(_timeout_first_turn_template_block(user_text))
+        if current_step_id:
+            first_turn_lines = [
+                "First real user turn strategy for this experiment handoff:",
+                f"- Treat current_step_id={current_step_id} as the default center of the first reply.",
+                "- Use the minimal trusted context already provided by the server before asking for more MCP detail.",
+                "- On the first reply, tell the student what step they are on, what they should do now, and the immediate safety or attention points.",
+                "- Do not proactively expand into the full experiment, later steps, or a full lab-handout style overview unless the user explicitly asks for that broader explanation.",
+                "- Fetch deeper experiment_graph details or references only when the user explicitly asks for theory, the full workflow, later steps, schema details, or supporting references, or when extra detail is necessary to avoid a safety mistake.",
+                "- Treat get_schema, get_experiment_reference, search_experiment_reference, and list_steps as detail/reference tools, not default first-turn tools.",
+                "- Do not delay record/flow actions such as start_trial, add_field, add_fields, finish_trial, can_proceed, proceed_to_next_step, get_modifiable_records, or modify_record just because those detail/reference tools have not been fetched yet.",
+            ]
+            if ready_level == "minimal_ready":
+                first_turn_lines.append(
+                    "- Richer step context may still be warming in the background, so prefer a concise current-step answer over a broad lecture on this first turn."
+                )
+            parts.append("\n".join(first_turn_lines))
+        else:
+            parts.append(
+                "First real user turn strategy for this experiment handoff:\n"
+                "- The server has not confirmed a trusted current_step_id yet.\n"
+                "- Do not invent the full experiment state or proactively narrate the whole experiment.\n"
+                "- Use any trusted recovery context already provided, and if a key fact is still missing, ask only a narrow current-state question before expanding."
+            )
+    if current_step_id:
+        if ready_level == "minimal_ready":
+            parts.append(
+                "Minimal-ready snapshot from server: continue from "
+                f"current_step_id={current_step_id}. Richer step details may still be warming in the background."
+            )
+    if recovery_block:
+        parts.append(recovery_block)
+        latest_current_step_id = _norm_str(
+            experiment_context.get("experiment_resume_latest_current_step_id", "")
+        )
+        if latest_current_step_id:
+            parts.append(
+                "Trusted recovery snapshot: continue from "
+                f"current_step_id={latest_current_step_id} unless a fresh "
+                "experiment_graph read immediately proves the current session is already past it."
+            )
+        parts.append(
+            "The previous experiment_graph session is gone. The server has already created a fresh "
+            "experiment_session_id for this same device. Continue the unfinished experiment in the "
+            "current session instead of restarting from scratch. Recover only facts that are clearly "
+            "supported by the device-log excerpt or by fixed YAML defaults; if a required field cannot "
+            "be recovered confidently, ask only for that missing field."
+        )
+    if deep_prefetch_lines:
+        parts.append(
+            "Deep-prefetched experiment detail context from server (trusted):\n"
+            + "\n".join(deep_prefetch_lines)
+        )
+        parts.append(
+            "Use this deep-prefetched detail context first before calling list_steps, "
+            "get_schema, search_experiment_reference, or get_experiment_reference again. "
+            "Only fetch again if the student's question still needs missing or fresher detail."
+        )
+        if deep_wait_result == "timeout":
+            parts.append(
+                "The server only gave a micro-budget to this deep-prefetch on the current turn. "
+                "If some detail is still missing, answer from the trusted current-step context first, "
+                "then fetch only the narrow missing detail."
+            )
+    parts.append(reuse_rule)
+    return "\n\n".join(parts)
 
 
 class _CodexSession:
@@ -653,9 +954,13 @@ class _CodexSession:
         self.start()
 
     def _compose_prompt(
-        self, dialogue: List[Dict], routing_context: Optional[Dict[str, str]] = None
+        self,
+        dialogue: List[Dict],
+        routing_context: Optional[Dict[str, str]] = None,
+        experiment_context: Optional[Dict[str, str]] = None,
     ) -> str:
         history, last_user, tail = _split_dialogue(dialogue)
+        strategy_user_text = last_user or ""
         tool_context = _build_tool_context(tail)
         if tool_context:
             if last_user:
@@ -669,6 +974,16 @@ class _CodexSession:
                 last_user = f"{last_user}\n\n{routing_block}"
             else:
                 last_user = routing_block
+
+        experiment_block = _experiment_prompt_block(
+            experiment_context or {},
+            user_text=strategy_user_text,
+        )
+        if experiment_block:
+            if last_user:
+                last_user = f"{last_user}\n\n{experiment_block}"
+            else:
+                last_user = experiment_block
 
         if not last_user:
             return ""
@@ -822,6 +1137,10 @@ class _CodexSession:
             file_append(f"[{_ts()}] [TURN_START] session={self.session_key} thread={self.thread_id} turn={turn_id}\n")
             if user_text:
                 file_append(f"[{_ts()}] [USER] {user_text}\n")
+            # Make the device log visible immediately so same-device recovery can
+            # read at least the current turn header/user utterance after a rapid
+            # reconnect, even if the Codex turn has not finished yet.
+            file_flush()
 
         saw_tokens = False
         final_text = None
@@ -944,6 +1263,7 @@ class _CodexSession:
     def stream_response(self, dialogue: List[Dict], **kwargs):
         with self._lock:
             routing_context = _routing_context_from_kwargs(kwargs)
+            experiment_context = _experiment_context_from_kwargs(kwargs)
             self.stream_log_path = self._resolve_log_path(
                 self.stream_log_path_template, routing_context
             )
@@ -956,12 +1276,22 @@ class _CodexSession:
                     f"session={self.session_key} "
                     f"context={json.dumps(routing_context, ensure_ascii=False)}"
                 )
+            if experiment_context:
+                logger.bind(tag=TAG).info(
+                    "codex_turn_experiment_context "
+                    f"session={self.session_key} "
+                    f"context={json.dumps(experiment_context, ensure_ascii=False)}"
+                )
 
             # Starting the app-server/thread resets first-turn flags.
             # Do it before composing the prompt so the first real turn can
             # correctly mark system-prompt/bootstrap state.
             self.start()
-            prompt_text = self._compose_prompt(dialogue, routing_context=routing_context)
+            prompt_text = self._compose_prompt(
+                dialogue,
+                routing_context=routing_context,
+                experiment_context=experiment_context,
+            )
             if not prompt_text:
                 return
             _, last_user, _ = _split_dialogue(dialogue)
