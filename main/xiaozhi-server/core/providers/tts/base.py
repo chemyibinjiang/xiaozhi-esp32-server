@@ -71,6 +71,13 @@ class TTSProviderBase(ABC):
         self.disable_pre_speak_split = str(
             config.get("disable_pre_speak_split", False)
         ).lower() in ("1", "true", "yes", "on")
+        self.fallback_provider = None
+        self.fallback_provider_name = ""
+        fallback_after_failures = config.get("fallback_after_failures", 1)
+        try:
+            self.fallback_after_failures = max(1, int(fallback_after_failures))
+        except (TypeError, ValueError):
+            self.fallback_after_failures = 1
 
     def generate_filename(self, extension=".wav"):
         return os.path.join(
@@ -96,6 +103,29 @@ class TTSProviderBase(ABC):
     def handle_audio_file(self, file_audio: bytes, text):
         self.before_stop_play_files.append((file_audio, text))
 
+    def set_fallback_provider(self, provider, provider_name: str = ""):
+        self.fallback_provider = provider
+        self.fallback_provider_name = str(provider_name or "").strip()
+
+    async def _synthesize_text_once(self, text, output_file, *, attempt_number: int):
+        try:
+            return await self.text_to_speak(text, output_file)
+        except Exception as primary_exc:
+            should_fallback = (
+                self.fallback_provider is not None
+                and attempt_number >= self.fallback_after_failures
+            )
+            if not should_fallback:
+                raise
+
+            fallback_name = self.fallback_provider_name or self.fallback_provider.__class__.__name__
+            logger.bind(tag=TAG).warning(
+                "主TTS生成失败，切换备用TTS: "
+                f"attempt={attempt_number}, primary={self.__class__.__name__}, "
+                f"fallback={fallback_name}, error={primary_exc}"
+            )
+            return await self.fallback_provider.text_to_speak(text, output_file)
+
     def to_tts_stream(self, text, opus_handler: Callable[[bytes], None] = None) -> None:
         text = MarkdownCleaner.clean_markdown(text)
         text = textUtils.filter_spoken_backstage_text(text)
@@ -106,7 +136,14 @@ class TTSProviderBase(ABC):
             # 需要删除文件的直接转为音频数据
             while max_repeat_time > 0:
                 try:
-                    audio_bytes = asyncio.run(self.text_to_speak(text, None))
+                    attempt_number = 5 - max_repeat_time + 1
+                    audio_bytes = asyncio.run(
+                        self._synthesize_text_once(
+                            text,
+                            None,
+                            attempt_number=attempt_number,
+                        )
+                    )
                     if audio_bytes:
                         self._put_audio_queue(SentenceType.FIRST, None, text)
                         audio_bytes_to_data_stream(
@@ -137,7 +174,14 @@ class TTSProviderBase(ABC):
             try:
                 while not os.path.exists(tmp_file) and max_repeat_time > 0:
                     try:
-                        asyncio.run(self.text_to_speak(text, tmp_file))
+                        attempt_number = 5 - max_repeat_time + 1
+                        asyncio.run(
+                            self._synthesize_text_once(
+                                text,
+                                tmp_file,
+                                attempt_number=attempt_number,
+                            )
+                        )
                     except Exception as e:
                         logger.bind(tag=TAG).warning(
                             f"语音生成失败{5 - max_repeat_time + 1}次: {text}，错误: {e}"
@@ -171,7 +215,14 @@ class TTSProviderBase(ABC):
             # 需要删除文件的直接转为音频数据
             while max_repeat_time > 0:
                 try:
-                    audio_bytes = asyncio.run(self.text_to_speak(text, None))
+                    attempt_number = 5 - max_repeat_time + 1
+                    audio_bytes = asyncio.run(
+                        self._synthesize_text_once(
+                            text,
+                            None,
+                            attempt_number=attempt_number,
+                        )
+                    )
                     if audio_bytes:
                         audio_datas = []
                         audio_bytes_to_data_stream(
@@ -202,7 +253,14 @@ class TTSProviderBase(ABC):
             try:
                 while not os.path.exists(tmp_file) and max_repeat_time > 0:
                     try:
-                        asyncio.run(self.text_to_speak(text, tmp_file))
+                        attempt_number = 5 - max_repeat_time + 1
+                        asyncio.run(
+                            self._synthesize_text_once(
+                                text,
+                                tmp_file,
+                                attempt_number=attempt_number,
+                            )
+                        )
                     except Exception as e:
                         logger.bind(tag=TAG).warning(
                             f"语音生成失败{5 - max_repeat_time + 1}次: {text}，错误: {e}"
