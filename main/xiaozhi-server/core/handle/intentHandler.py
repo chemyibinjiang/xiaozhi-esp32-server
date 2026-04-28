@@ -501,7 +501,11 @@ def _compose_experiment_start_reply(experiment_title: str, step_reply: str) -> s
     title = " ".join(str(experiment_title or "").split()).strip()
     reply = " ".join(str(step_reply or "").split()).strip()
     if title:
-        return f"今天我们做的是{title}。你准备好开始了吗？"
+        if title.startswith("《") and title.endswith("》"):
+            formatted_title = title
+        else:
+            formatted_title = f"《{title.strip('《》')}》"
+        return f"今天我们做{formatted_title}。你准备好开始了吗？"
     return reply
 
 
